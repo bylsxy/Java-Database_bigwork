@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.imagemanager</groupId>
+    <artifactId>image-manager</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>数字图像集成管理系统</name>
+    <description>基于 PostgreSQL 的数字图像集成管理系统 — JavaFX 桌面应用</description>
+
+    <properties>
+        <!-- ==================== 编译配置 ==================== -->
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- ==================== 依赖版本号 ==================== -->
+        <javafx.version>25</javafx.version>
+        <postgresql.version>42.7.5</postgresql.version>
+        <hikaricp.version>6.2.1</hikaricp.version>
+        <slf4j.version>2.0.16</slf4j.version>
+        <logback.version>1.5.15</logback.version>
+    </properties>
+
+    <dependencies>
+        <!-- ==================== JavaFX 模块 ==================== -->
+        <!-- JavaFX Controls: 提供 Button, ListView, TreeView 等 UI 控件 -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+
+        <!-- JavaFX FXML: 支持 FXML 布局文件加载 -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-fxml</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+
+        <!-- JavaFX Swing: 用于 BMP 格式图片的兼容加载 -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-swing</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+
+        <!-- ==================== 数据库 ==================== -->
+        <!-- PostgreSQL JDBC 驱动: 连接 PostgreSQL 18.3 数据库 -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
+        </dependency>
+
+        <!-- HikariCP 连接池: 高性能数据库连接池，避免频繁创建/销毁连接 -->
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>${hikaricp.version}</version>
+        </dependency>
+
+        <!-- ==================== 日志 ==================== -->
+        <!-- SLF4J: 日志门面，统一日志接口 -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+
+        <!-- Logback: SLF4J 的实现，负责实际日志输出 -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Maven 编译器插件：指定 Java 25 编译 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.14.0</version>
+                <configuration>
+                    <source>25</source>
+                    <target>25</target>
+                    <release>25</release>
+                    <!-- 启用 preview 特性（如 primitive patterns 等） -->
+                    <compilerArgs>
+                        <arg>--enable-preview</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+
+            <!-- JavaFX Maven 插件：用于运行 JavaFX 应用 -->
+            <plugin>
+                <groupId>org.openjfx</groupId>
+                <artifactId>javafx-maven-plugin</artifactId>
+                <version>0.0.8</version>
+                <configuration>
+                    <mainClass>com.imagemanager.App</mainClass>
+                    <options>
+                        <option>--enable-preview</option>
+                    </options>
+                </configuration>
+            </plugin>
+
+            <!-- Maven JAR 插件：打包时指定主类 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.2</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.imagemanager.App</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

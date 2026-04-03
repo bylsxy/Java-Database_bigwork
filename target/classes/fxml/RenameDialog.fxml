@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<!--
+    批量重命名对话框布局
+    输入：名称前缀、起始编号、编号位数
+    输出：预览重命名结果
+-->
+
+<VBox xmlns="http://javafx.com/javafx/25"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.imagemanager.controller.RenameDialogController"
+      spacing="15" prefWidth="450"
+      styleClass="rename-dialog">
+    <padding><Insets topRightBottomLeft="20"/></padding>
+
+    <!-- 标题 -->
+    <Label text="批量重命名" styleClass="dialog-title"/>
+
+    <!-- 名称前缀 -->
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="名称前缀：" prefWidth="80"/>
+        <TextField fx:id="prefixField" promptText="如 NewName" HBox.hgrow="ALWAYS"/>
+    </HBox>
+
+    <!-- 起始编号 -->
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="起始编号：" prefWidth="80"/>
+        <Spinner fx:id="startNumberSpinner" prefWidth="120" editable="true"/>
+    </HBox>
+
+    <!-- 编号位数 -->
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="编号位数：" prefWidth="80"/>
+        <Spinner fx:id="digitCountSpinner" prefWidth="120" editable="true"/>
+    </HBox>
+
+    <!-- 预览区域 -->
+    <VBox spacing="5" styleClass="preview-section">
+        <Label text="预览结果：" styleClass="preview-header"/>
+        <TextArea fx:id="previewArea" editable="false" prefHeight="100"
+                  styleClass="preview-area" wrapText="true"/>
+    </VBox>
+
+    <!-- 按钮区域 -->
+    <HBox spacing="15" alignment="CENTER_RIGHT">
+        <Button fx:id="cancelButton" text="取消" onAction="#onCancel"
+                styleClass="dialog-button cancel-button"/>
+        <Button fx:id="confirmButton" text="确认重命名" onAction="#onConfirm"
+                styleClass="dialog-button confirm-button"/>
+    </HBox>
+</VBox>

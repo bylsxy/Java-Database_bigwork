@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+
+<!--
+    幻灯片播放界面布局
+    
+    ┌────────────────────────────────────────────┐
+    │           [大图展示区 - 深色背景]             │
+    │                                            │
+    │              ImageView                     │
+    │              (居中, 保持比例)                 │
+    │                                            │
+    ├────────────────────────────────────────────┤
+    │  [图片信息条]                                │
+    ├────────────────────────────────────────────┤
+    │  [🔍+ 🔍-] [⬅ ➡] [▶播放] [⏹停止] [✕退出]   │
+    ├────────────────────────────────────────────┤
+    │  [缩略图条: 水平排列的小缩略图]               │
+    └────────────────────────────────────────────┘
+-->
+
+<BorderPane xmlns="http://javafx.com/javafx/25"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.imagemanager.controller.SlideshowController"
+            prefWidth="1000" prefHeight="700"
+            styleClass="slideshow-root">
+
+    <!-- ==================== 中央：大图展示区 ==================== -->
+    <center>
+        <StackPane fx:id="imageContainer" styleClass="image-container">
+            <ImageView fx:id="mainImageView" preserveRatio="true" smooth="true"/>
+        </StackPane>
+    </center>
+
+    <!-- ==================== 底部：控制区域 ==================== -->
+    <bottom>
+        <VBox styleClass="slideshow-controls" spacing="0">
+
+            <!-- 图片信息条 -->
+            <HBox styleClass="info-bar" alignment="CENTER" spacing="5">
+                <padding><Insets top="4" right="10" bottom="4" left="10"/></padding>
+                <Label fx:id="infoLabel" text="就绪" styleClass="info-text"/>
+            </HBox>
+
+            <!-- 控制按钮栏 -->
+            <HBox styleClass="control-bar" alignment="CENTER" spacing="15">
+                <padding><Insets top="8" right="15" bottom="8" left="15"/></padding>
+
+                <!-- 缩放控制 -->
+                <Button fx:id="zoomInButton" text="🔍+" onAction="#onZoomIn"
+                        styleClass="control-button" prefWidth="50"/>
+                <Button fx:id="zoomOutButton" text="🔍-" onAction="#onZoomOut"
+                        styleClass="control-button" prefWidth="50"/>
+
+                <Separator orientation="VERTICAL" prefHeight="25"/>
+
+                <!-- 导航控制 -->
+                <Button fx:id="prevButton" text="⬅" onAction="#onPrevious"
+                        styleClass="control-button" prefWidth="50"/>
+                <Button fx:id="nextButton" text="➡" onAction="#onNext"
+                        styleClass="control-button" prefWidth="50"/>
+
+                <Separator orientation="VERTICAL" prefHeight="25"/>
+
+                <!-- 播放控制 -->
+                <Button fx:id="playButton" text="▶ 播放" onAction="#onPlayToggle"
+                        styleClass="control-button play-button" prefWidth="80"/>
+
+                <Separator orientation="VERTICAL" prefHeight="25"/>
+
+                <!-- 退出 -->
+                <Button fx:id="exitButton" text="✕ 退出" onAction="#onExit"
+                        styleClass="control-button exit-button" prefWidth="80"/>
+            </HBox>
+
+            <!-- 底部缩略图条 -->
+            <ScrollPane fx:id="thumbnailStripScroll" styleClass="thumbnail-strip-scroll"
+                        fitToHeight="true" vbarPolicy="NEVER" hbarPolicy="AS_NEEDED"
+                        prefHeight="80">
+                <HBox fx:id="thumbnailStrip" styleClass="thumbnail-strip"
+                      spacing="5" alignment="CENTER_LEFT">
+                    <padding><Insets topRightBottomLeft="5"/></padding>
+                </HBox>
+            </ScrollPane>
+        </VBox>
+    </bottom>
+</BorderPane>

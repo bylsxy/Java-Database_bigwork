@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<!--
+    主界面布局 — 仿"美图看看"三区域设计
+    
+    ┌────────────────────────────────────────────────────┐
+    │  [工具栏: 路径显示]                                  │
+    ├────────────┬───────────────────────────────────────┤
+    │  目录树     │  [目录信息]                             │
+    │  (TreeView) │  [缩略图网格 FlowPane in ScrollPane]   │
+    │            │                                       │
+    ├────────────┴───────────────────────────────────────┤
+    │  [状态栏]                                 [播放按钮] │
+    └────────────────────────────────────────────────────┘
+-->
+
+<BorderPane xmlns="http://javafx.com/javafx/25"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.imagemanager.controller.MainController"
+            prefWidth="1200" prefHeight="800"
+            styleClass="root-pane">
+
+    <!-- ==================== 顶部工具栏 ==================== -->
+    <top>
+        <ToolBar styleClass="top-toolbar">
+            <Label text="📁" styleClass="toolbar-icon"/>
+            <Label fx:id="pathLabel" text="我的电脑" styleClass="path-label"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Label fx:id="searchLabel" text="数字图像集成管理系统" styleClass="app-title"/>
+        </ToolBar>
+    </top>
+
+    <!-- ==================== 中央内容区 ==================== -->
+    <center>
+        <SplitPane fx:id="mainSplitPane" dividerPositions="0.25" styleClass="main-split">
+
+            <!-- 左侧：目录树 -->
+            <VBox styleClass="tree-container">
+                <Label text="我的电脑" styleClass="tree-header"/>
+                <TreeView fx:id="directoryTree" VBox.vgrow="ALWAYS" styleClass="directory-tree"/>
+            </VBox>
+
+            <!-- 右侧：缩略图预览区 -->
+            <VBox styleClass="preview-container">
+                <!-- 目录信息栏 -->
+                <HBox styleClass="directory-info-bar" alignment="CENTER_LEFT" spacing="10">
+                    <padding><Insets top="5" right="10" bottom="5" left="10"/></padding>
+                    <Label fx:id="directoryNameLabel" text="" styleClass="directory-name"/>
+                    <Label fx:id="imageCountLabel" text="" styleClass="image-count"/>
+                </HBox>
+
+                <!-- 缩略图滚动区域 -->
+                <ScrollPane fx:id="thumbnailScroll" fitToWidth="true" VBox.vgrow="ALWAYS"
+                            styleClass="thumbnail-scroll" pannable="true">
+                    <FlowPane fx:id="thumbnailPane" hgap="15" vgap="15"
+                              styleClass="thumbnail-pane" alignment="TOP_LEFT">
+                        <padding><Insets topRightBottomLeft="15"/></padding>
+                    </FlowPane>
+                </ScrollPane>
+            </VBox>
+        </SplitPane>
+    </center>
+
+    <!-- ==================== 底部状态栏 ==================== -->
+    <bottom>
+        <HBox styleClass="status-bar" alignment="CENTER_LEFT" spacing="20">
+            <padding><Insets top="6" right="15" bottom="6" left="15"/></padding>
+            <Label fx:id="statusLabel" text="就绪" styleClass="status-text"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Label fx:id="selectionLabel" text="" styleClass="selection-text"/>
+            <Separator orientation="VERTICAL" prefHeight="20"/>
+            <Button fx:id="slideshowButton" text="▶ 播放" onAction="#onSlideshow"
+                    styleClass="slideshow-button" disable="true"/>
+        </HBox>
+    </bottom>
+</BorderPane>
