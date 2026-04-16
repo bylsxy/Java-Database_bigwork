@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -14,12 +14,12 @@
 
     <properties>
         <!-- ==================== 编译配置 ==================== -->
-        <maven.compiler.source>25</maven.compiler.source>
-        <maven.compiler.target>25</maven.compiler.target>
+        <maven.compiler.source>26</maven.compiler.source>
+        <maven.compiler.target>26</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- ==================== 依赖版本号 ==================== -->
-        <javafx.version>25</javafx.version>
+        <javafx.version>26</javafx.version>
         <postgresql.version>42.7.5</postgresql.version>
         <hikaricp.version>6.2.1</hikaricp.version>
         <slf4j.version>2.0.16</slf4j.version>
@@ -82,15 +82,15 @@
 
     <build>
         <plugins>
-            <!-- Maven 编译器插件：指定 Java 25 编译 -->
+            <!-- Maven 编译器插件：指定 Java 26 编译 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.14.0</version>
                 <configuration>
-                    <source>25</source>
-                    <target>25</target>
-                    <release>25</release>
+                    <source>26</source>
+                    <target>26</target>
+                    <release>26</release>
                     <!-- 启用 preview 特性（如 primitive patterns 等） -->
                     <compilerArgs>
                         <arg>--enable-preview</arg>

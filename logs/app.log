@@ -1,67 +1,14 @@
-2026-04-03 13:29:02.279 [JavaFX Application Thread] INFO  com.imagemanager.App - 正在初始化数据库连接...
-2026-04-03 13:29:02.292 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Starting...
-2026-04-03 13:29:02.532 [JavaFX Application Thread] INFO  com.zaxxer.hikari.pool.HikariPool - DIMS-HikariPool - Added connection org.postgresql.jdbc.PgConnection@817d56f
-2026-04-03 13:29:02.533 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Start completed.
-2026-04-03 13:29:02.533 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池初始化成功 [URL=jdbc:postgresql://localhost:5432/image_manager] [池大小=10]
-2026-04-03 13:29:02.534 [JavaFX Application Thread] INFO  com.imagemanager.App - 数据库连接初始化成功
-2026-04-03 13:29:02.961 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 初始化主界面...
-2026-04-03 13:29:02.965 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 主界面初始化完成
-2026-04-03 13:29:03.409 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序启动成功
-2026-04-03 13:29:06.399 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: C:\
-2026-04-03 13:29:06.405 [virtual-67] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: C:\
-2026-04-03 13:29:06.468 [virtual-67] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 1 下的图片: 共 0 张
-2026-04-03 13:29:06.469 [virtual-67] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 1 下的图片: 共 0 张
-2026-04-03 13:29:29.688 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\Pictures\Screenshots
-2026-04-03 13:29:29.689 [virtual-74] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\Pictures\Screenshots
-2026-04-03 13:29:29.704 [virtual-74] DEBUG com.imagemanager.dao.DirectoryDaoImpl - 创建目录记录: id=11, path=D:\Pictures
-2026-04-03 13:29:29.706 [virtual-74] DEBUG com.imagemanager.dao.DirectoryDaoImpl - 创建目录记录: id=12, path=D:\Pictures\Screenshots
-2026-04-03 13:29:29.708 [virtual-74] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 12 下的图片: 共 0 张
-2026-04-03 13:29:29.824 [virtual-74] INFO  com.imagemanager.dao.ImageDaoImpl - 批量插入 12 张图片成功
-2026-04-03 13:29:29.824 [virtual-74] INFO  com.imagemanager.service.ImageServiceImpl - 新增 12 张图片到数据库
-2026-04-03 13:29:29.827 [virtual-74] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 12 下的图片: 共 12 张
-2026-04-03 13:29:30.388 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\Pictures\UbisoftConnect
-2026-04-03 13:29:30.388 [virtual-89] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\Pictures\UbisoftConnect
-2026-04-03 13:29:30.393 [virtual-89] DEBUG com.imagemanager.dao.DirectoryDaoImpl - 创建目录记录: id=13, path=D:\Pictures\UbisoftConnect
-2026-04-03 13:29:30.395 [virtual-89] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 13 下的图片: 共 0 张
-2026-04-03 13:29:30.396 [virtual-89] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 13 下的图片: 共 0 张
-2026-04-03 13:29:32.802 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\Pictures\Screenshots
-2026-04-03 13:29:32.802 [virtual-91] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\Pictures\Screenshots
-2026-04-03 13:29:32.807 [virtual-91] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 12 下的图片: 共 12 张
-2026-04-03 13:29:32.809 [virtual-91] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 12 下的图片: 共 12 张
-2026-04-03 13:29:58.240 [JavaFX Application Thread] INFO  com.imagemanager.controller.SlideshowController - 开始自动播放
-2026-04-03 13:30:05.244 [JavaFX Application Thread] INFO  com.imagemanager.controller.SlideshowController - 停止自动播放
-2026-04-03 13:30:29.123 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序关闭中，释放资源...
-2026-04-03 13:30:29.124 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown initiated...
-2026-04-03 13:30:29.126 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown completed.
-2026-04-03 13:30:29.126 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池已关闭
-2026-04-03 13:30:29.126 [JavaFX Application Thread] INFO  com.imagemanager.App - 资源释放完毕
-2026-04-12 18:13:12.344 [JavaFX Application Thread] INFO  com.imagemanager.App - 正在初始化数据库连接...
-2026-04-12 18:13:12.371 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Starting...
-2026-04-12 18:13:12.905 [JavaFX Application Thread] INFO  com.zaxxer.hikari.pool.HikariPool - DIMS-HikariPool - Added connection org.postgresql.jdbc.PgConnection@77fa2e75
-2026-04-12 18:13:12.907 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Start completed.
-2026-04-12 18:13:12.907 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池初始化成功 [URL=jdbc:postgresql://localhost:5432/image_manager] [池大小=10]
-2026-04-12 18:13:12.908 [JavaFX Application Thread] INFO  com.imagemanager.App - 数据库连接初始化成功
-2026-04-12 18:13:13.683 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 初始化主界面...
-2026-04-12 18:13:13.691 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 主界面初始化完成
-2026-04-12 18:13:14.557 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序启动成功
-2026-04-12 18:13:23.707 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\Pictures\Camera Roll
-2026-04-12 18:13:23.736 [virtual-67] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\Pictures\Camera Roll
-2026-04-12 18:13:23.896 [virtual-67] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 14 下的图片: 共 10 张
-2026-04-12 18:13:23.905 [virtual-67] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 14 下的图片: 共 10 张
-2026-04-12 18:13:29.627 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\Pictures\Cyberpunk 2077
-2026-04-12 18:13:29.628 [virtual-74] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\Pictures\Cyberpunk 2077
-2026-04-12 18:13:29.678 [virtual-74] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 15 下的图片: 共 1 张
-2026-04-12 18:13:29.680 [virtual-74] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 15 下的图片: 共 1 张
-2026-04-12 18:13:30.388 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\Pictures\Feedback
-2026-04-12 18:13:30.389 [virtual-75] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\Pictures\Feedback
-2026-04-12 18:13:30.424 [virtual-75] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 16 下的图片: 共 0 张
-2026-04-12 18:13:30.427 [virtual-75] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 16 下的图片: 共 0 张
-2026-04-12 18:13:30.971 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\Pictures\Cyberpunk 2077
-2026-04-12 18:13:30.973 [virtual-76] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\Pictures\Cyberpunk 2077
-2026-04-12 18:13:30.985 [virtual-76] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 15 下的图片: 共 1 张
-2026-04-12 18:13:30.987 [virtual-76] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 15 下的图片: 共 1 张
-2026-04-12 18:14:44.482 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序关闭中，释放资源...
-2026-04-12 18:14:44.483 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown initiated...
-2026-04-12 18:14:44.487 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown completed.
-2026-04-12 18:14:44.487 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池已关闭
-2026-04-12 18:14:44.487 [JavaFX Application Thread] INFO  com.imagemanager.App - 资源释放完毕
+2026-04-16 17:00:06.057 [JavaFX Application Thread] INFO  com.imagemanager.App - 正在初始化数据库连接...
+2026-04-16 17:00:06.086 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Starting...
+2026-04-16 17:00:06.594 [JavaFX Application Thread] INFO  com.zaxxer.hikari.pool.HikariPool - DIMS-HikariPool - Added connection org.postgresql.jdbc.PgConnection@59c1115d
+2026-04-16 17:00:06.597 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Start completed.
+2026-04-16 17:00:06.597 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池初始化成功 [URL=jdbc:postgresql://localhost:5432/image_manager] [池大小=10]
+2026-04-16 17:00:06.598 [JavaFX Application Thread] INFO  com.imagemanager.App - 数据库连接初始化成功
+2026-04-16 17:00:07.445 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 初始化主界面...
+2026-04-16 17:00:07.456 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 主界面初始化完成
+2026-04-16 17:00:08.482 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序启动成功
+2026-04-16 17:00:14.135 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序关闭中，释放资源...
+2026-04-16 17:00:14.135 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown initiated...
+2026-04-16 17:00:14.140 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown completed.
+2026-04-16 17:00:14.140 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池已关闭
+2026-04-16 17:00:14.141 [JavaFX Application Thread] INFO  com.imagemanager.App - 资源释放完毕

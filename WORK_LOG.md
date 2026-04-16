@@ -1,4 +1,4 @@
-# 工作日志 — 基于 PostgreSQL 的数字图像集成管理系统
+﻿# 工作日志 — 基于 PostgreSQL 的数字图像集成管理系统
 
 > 本文件用于记录项目进度，确保协作和上下文不丢失。
 
@@ -9,7 +9,7 @@
 ### 已确认配置
 | 配置项 | 值 |
 |---|---|
-| Java | OpenJDK 25.0.2 (Temurin LTS) |
+| Java | OpenJDK 26 (Temurin) |
 | Maven | 3.9.14 |
 | JavaFX | 25 (LTS, org.openjfx) |
 | PostgreSQL | 18.3, localhost:5432, DB=image_manager, user=postgres, pwd=1234 |

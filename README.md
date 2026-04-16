@@ -1,4 +1,4 @@
-# 基于 PostgreSQL 的数字图像集成管理系统
+﻿# 基于 PostgreSQL 的数字图像集成管理系统
 
 > 本项目结合《面向对象程序设计》（Java）和《数据库系统》课程要求，使用 JavaFX + PostgreSQL 开发的数字图片管理桌面应用。
 
@@ -13,8 +13,8 @@
 
 ## 技术栈
 
-- **语言**: Java 25 (OpenJDK Temurin LTS)
-- **GUI**: JavaFX 25
+- **语言**: Java 26 (OpenJDK Temurin LTS)
+- **GUI**: JavaFX 26
 - **数据库**: PostgreSQL 18.3
 - **构建**: Maven 3.9.14
 - **连接池**: HikariCP 6.2.1
@@ -22,9 +22,9 @@
 
 ## 环境准备
 
-### 1. 安装 Java 25
+### 1. 安装 Java 26
 
-下载 [Eclipse Temurin JDK 25](https://adoptium.net/)，确保 `java -version` 显示 25.x。
+下载 [Eclipse Temurin JDK 26](https://adoptium.net/)，确保 `java -version` 显示 26.x。
 
 ### 2. 安装 PostgreSQL 18
 
