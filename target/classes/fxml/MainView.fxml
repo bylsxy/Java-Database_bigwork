@@ -6,16 +6,16 @@
 <?import javafx.scene.text.*?>
 
 <!--
-    主界面布局 — 仿"美图看看"三区域设计
+    主界面布局 — 仿"美图看看"三区域设计 (v2.0 改进版)
     
     ┌────────────────────────────────────────────────────┐
-    │  [工具栏: 路径显示]                                  │
+    │  [工具栏: 路径 | 搜索栏(下拉) | 设置]               │
     ├────────────┬───────────────────────────────────────┤
     │  目录树     │  [目录信息]                             │
     │  (TreeView) │  [缩略图网格 FlowPane in ScrollPane]   │
     │            │                                       │
     ├────────────┴───────────────────────────────────────┤
-    │  [状态栏]                                 [播放按钮] │
+    │  [状态栏]   [AI进度条]                    [播放按钮] │
     └────────────────────────────────────────────────────┘
 -->
 
@@ -27,12 +27,28 @@
 
     <!-- ==================== 顶部工具栏 ==================== -->
     <top>
-        <ToolBar styleClass="top-toolbar">
-            <Label text="📁" styleClass="toolbar-icon"/>
-            <Label fx:id="pathLabel" text="我的电脑" styleClass="path-label"/>
-            <Pane HBox.hgrow="ALWAYS"/>
-            <Label fx:id="searchLabel" text="数字图像集成管理系统" styleClass="app-title"/>
-        </ToolBar>
+        <VBox>
+            <ToolBar styleClass="top-toolbar">
+                <Label text="📁" styleClass="toolbar-icon"/>
+                <Label fx:id="pathLabel" text="我的电脑" styleClass="path-label"/>
+                <Pane HBox.hgrow="ALWAYS"/>
+
+                <!-- 搜索栏（v2.0新增） -->
+                <ComboBox fx:id="searchModeCombo" prefWidth="110"
+                          promptText="搜索模式" styleClass="search-mode-combo"/>
+                <TextField fx:id="searchField" prefWidth="260"
+                           promptText="搜索图片（标签/文件名/AI描述）..."
+                           styleClass="search-field"/>
+                <Button fx:id="searchButton" text="🔍" onAction="#onSearch"
+                        styleClass="search-button"/>
+
+                <Separator orientation="VERTICAL" prefHeight="24"/>
+
+                <!-- 设置按钮（v2.0新增） -->
+                <Button fx:id="settingsButton" text="⚙️ 设置" onAction="#onOpenSettings"
+                        styleClass="settings-button"/>
+            </ToolBar>
+        </VBox>
     </top>
 
     <!-- ==================== 中央内容区 ==================== -->
@@ -68,10 +84,19 @@
 
     <!-- ==================== 底部状态栏 ==================== -->
     <bottom>
-        <HBox styleClass="status-bar" alignment="CENTER_LEFT" spacing="20">
+        <HBox styleClass="status-bar" alignment="CENTER_LEFT" spacing="12">
             <padding><Insets top="6" right="15" bottom="6" left="15"/></padding>
             <Label fx:id="statusLabel" text="就绪" styleClass="status-text"/>
+
             <Pane HBox.hgrow="ALWAYS"/>
+
+            <!-- AI扫描进度（v2.0新增） -->
+            <Label fx:id="scanProgressLabel" text="" styleClass="scan-progress-label"
+                   visible="false" managed="false"/>
+            <ProgressBar fx:id="scanProgressBar" prefWidth="180" prefHeight="14"
+                         styleClass="scan-progress-bar" visible="false" managed="false"/>
+
+            <Separator orientation="VERTICAL" prefHeight="20"/>
             <Label fx:id="selectionLabel" text="" styleClass="selection-text"/>
             <Separator orientation="VERTICAL" prefHeight="20"/>
             <Button fx:id="slideshowButton" text="▶ 播放" onAction="#onSlideshow"

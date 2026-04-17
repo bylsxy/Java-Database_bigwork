@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.scene.image.*?>
+
+<!--
+    首次启动向导 — 询问用户扫描目录，警告 tokens 消费。
+    调试阶段每次都打开，勾选"下次不展示"后关闭。
+    在设置页面中可重新调出。
+-->
+<DialogPane xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.imagemanager.controller.WelcomeDialogController"
+            prefWidth="580" prefHeight="480">
+
+    <header>
+        <VBox spacing="8" alignment="CENTER">
+            <padding><Insets top="10" bottom="5"/></padding>
+            <Label text="🖼️ 欢迎使用 数字图像集成管理系统" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+            <Label text="首次使用，请选择您的图片目录" style="-fx-font-size: 13px; -fx-text-fill: #666;"/>
+        </VBox>
+    </header>
+
+    <content>
+        <VBox spacing="16" alignment="TOP_LEFT">
+            <padding><Insets top="10" right="20" bottom="10" left="20"/></padding>
+
+            <!-- 目录选择区域 -->
+            <VBox spacing="8">
+                <Label text="📁 图片扫描目录" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                <Label text="系统将深度遍历此目录下的所有图片，并通过AI进行智能分类标注。"
+                       wrapText="true" style="-fx-text-fill: #555;"/>
+
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <TextField fx:id="directoryField" prefWidth="380" promptText="请选择或输入图片目录路径..."
+                               editable="true"/>
+                    <Button fx:id="browseButton" text="浏览..." onAction="#onBrowseDirectory"/>
+                </HBox>
+            </VBox>
+
+            <Separator/>
+
+            <!-- 目录预估信息 -->
+            <VBox fx:id="estimateBox" spacing="6" visible="false" managed="false">
+                <Label fx:id="estimateLabel" wrapText="true" style="-fx-font-size: 13px;"/>
+                <Label fx:id="warningLabel" wrapText="true"
+                       style="-fx-font-size: 13px; -fx-text-fill: #d32f2f; -fx-font-weight: bold;"
+                       visible="false" managed="false"/>
+            </VBox>
+
+            <!-- API 配置提示 -->
+            <VBox spacing="6" style="-fx-background-color: #f0f4ff; -fx-padding: 12; -fx-background-radius: 6;">
+                <Label text="🤖 AI 图像识别配置" style="-fx-font-size: 13px; -fx-font-weight: bold;"/>
+                <Label text="系统默认使用通义千问VL模型进行图像识别。您可以在「设置」中修改API地址和密钥，也可稍后配置。"
+                       wrapText="true" style="-fx-text-fill: #555; -fx-font-size: 12px;"/>
+                <Hyperlink fx:id="settingsLink" text="→ 打开设置页面配置 AI API" onAction="#onOpenSettings"/>
+            </VBox>
+
+            <Separator/>
+
+            <!-- 注意事项 -->
+            <VBox spacing="4" style="-fx-background-color: #fff8e1; -fx-padding: 10; -fx-background-radius: 6;">
+                <Label text="⚠️ 注意事项" style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #e65100;"/>
+                <Label text="• 打开过大的目录可能导致不必要的 AI tokens 消费" wrapText="true"
+                       style="-fx-text-fill: #bf360c; -fx-font-size: 12px;"/>
+                <Label text="• 建议先选择一个较小的目录（如 Pictures 文件夹）进行测试" wrapText="true"
+                       style="-fx-text-fill: #bf360c; -fx-font-size: 12px;"/>
+                <Label text="• 扫描过程在后台运行，不影响正常使用" wrapText="true"
+                       style="-fx-text-fill: #bf360c; -fx-font-size: 12px;"/>
+            </VBox>
+
+            <!-- 下次不展示 -->
+            <HBox alignment="CENTER_LEFT" spacing="8">
+                <CheckBox fx:id="dontShowAgainCheckBox" text="下次不展示本页面"/>
+            </HBox>
+        </VBox>
+    </content>
+
+    <ButtonType fx:constant="OK"/>
+    <ButtonType fx:constant="CANCEL"/>
+</DialogPane>

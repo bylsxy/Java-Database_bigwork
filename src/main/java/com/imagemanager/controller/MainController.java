@@ -1,12 +1,17 @@
 package com.imagemanager.controller;
 
+import com.imagemanager.dao.SettingsDao;
+import com.imagemanager.dao.SettingsDaoImpl;
 import com.imagemanager.model.ImageFile;
+import com.imagemanager.scanner.ScanTask;
 import com.imagemanager.service.ImageService;
 import com.imagemanager.service.ImageServiceImpl;
+import com.imagemanager.service.SearchService;
 import com.imagemanager.util.AlertUtil;
 import com.imagemanager.util.FileUtil;
 import com.imagemanager.util.ImageUtil;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -72,9 +77,25 @@ public class MainController {
     @FXML
     private SplitPane mainSplitPane;
 
+    // v2.0 新增：搜索栏
+    @FXML
+    private ComboBox<String> searchModeCombo;
+    @FXML
+    private TextField searchField;
+    @FXML
+    private Button searchButton;
+
+    // v2.0 新增：AI扫描进度
+    @FXML
+    private Label scanProgressLabel;
+    @FXML
+    private ProgressBar scanProgressBar;
+
     // ==================== 业务服务 ====================
 
     private final ImageService imageService = new ImageServiceImpl();
+    private final SearchService searchService = new SearchService();
+    private final SettingsDao settingsDao = new SettingsDaoImpl();
 
     // ==================== 状态变量 ====================
 
@@ -113,7 +134,26 @@ public class MainController {
         // 配置键盘快捷键
         initKeyboardShortcuts();
 
+        // v2.0: 初始化搜索栏
+        initSearchBar();
+
         logger.info("主界面初始化完成");
+    }
+
+    /**
+     * 初始化搜索栏 — 下拉选择搜索模式，回车触发搜索。
+     */
+    private void initSearchBar() {
+        if (searchModeCombo != null) {
+            searchModeCombo.setItems(FXCollections.observableArrayList(
+                    "🔍 关键词", "🤖 AI智能"
+            ));
+            searchModeCombo.getSelectionModel().selectFirst();
+        }
+
+        if (searchField != null) {
+            searchField.setOnAction(event -> onSearch());
+        }
     }
 
     // ==================== 目录树 ====================
@@ -645,30 +685,47 @@ public class MainController {
 
     /**
      * 点击播放按钮或双击缩略图时，打开幻灯片播放窗口。
+     * v2.0: 如果有 Ctrl 多选，仅播放选中的图片。
      */
     @FXML
     private void onSlideshow() {
         if (currentImages.isEmpty())
             return;
 
+        // v2.0: 多选播放 — 如果选中了多张，只播放选中的
+        List<ImageFile> playList;
         int startIndex = 0;
-        if (!selectedImages.isEmpty()) {
-            ImageFile first = selectedImages.iterator().next();
-            startIndex = currentImages.indexOf(first);
-            if (startIndex < 0)
-                startIndex = 0;
+
+        if (selectedImages.size() > 1) {
+            // 按原始顺序排列选中的图片
+            playList = currentImages.stream()
+                    .filter(selectedImages::contains)
+                    .toList();
+            logger.info("多选播放: {} 张图片", playList.size());
+        } else {
+            playList = currentImages;
+            if (!selectedImages.isEmpty()) {
+                ImageFile first = selectedImages.iterator().next();
+                startIndex = currentImages.indexOf(first);
+                if (startIndex < 0) startIndex = 0;
+            }
         }
-        openSlideshow(startIndex);
+
+        openSlideshow(playList, startIndex);
     }
 
     private void openSlideshow(int startIndex) {
+        openSlideshow(currentImages, startIndex);
+    }
+
+    private void openSlideshow(List<ImageFile> images, int startIndex) {
         try {
             FXMLLoader loader = new FXMLLoader(
                     getClass().getResource("/fxml/SlideshowView.fxml"));
             Parent slideshowRoot = loader.load();
 
             SlideshowController controller = loader.getController();
-            controller.initSlideshow(currentImages, startIndex);
+            controller.initSlideshow(images, startIndex);
 
             Stage slideshowStage = new Stage();
             slideshowStage.setTitle("幻灯片播放 - 数字图像管理系统");
@@ -682,6 +739,139 @@ public class MainController {
             logger.error("打开幻灯片播放失败", e);
             AlertUtil.showError("错误", "无法打开播放窗口: " + e.getMessage());
         }
+    }
+
+    // ==================== 搜索功能 (v2.0新增) ====================
+
+    /**
+     * 搜索按钮或回车触发的搜索。
+     */
+    @FXML
+    private void onSearch() {
+        String query = searchField != null ? searchField.getText().trim() : "";
+        if (query.isEmpty()) {
+            // 清空搜索，恢复当前目录显示
+            if (currentDirectoryPath != null) {
+                onDirectorySelected(currentDirectoryPath);
+            }
+            return;
+        }
+
+        // 判断搜索模式
+        int modeIndex = searchModeCombo != null
+                ? searchModeCombo.getSelectionModel().getSelectedIndex() : 0;
+        SearchService.SearchMode mode = (modeIndex == 1)
+                ? SearchService.SearchMode.AI_SQL
+                : SearchService.SearchMode.KEYWORD;
+
+        logger.info("执行搜索: mode={}, query={}", mode, query);
+        statusLabel.setText("正在搜索...");
+
+        // 后台执行搜索
+        Task<SearchService.SearchResult> searchTask = new Task<>() {
+            @Override
+            protected SearchService.SearchResult call() {
+                return searchService.search(query, mode);
+            }
+        };
+
+        searchTask.setOnSucceeded(event -> {
+            SearchService.SearchResult result = searchTask.getValue();
+            currentImages = new ArrayList<>(result.images());
+            displayThumbnails(currentImages);
+            directoryNameLabel.setText("搜索结果: \"" + query + "\"");
+            imageCountLabel.setText(result.totalCount() + " 张图片");
+            statusLabel.setText(result.message());
+            slideshowButton.setDisable(currentImages.isEmpty());
+        });
+
+        searchTask.setOnFailed(event -> {
+            statusLabel.setText("搜索失败: " + searchTask.getException().getMessage());
+        });
+
+        Thread.startVirtualThread(searchTask);
+    }
+
+    // ==================== 设置页面 (v2.0新增) ====================
+
+    /**
+     * 打开设置页面。
+     */
+    @FXML
+    private void onOpenSettings() {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/fxml/SettingsView.fxml"));
+            Parent settingsRoot = loader.load();
+
+            Stage settingsStage = new Stage();
+            settingsStage.setTitle("系统设置 - 数字图像管理系统");
+            Scene scene = new Scene(settingsRoot);
+            scene.getStylesheets().add(
+                    getClass().getResource("/css/style.css").toExternalForm());
+            settingsStage.setScene(scene);
+            settingsStage.initOwner(thumbnailPane.getScene().getWindow());
+            settingsStage.setResizable(true);
+            settingsStage.showAndWait();
+        } catch (Exception e) {
+            logger.error("打开设置页面失败", e);
+            AlertUtil.showError("错误", "无法打开设置页面: " + e.getMessage());
+        }
+    }
+
+    // ==================== AI扫描 (v2.0新增) ====================
+
+    /**
+     * 启动后台AI扫描任务。在首次启动向导确认后被 App.java 调用。
+     */
+    public void startScanTask(String directoryPath) {
+        File scanDir = new File(directoryPath);
+        if (!scanDir.exists() || !scanDir.isDirectory()) {
+            logger.warn("扫描目录不存在: {}", directoryPath);
+            return;
+        }
+
+        ScanTask scanTask = new ScanTask(scanDir);
+
+        // 绑定进度到UI
+        if (scanProgressLabel != null && scanProgressBar != null) {
+            scanProgressLabel.setVisible(true);
+            scanProgressLabel.setManaged(true);
+            scanProgressBar.setVisible(true);
+            scanProgressBar.setManaged(true);
+
+            scanProgressLabel.textProperty().bind(scanTask.messageProperty());
+            scanProgressBar.progressProperty().bind(scanTask.progressProperty());
+
+            scanTask.setOnSucceeded(e -> {
+                scanProgressLabel.textProperty().unbind();
+                scanProgressBar.progressProperty().unbind();
+                scanProgressLabel.setText("扫描完成");
+                scanProgressBar.setProgress(1.0);
+                // 3秒后隐藏进度条
+                new Thread(() -> {
+                    try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
+                    Platform.runLater(() -> {
+                        scanProgressLabel.setVisible(false);
+                        scanProgressLabel.setManaged(false);
+                        scanProgressBar.setVisible(false);
+                        scanProgressBar.setManaged(false);
+                    });
+                }).start();
+            });
+
+            scanTask.setOnFailed(e -> {
+                scanProgressLabel.textProperty().unbind();
+                scanProgressLabel.setText("扫描失败");
+                logger.error("扫描任务失败", scanTask.getException());
+            });
+        }
+
+        Thread scanThread = new Thread(scanTask);
+        scanThread.setDaemon(true);
+        scanThread.setName("AI-Scan-Thread");
+        scanThread.start();
+        logger.info("AI扫描任务已启动: {}", directoryPath);
     }
 
     // ==================== 状态栏 ====================
