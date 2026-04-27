@@ -6,21 +6,21 @@
 <?import javafx.scene.layout.*?>
 
 <!--
-    幻灯片播放界面布局
+    幻灯片播放界面布局 (v2.0 改进版)
     
-    ┌────────────────────────────────────────────┐
-    │           [大图展示区 - 深色背景]             │
-    │                                            │
-    │              ImageView                     │
-    │              (居中, 保持比例)                 │
-    │                                            │
-    ├────────────────────────────────────────────┤
-    │  [图片信息条]                                │
-    ├────────────────────────────────────────────┤
-    │  [🔍+ 🔍-] [⬅ ➡] [▶播放] [⏹停止] [✕退出]   │
-    ├────────────────────────────────────────────┤
-    │  [缩略图条: 水平排列的小缩略图]               │
-    └────────────────────────────────────────────┘
+    ┌────────────────────────────────────────────────────┐
+    │           [大图展示区 - 深色背景]                     │
+    │                                                    │
+    │              ImageView                             │
+    │              (居中, 保持比例)                         │
+    │                                                    │
+    ├────────────────────────────────────────────────────┤
+    │  [图片信息条]                                        │
+    ├────────────────────────────────────────────────────┤
+    │  [🔍+🔍-] [⬅ ➡] [▶播放] [🎵音乐▼] [🔊音量] [✕退出] │
+    ├────────────────────────────────────────────────────┤
+    │  [缩略图条: 水平排列的小缩略图]                       │
+    └────────────────────────────────────────────────────┘
 -->
 
 <BorderPane xmlns="http://javafx.com/javafx/26"
@@ -47,7 +47,7 @@
             </HBox>
 
             <!-- 控制按钮栏 -->
-            <HBox styleClass="control-bar" alignment="CENTER" spacing="15">
+            <HBox styleClass="control-bar" alignment="CENTER" spacing="12">
                 <padding><Insets top="8" right="15" bottom="8" left="15"/></padding>
 
                 <!-- 缩放控制 -->
@@ -69,6 +69,16 @@
                 <!-- 播放控制 -->
                 <Button fx:id="playButton" text="▶ 播放" onAction="#onPlayToggle"
                         styleClass="control-button play-button" prefWidth="80"/>
+
+                <Separator orientation="VERTICAL" prefHeight="25"/>
+
+                <!-- v2.0新增：🎵 背景音乐控制 -->
+                <ComboBox fx:id="musicCombo" prefWidth="130" promptText="🎵 背景音乐"
+                          styleClass="music-combo"/>
+                <Button fx:id="musicToggleButton" text="🔇" onAction="#onMusicToggle"
+                        styleClass="control-button" prefWidth="40"/>
+                <Slider fx:id="volumeSlider" min="0" max="1" value="0.5"
+                        prefWidth="80" styleClass="volume-slider"/>
 
                 <Separator orientation="VERTICAL" prefHeight="25"/>
 

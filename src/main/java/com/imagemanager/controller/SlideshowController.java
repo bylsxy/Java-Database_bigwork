@@ -1,14 +1,16 @@
 package com.imagemanager.controller;
 
+import com.imagemanager.dao.SettingsDao;
+import com.imagemanager.dao.SettingsDaoImpl;
 import com.imagemanager.model.ImageFile;
+import com.imagemanager.service.MusicService;
 import com.imagemanager.util.AlertUtil;
 import com.imagemanager.util.ImageUtil;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
+import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
@@ -19,27 +21,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 幻灯片播放控制器 — 管理大图展示、前后切换、缩放和自动播放。
+ * 幻灯片播放控制器 — 管理大图展示、前后切换、缩放、自动播放和背景音乐。
  * <p>
- * 功能实现：
+ * v2.0 增强功能：
  * <ul>
- *   <li>大图展示（ImageView, 保持比例, 居中显示在深色背景上）</li>
- *   <li>手动切换（上一张/下一张, 边界提示）</li>
- *   <li>缩放控制（放大/缩小, 每次 20%, 范围 10%~500%）</li>
- *   <li>自动播放（Timeline 定时器, 默认 1 秒间隔）</li>
- *   <li>底部缩略图条（当前图片高亮）</li>
- *   <li>图片信息条（文件名, 分辨率, 缩放比, 日期, 大小, 序号）</li>
+ *   <li>多选播放 — 仅播放 Ctrl 选中的图片（由 MainController 传入子集）</li>
+ *   <li>背景音乐 — 内置3首MP3，ComboBox选择，Slider调音量</li>
+ *   <li>可配置播放间隔 — 从数据库 app_settings 读取</li>
  * </ul>
  */
 public class SlideshowController {
 
     private static final Logger logger = LoggerFactory.getLogger(SlideshowController.class);
-
-    /** 自动播放间隔（秒） */
-    private static final double PLAY_INTERVAL_SECONDS = 1.0;
 
     /** 日期格式化器 */
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -54,6 +51,16 @@ public class SlideshowController {
     @FXML private Button playButton;
     @FXML private Button prevButton;
     @FXML private Button nextButton;
+
+    // v2.0: 音乐控件
+    @FXML private ComboBox<String> musicCombo;
+    @FXML private Button musicToggleButton;
+    @FXML private Slider volumeSlider;
+
+    // ==================== 服务 ====================
+
+    private final MusicService musicService = new MusicService();
+    private final SettingsDao settingsDao = new SettingsDaoImpl();
 
     // ==================== 状态 ====================
 
@@ -75,25 +82,36 @@ public class SlideshowController {
     /** 缩略图条中的 ImageView 数组（用于更新高亮状态） */
     private ImageView[] stripThumbnails;
 
+    /** 播放间隔（秒），从设置读取 */
+    private double playIntervalSeconds = 3.0;
+
     // ==================== 初始化 ====================
 
     /**
      * 初始化幻灯片播放。
      * 由 MainController 在打开幻灯片窗口后调用。
      *
-     * @param images     参与播放的图片列表
+     * @param images     参与播放的图片列表（可能是全目录或 Ctrl 多选子集）
      * @param startIndex 起始图片的索引
      */
     public void initSlideshow(List<ImageFile> images, int startIndex) {
         this.images = images;
         this.currentIndex = Math.max(0, Math.min(startIndex, images.size() - 1));
 
+        // 加载播放间隔设置
+        try {
+            playIntervalSeconds = Double.parseDouble(
+                    settingsDao.getValueOrDefault("slideshow_interval", "3"));
+        } catch (NumberFormatException e) {
+            playIntervalSeconds = 3.0;
+        }
+
         // 构建底部缩略图条
         buildThumbnailStrip();
 
-        // 构建自动播放定时器
+        // 构建自动播放定时器（使用可配置间隔）
         autoPlayTimeline = new Timeline(
-                new KeyFrame(Duration.seconds(PLAY_INTERVAL_SECONDS), event -> {
+                new KeyFrame(Duration.seconds(playIntervalSeconds), event -> {
                     if (currentIndex < images.size() - 1) {
                         showImage(++currentIndex);
                     } else {
@@ -108,8 +126,45 @@ public class SlideshowController {
         mainImageView.fitWidthProperty().bind(imageContainer.widthProperty().subtract(20));
         mainImageView.fitHeightProperty().bind(imageContainer.heightProperty().subtract(20));
 
+        // v2.0: 初始化音乐控件
+        initMusicControls();
+
         // 显示初始图片
         showImage(currentIndex);
+    }
+
+    /**
+     * 初始化音乐控件。
+     */
+    private void initMusicControls() {
+        if (musicCombo == null) return;
+
+        // 填充音乐下拉列表
+        List<String> musicNames = new ArrayList<>();
+        musicNames.add("🔇 无音乐");
+        musicNames.addAll(musicService.getMusicLibrary().keySet());
+        musicCombo.setItems(FXCollections.observableArrayList(musicNames));
+        musicCombo.getSelectionModel().selectFirst();
+
+        // 选择音乐时自动播放
+        musicCombo.setOnAction(event -> {
+            String selected = musicCombo.getValue();
+            if (selected == null || selected.equals("🔇 无音乐")) {
+                musicService.stop();
+                musicToggleButton.setText("🔇");
+            } else {
+                musicService.play(selected);
+                musicToggleButton.setText("🔊");
+            }
+        });
+
+        // 音量滑块
+        if (volumeSlider != null) {
+            volumeSlider.setValue(musicService.getVolume());
+            volumeSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+                musicService.setVolume(newVal.doubleValue());
+            });
+        }
     }
 
     // ==================== 图片显示 ====================
@@ -246,7 +301,7 @@ public class SlideshowController {
         isPlaying = true;
         playButton.setText("⏹ 停止");
         autoPlayTimeline.play();
-        logger.info("开始自动播放");
+        logger.info("开始自动播放（间隔: {}秒）", playIntervalSeconds);
     }
 
     private void stopAutoPlay() {
@@ -254,6 +309,26 @@ public class SlideshowController {
         playButton.setText("▶ 播放");
         autoPlayTimeline.stop();
         logger.info("停止自动播放");
+    }
+
+    // ==================== 音乐控制 (v2.0新增) ====================
+
+    /**
+     * 音乐播放/暂停切换。
+     */
+    @FXML
+    private void onMusicToggle() {
+        if (musicService.isPlaying()) {
+            musicService.togglePause();
+            musicToggleButton.setText("🔇");
+        } else {
+            // 如果有选中的音乐，恢复播放
+            String selected = musicCombo != null ? musicCombo.getValue() : null;
+            if (selected != null && !selected.equals("🔇 无音乐")) {
+                musicService.play(selected);
+                musicToggleButton.setText("🔊");
+            }
+        }
     }
 
     // ==================== 退出 ====================
@@ -264,6 +339,7 @@ public class SlideshowController {
     @FXML
     private void onExit() {
         stopAutoPlay();
+        musicService.stop(); // v2.0: 停止音乐
         // 关闭窗口
         Stage stage = (Stage) mainImageView.getScene().getWindow();
         stage.close();

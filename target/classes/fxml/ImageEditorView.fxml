@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.canvas.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+
+<!--
+    图片编辑器界面 (v2.0新增)
+    
+    ┌─────────────────────────────────────────────────┐
+    │  [工具栏: 裁切|画笔|文字|箭头|矩形|颜色|撤销|保存] │
+    ├─────────────────────────────────────────────────┤
+    │                                                 │
+    │           [编辑画布区域]                          │
+    │           ImageView + Canvas 叠加               │
+    │                                                 │
+    ├─────────────────────────────────────────────────┤
+    │  [版本时间轴: v1→v2→v3... 点击可恢复]             │
+    └─────────────────────────────────────────────────┘
+-->
+
+<BorderPane xmlns="http://javafx.com/javafx/26"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.imagemanager.controller.ImageEditorController"
+            prefWidth="1000" prefHeight="750"
+            styleClass="editor-root">
+
+    <!-- ==================== 顶部工具栏 ==================== -->
+    <top>
+        <ToolBar styleClass="editor-toolbar">
+            <Button fx:id="cropButton" text="✂ 裁切" onAction="#onCropMode"
+                    styleClass="editor-tool-button"/>
+            <Button fx:id="drawButton" text="✏ 画笔" onAction="#onDrawMode"
+                    styleClass="editor-tool-button"/>
+            <Button fx:id="textButton" text="T 文字" onAction="#onTextMode"
+                    styleClass="editor-tool-button"/>
+            <Button fx:id="arrowButton" text="➜ 箭头" onAction="#onArrowMode"
+                    styleClass="editor-tool-button"/>
+            <Button fx:id="rectButton" text="▭ 矩形" onAction="#onRectMode"
+                    styleClass="editor-tool-button"/>
+
+            <Separator orientation="VERTICAL" prefHeight="25"/>
+
+            <Label text="颜色:" style="-fx-text-fill: white;"/>
+            <ColorPicker fx:id="colorPicker" prefWidth="50" prefHeight="28"/>
+
+            <Label text="线宽:" style="-fx-text-fill: white;"/>
+            <Spinner fx:id="lineWidthSpinner" prefWidth="60" prefHeight="28"/>
+
+            <Separator orientation="VERTICAL" prefHeight="25"/>
+
+            <Button text="↩ 撤销" onAction="#onUndo" styleClass="editor-tool-button"/>
+            <Button text="💾 保存版本" onAction="#onSaveVersion"
+                    styleClass="editor-tool-button"
+                    style="-fx-background-color: #4caf50; -fx-text-fill: white;"/>
+
+            <Pane HBox.hgrow="ALWAYS"/>
+
+            <Label fx:id="toolStatusLabel" text="当前工具: 画笔"
+                   style="-fx-text-fill: #aaa; -fx-font-size: 12px;"/>
+        </ToolBar>
+    </top>
+
+    <!-- ==================== 中央画布区域 ==================== -->
+    <center>
+        <ScrollPane fitToWidth="true" fitToHeight="true"
+                    styleClass="editor-canvas-scroll" pannable="false">
+            <StackPane fx:id="canvasContainer" styleClass="editor-canvas-container">
+                <ImageView fx:id="editorImageView" preserveRatio="true" smooth="true"/>
+                <Canvas fx:id="drawCanvas"/>
+            </StackPane>
+        </ScrollPane>
+    </center>
+
+    <!-- ==================== 底部版本时间轴 ==================== -->
+    <bottom>
+        <VBox spacing="0">
+            <Separator/>
+            <HBox styleClass="version-timeline-bar" alignment="CENTER_LEFT" spacing="8">
+                <padding><Insets top="8" right="15" bottom="8" left="15"/></padding>
+                <Label text="📋 版本历史:" style="-fx-font-weight: bold; -fx-font-size: 13px;"/>
+                <ScrollPane fx:id="versionScroll" fitToHeight="true"
+                            vbarPolicy="NEVER" hbarPolicy="AS_NEEDED"
+                            prefHeight="50" HBox.hgrow="ALWAYS"
+                            style="-fx-background-color: transparent;">
+                    <HBox fx:id="versionTimeline" spacing="10" alignment="CENTER_LEFT">
+                        <padding><Insets topRightBottomLeft="4"/></padding>
+                    </HBox>
+                </ScrollPane>
+            </HBox>
+        </VBox>
+    </bottom>
+</BorderPane>
