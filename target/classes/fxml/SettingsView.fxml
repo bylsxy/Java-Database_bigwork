@@ -14,7 +14,7 @@
 
     <padding><Insets top="20" right="24" bottom="20" left="24"/></padding>
 
-    <Label text="⚙️ 系统设置" style="-fx-font-size: 22px; -fx-font-weight: bold;"/>
+    <Label text="系统设置" style="-fx-font-size: 22px; -fx-font-weight: bold;"/>
     <Separator/>
 
     <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent;">
@@ -22,7 +22,7 @@
             <padding><Insets top="4" right="8" bottom="4" left="4"/></padding>
 
             <!-- ==================== AI API 配置 ==================== -->
-            <TitledPane text="🤖 AI 图像识别 API 配置" expanded="true" collapsible="true">
+            <TitledPane text="AI 图像识别 API 配置" expanded="true" collapsible="true">
                 <VBox spacing="12">
                     <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
 
@@ -62,12 +62,12 @@
                     <Separator/>
 
                     <!-- 实时测试区域 -->
-                    <Label text="🧪 实时连接测试" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                    <Label text="实时连接测试" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
                     <Label text="上传一张示例图片，验证API是否正确返回标签（测试标签数量、格式是否合法）"
                            wrapText="true" style="-fx-text-fill: #666; -fx-font-size: 12px;"/>
 
                     <HBox spacing="10" alignment="CENTER_LEFT">
-                        <Button fx:id="testButton" text="📷 选择图片并测试" onAction="#onTestAPI"
+                        <Button fx:id="testButton" text="选择图片并测试" onAction="#onTestAPI"
                                 style="-fx-background-color: #1976d2; -fx-text-fill: white;"/>
                         <ProgressIndicator fx:id="testProgress" prefWidth="24" prefHeight="24"
                                            visible="false"/>
@@ -81,7 +81,7 @@
             </TitledPane>
 
             <!-- ==================== 扫描目录设置 ==================== -->
-            <TitledPane text="📁 扫描目录设置" expanded="true" collapsible="true">
+            <TitledPane text="扫描目录设置" expanded="true" collapsible="true">
                 <VBox spacing="10">
                     <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
 
@@ -93,7 +93,7 @@
                     </HBox>
 
                     <HBox spacing="10">
-                        <Button text="🔄 重新打开首次向导" onAction="#onReopenWelcome"
+                        <Button text="重新打开首次向导" onAction="#onReopenWelcome"
                                 style="-fx-background-color: #ff9800; -fx-text-fill: white;"/>
                         <Label text="可重新选择目录并触发扫描"
                                style="-fx-text-fill: #666; -fx-font-size: 12px;"
@@ -103,7 +103,7 @@
             </TitledPane>
 
             <!-- ==================== 幻灯片设置 ==================== -->
-            <TitledPane text="🎬 幻灯片设置" expanded="false" collapsible="true">
+            <TitledPane text="幻灯片设置" expanded="false" collapsible="true">
                 <VBox spacing="10">
                     <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
 
@@ -126,7 +126,7 @@
 
     <!-- 底部按钮栏 -->
     <HBox spacing="12" alignment="CENTER_RIGHT">
-        <Button fx:id="saveButton" text="💾 保存设置" onAction="#onSave"
+        <Button fx:id="saveButton" text="保存设置" onAction="#onSave"
                 style="-fx-background-color: #4caf50; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 24;"/>
         <Button fx:id="cancelButton" text="取消" onAction="#onCancel"
                 style="-fx-padding: 8 24;"/>

@@ -79,6 +79,11 @@ public interface TagDao {
     List<Integer> searchImagesByKeyword(String keyword);
 
     /**
+     * 在指定目录内按关键词搜索图片。
+     */
+    List<Integer> searchImagesByKeyword(String keyword, int directoryId);
+
+    /**
      * 执行AI生成的SQL查询（只读，带安全校验）。
      * 返回匹配的图片ID列表。
      */

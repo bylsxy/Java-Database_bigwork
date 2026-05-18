@@ -16,9 +16,11 @@ import java.util.Optional;
 public class SettingsDaoImpl implements SettingsDao {
 
     private static final Logger logger = LoggerFactory.getLogger(SettingsDaoImpl.class);
+    private static volatile boolean schemaReady = false;
 
     @Override
     public Optional<AppSetting> findByKey(String key) {
+        ensureSchema();
         String sql = "SELECT key, value, updated_at FROM app_settings WHERE key = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -36,6 +38,7 @@ public class SettingsDaoImpl implements SettingsDao {
 
     @Override
     public List<AppSetting> findAll() {
+        ensureSchema();
         String sql = "SELECT key, value, updated_at FROM app_settings ORDER BY key";
         List<AppSetting> settings = new ArrayList<>();
         try (Connection conn = DatabaseConnection.getConnection();
@@ -52,6 +55,7 @@ public class SettingsDaoImpl implements SettingsDao {
 
     @Override
     public void upsert(String key, String value) {
+        ensureSchema();
         String sql = """
                 INSERT INTO app_settings (key, value, updated_at)
                 VALUES (?, ?, NOW())
@@ -70,6 +74,7 @@ public class SettingsDaoImpl implements SettingsDao {
 
     @Override
     public void delete(String key) {
+        ensureSchema();
         String sql = "DELETE FROM app_settings WHERE key = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -83,6 +88,47 @@ public class SettingsDaoImpl implements SettingsDao {
     @Override
     public String getValueOrDefault(String key, String defaultValue) {
         return findByKey(key).map(AppSetting::value).orElse(defaultValue);
+    }
+
+    private void ensureSchema() {
+        if (schemaReady) {
+            return;
+        }
+        synchronized (SettingsDaoImpl.class) {
+            if (schemaReady) {
+                return;
+            }
+            String createSql = """
+                    CREATE TABLE IF NOT EXISTS app_settings (
+                        key VARCHAR(100) PRIMARY KEY,
+                        value TEXT NOT NULL,
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                    """;
+            String defaultsSql = """
+                    INSERT INTO app_settings (key, value) VALUES
+                        ('scan_directory', ''),
+                        ('ai_base_url', 'https://dashscope.aliyuncs.com/compatible-mode/v1'),
+                        ('ai_api_key', ''),
+                        ('ai_model', 'qwen-vl-plus'),
+                        ('show_welcome', 'true'),
+                        ('thumbnail_storage', 'database'),
+                        ('slideshow_interval', '3'),
+                        ('slideshow_order', 'SEQUENTIAL'),
+                        ('slideshow_music', 'none'),
+                        ('ai_request_delay', '1500'),
+                        ('ai_max_retries', '3')
+                    ON CONFLICT (key) DO NOTHING
+                    """;
+            try (Connection conn = DatabaseConnection.getConnection();
+                 Statement stmt = conn.createStatement()) {
+                stmt.execute(createSql);
+                stmt.execute(defaultsSql);
+                schemaReady = true;
+            } catch (SQLException e) {
+                logger.error("初始化设置表失败", e);
+            }
+        }
     }
 
     private AppSetting mapRow(ResultSet rs) throws SQLException {

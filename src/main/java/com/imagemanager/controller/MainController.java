@@ -2,7 +2,11 @@ package com.imagemanager.controller;
 
 import com.imagemanager.dao.SettingsDao;
 import com.imagemanager.dao.SettingsDaoImpl;
+import com.imagemanager.dao.TagDao;
+import com.imagemanager.dao.TagDaoImpl;
 import com.imagemanager.model.ImageFile;
+import com.imagemanager.model.Tag;
+import com.imagemanager.model.TagCategory;
 import com.imagemanager.scanner.ScanTask;
 import com.imagemanager.service.ImageService;
 import com.imagemanager.service.ImageServiceImpl;
@@ -34,7 +38,9 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -96,6 +102,7 @@ public class MainController {
     private final ImageService imageService = new ImageServiceImpl();
     private final SearchService searchService = new SearchService();
     private final SettingsDao settingsDao = new SettingsDaoImpl();
+    private final TagDao tagDao = new TagDaoImpl();
 
     // ==================== 状态变量 ====================
 
@@ -114,6 +121,14 @@ public class MainController {
     /** 框选相关状态 */
     private double dragStartX, dragStartY;
     private boolean isDragging = false;
+    private ScanTask activeScanTask;
+
+    private record TagViewItem(Tag tag, String categoryLabel) {
+        @Override
+        public String toString() {
+            return categoryLabel + " / " + tag.name();
+        }
+    }
 
     // ==================== 初始化 ====================
 
@@ -369,9 +384,12 @@ public class MainController {
 
         // 右键菜单
         card.setOnContextMenuRequested(event -> {
-            if (selectedImages.contains(image)) {
-                showContextMenu(card, event.getScreenX(), event.getScreenY());
+            if (!selectedImages.contains(image)) {
+                clearSelection();
+                selectImage(image, card);
+                updateStatusBar();
             }
+            showContextMenu(card, event.getScreenX(), event.getScreenY());
         });
 
         return card;
@@ -530,7 +548,18 @@ public class MainController {
         MenuItem renameItem = new MenuItem("✏ 重命名");
         renameItem.setOnAction(e -> onRename());
 
+        MenuItem editItem = new MenuItem("编辑图片");
+        editItem.setOnAction(e -> onEditImage());
+        editItem.setDisable(selectedImages.size() != 1);
+
+        MenuItem tagItem = new MenuItem("管理标签");
+        tagItem.setOnAction(e -> onManageTags());
+        tagItem.setDisable(selectedImages.size() != 1);
+
         contextMenu.getItems().addAll(
+                editItem,
+                tagItem,
+                new SeparatorMenuItem(),
                 deleteItem,
                 copyItem,
                 pasteItem,
@@ -627,6 +656,183 @@ public class MainController {
             // 多张 → 批量重命名对话框
             openBatchRenameDialog();
         }
+    }
+
+    /**
+     * 打开图片编辑器。当前编辑器只处理单张图片，编辑完成后刷新主界面。
+     */
+    private void onEditImage() {
+        if (selectedImages.size() != 1) {
+            AlertUtil.showWarning("无法编辑", "请只选择一张图片进行编辑");
+            return;
+        }
+
+        ImageFile image = selectedImages.iterator().next();
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/fxml/ImageEditorView.fxml"));
+            Parent editorRoot = loader.load();
+
+            ImageEditorController controller = loader.getController();
+            controller.initEditor(image);
+
+            Stage editorStage = new Stage();
+            editorStage.setTitle("图片编辑 - " + image.fileName());
+            Scene scene = new Scene(editorRoot, 1000, 750);
+            scene.getStylesheets().add(
+                    getClass().getResource("/css/style.css").toExternalForm());
+            editorStage.setScene(scene);
+            editorStage.initOwner(thumbnailPane.getScene().getWindow());
+            editorStage.setMinWidth(800);
+            editorStage.setMinHeight(600);
+            editorStage.setOnHidden(event -> {
+                if (currentDirectoryPath != null) {
+                    onDirectorySelected(currentDirectoryPath);
+                }
+            });
+            editorStage.show();
+        } catch (Exception e) {
+            logger.error("打开图片编辑器失败", e);
+            AlertUtil.showError("打开编辑器失败", e.getMessage());
+        }
+    }
+
+    /**
+     * 查看并编辑单张图片的标签。手动添加的标签会立即进入搜索索引。
+     */
+    private void onManageTags() {
+        if (selectedImages.size() != 1) {
+            AlertUtil.showWarning("无法管理标签", "请只选择一张图片");
+            return;
+        }
+
+        ImageFile image = selectedImages.iterator().next();
+        try {
+            List<TagCategory> categories = tagDao.findAllCategories();
+            if (categories.isEmpty()) {
+                AlertUtil.showWarning("无法管理标签", "标签分类尚未初始化");
+                return;
+            }
+
+            Map<Integer, String> categoryLabels = new LinkedHashMap<>();
+            for (TagCategory category : categories) {
+                categoryLabels.put(category.id(), category.displayName() + " (" + category.name() + ")");
+            }
+
+            Dialog<Void> dialog = new Dialog<>();
+            dialog.setTitle("管理标签");
+            dialog.setHeaderText(image.fileName());
+            if (thumbnailPane.getScene() != null) {
+                dialog.initOwner(thumbnailPane.getScene().getWindow());
+            }
+            dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+
+            ListView<TagViewItem> tagListView = new ListView<>();
+            tagListView.setPrefHeight(230);
+
+            ComboBox<TagCategory> categoryCombo = new ComboBox<>(
+                    FXCollections.observableArrayList(categories));
+            categoryCombo.setPrefWidth(190);
+            categoryCombo.setCellFactory(list -> createCategoryCell());
+            categoryCombo.setButtonCell(createCategoryCell());
+            categoryCombo.getSelectionModel().selectFirst();
+
+            TextField tagNameField = new TextField();
+            tagNameField.setPromptText("输入标签名称");
+            tagNameField.setPrefWidth(220);
+
+            Button addButton = new Button("添加");
+            Button removeButton = new Button("删除选中标签");
+
+            Runnable reloadTags = () -> {
+                List<TagViewItem> items = new ArrayList<>();
+                for (Tag tag : tagDao.findTagsByImageId(image.id())) {
+                    String categoryLabel = categoryLabels.getOrDefault(tag.categoryId(), "未分类");
+                    items.add(new TagViewItem(tag, categoryLabel));
+                }
+                tagListView.setItems(FXCollections.observableArrayList(items));
+            };
+
+            addButton.setOnAction(event -> {
+                TagCategory category = categoryCombo.getValue();
+                String tagName = tagNameField.getText().trim();
+                if (category == null) {
+                    AlertUtil.showWarning("添加失败", "请选择标签分类");
+                    return;
+                }
+                if (tagName.isBlank()) {
+                    AlertUtil.showWarning("添加失败", "请输入标签名称");
+                    return;
+                }
+                try {
+                    Tag tag = tagDao.findOrCreateTag(category.id(), tagName);
+                    tagDao.linkImageTag(image.id(), tag.id(), 1.0f, "MANUAL");
+                    tagNameField.clear();
+                    reloadTags.run();
+                    statusLabel.setText("已添加标签: " + tagName);
+                } catch (Exception e) {
+                    logger.error("添加标签失败: imageId={}, tag={}", image.id(), tagName, e);
+                    AlertUtil.showError("添加标签失败", e.getMessage());
+                }
+            });
+
+            removeButton.setOnAction(event -> {
+                TagViewItem selected = tagListView.getSelectionModel().getSelectedItem();
+                if (selected == null) {
+                    AlertUtil.showWarning("删除失败", "请先选择一个标签");
+                    return;
+                }
+                try {
+                    tagDao.unlinkImageTag(image.id(), selected.tag().id());
+                    reloadTags.run();
+                    statusLabel.setText("已删除标签: " + selected.tag().name());
+                } catch (Exception e) {
+                    logger.error("删除标签失败: imageId={}, tagId={}", image.id(), selected.tag().id(), e);
+                    AlertUtil.showError("删除标签失败", e.getMessage());
+                }
+            });
+
+            tagNameField.setOnAction(event -> addButton.fire());
+
+            GridPane form = new GridPane();
+            form.setHgap(10);
+            form.setVgap(10);
+            form.add(new Label("分类:"), 0, 0);
+            form.add(categoryCombo, 1, 0);
+            form.add(new Label("标签:"), 0, 1);
+            form.add(tagNameField, 1, 1);
+
+            HBox actions = new HBox(10, addButton, removeButton);
+            actions.setAlignment(Pos.CENTER_LEFT);
+
+            VBox content = new VBox(10,
+                    new Label("当前标签"),
+                    tagListView,
+                    new Separator(),
+                    form,
+                    actions);
+            content.setPrefWidth(520);
+            content.setPadding(new javafx.geometry.Insets(10));
+
+            reloadTags.run();
+            dialog.getDialogPane().setContent(content);
+            dialog.showAndWait();
+        } catch (Exception e) {
+            logger.error("打开标签管理失败: imageId={}", image.id(), e);
+            AlertUtil.showError("标签管理失败", e.getMessage());
+        }
+    }
+
+    private ListCell<TagCategory> createCategoryCell() {
+        return new ListCell<>() {
+            @Override
+            protected void updateItem(TagCategory category, boolean empty) {
+                super.updateItem(category, empty);
+                setText(empty || category == null
+                        ? null
+                        : category.displayName() + " (" + category.name() + ")");
+            }
+        };
     }
 
     /**
@@ -756,6 +962,11 @@ public class MainController {
             }
             return;
         }
+        if (currentDirectoryPath == null || currentDirectoryPath.isBlank()) {
+            statusLabel.setText("请先选择一个文件夹再搜索");
+            return;
+        }
+        String searchDirectoryPath = currentDirectoryPath;
 
         // 判断搜索模式
         int modeIndex = searchModeCombo != null
@@ -771,21 +982,24 @@ public class MainController {
         Task<SearchService.SearchResult> searchTask = new Task<>() {
             @Override
             protected SearchService.SearchResult call() {
-                return searchService.search(query, mode);
+                return searchService.search(query, mode, searchDirectoryPath);
             }
         };
 
         searchTask.setOnSucceeded(event -> {
             SearchService.SearchResult result = searchTask.getValue();
+            selectedImages.clear();
             currentImages = new ArrayList<>(result.images());
             displayThumbnails(currentImages);
-            directoryNameLabel.setText("搜索结果: \"" + query + "\"");
+            directoryNameLabel.setText("当前文件夹搜索: \"" + query + "\"");
             imageCountLabel.setText(result.totalCount() + " 张图片");
+            selectionLabel.setText("");
             statusLabel.setText(result.message());
             slideshowButton.setDisable(currentImages.isEmpty());
         });
 
         searchTask.setOnFailed(event -> {
+            logger.error("搜索任务失败", searchTask.getException());
             statusLabel.setText("搜索失败: " + searchTask.getException().getMessage());
         });
 
@@ -803,6 +1017,7 @@ public class MainController {
             FXMLLoader loader = new FXMLLoader(
                     getClass().getResource("/fxml/SettingsView.fxml"));
             Parent settingsRoot = loader.load();
+            SettingsController controller = loader.getController();
 
             Stage settingsStage = new Stage();
             settingsStage.setTitle("系统设置 - 数字图像管理系统");
@@ -813,6 +1028,12 @@ public class MainController {
             settingsStage.initOwner(thumbnailPane.getScene().getWindow());
             settingsStage.setResizable(true);
             settingsStage.showAndWait();
+
+            if (controller.isSaved() && controller.isScanRequested()) {
+                String scanDirectory = controller.getSavedScanDirectory();
+                statusLabel.setText("设置已保存，开始扫描目录...");
+                startScanTask(scanDirectory);
+            }
         } catch (Exception e) {
             logger.error("打开设置页面失败", e);
             AlertUtil.showError("错误", "无法打开设置页面: " + e.getMessage());
@@ -830,8 +1051,14 @@ public class MainController {
             logger.warn("扫描目录不存在: {}", directoryPath);
             return;
         }
+        if (activeScanTask != null && activeScanTask.isRunning()) {
+            statusLabel.setText("已有扫描任务正在运行");
+            logger.info("扫描任务已在运行，忽略新的扫描请求: {}", directoryPath);
+            return;
+        }
 
         ScanTask scanTask = new ScanTask(scanDir);
+        activeScanTask = scanTask;
 
         // 绑定进度到UI
         if (scanProgressLabel != null && scanProgressBar != null) {
@@ -848,6 +1075,10 @@ public class MainController {
                 scanProgressBar.progressProperty().unbind();
                 scanProgressLabel.setText("扫描完成");
                 scanProgressBar.setProgress(1.0);
+                activeScanTask = null;
+                if (currentDirectoryPath != null && currentDirectoryPath.startsWith(scanDir.getAbsolutePath())) {
+                    onDirectorySelected(currentDirectoryPath);
+                }
                 // 3秒后隐藏进度条
                 new Thread(() -> {
                     try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
@@ -863,7 +1094,15 @@ public class MainController {
             scanTask.setOnFailed(e -> {
                 scanProgressLabel.textProperty().unbind();
                 scanProgressLabel.setText("扫描失败");
+                activeScanTask = null;
                 logger.error("扫描任务失败", scanTask.getException());
+            });
+
+            scanTask.setOnCancelled(e -> {
+                scanProgressLabel.textProperty().unbind();
+                scanProgressBar.progressProperty().unbind();
+                scanProgressLabel.setText("扫描已取消");
+                activeScanTask = null;
             });
         }
 

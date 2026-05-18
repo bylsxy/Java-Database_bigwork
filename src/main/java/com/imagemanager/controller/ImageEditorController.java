@@ -9,8 +9,10 @@ import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
@@ -21,6 +23,8 @@ import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 
 /**
@@ -42,6 +46,7 @@ public class ImageEditorController {
     // ==================== FXML 注入 ====================
 
     @FXML private StackPane canvasContainer;
+    @FXML private ScrollPane editorScrollPane;
     @FXML private ImageView editorImageView;
     @FXML private Canvas drawCanvas;
     @FXML private ColorPicker colorPicker;
@@ -57,15 +62,18 @@ public class ImageEditorController {
     private GraphicsContext gc;
 
     /** 当前编辑工具 */
-    private enum Tool { DRAW, CROP, TEXT, ARROW, RECT }
+    private enum Tool { MOVE, DRAW, CROP, TEXT, ARROW, RECT }
     private Tool currentTool = Tool.DRAW;
 
     /** 鼠标拖拽起点 */
     private double startX, startY;
     private boolean isDrawing = false;
 
-    /** Canvas 快照栈（简易撤销）*/
-    private WritableImage canvasUndoSnapshot;
+    /** 完整编辑状态撤销栈：底图 + 透明标注层。 */
+    private final Deque<EditorState> undoStack = new ArrayDeque<>();
+
+    private record EditorState(WritableImage baseImage, WritableImage overlayImage,
+                               double canvasWidth, double canvasHeight) {}
 
     // ==================== 初始化 ====================
 
@@ -105,6 +113,7 @@ public class ImageEditorController {
         drawCanvas.setOnMousePressed(this::onMousePressed);
         drawCanvas.setOnMouseDragged(this::onMouseDragged);
         drawCanvas.setOnMouseReleased(this::onMouseReleased);
+        applyToolInteractionMode();
 
         // 创建原始版本（如果尚不存在）
         editService.createOriginalVersion(image);
@@ -117,40 +126,62 @@ public class ImageEditorController {
 
     // ==================== 工具切换 ====================
 
+    @FXML private void onMoveMode() {
+        currentTool = Tool.MOVE;
+        applyToolInteractionMode();
+        toolStatusLabel.setText("当前工具: 移动 - 拖动画面");
+    }
+
     @FXML private void onCropMode() {
         currentTool = Tool.CROP;
-        toolStatusLabel.setText("当前工具: ✂ 裁切 — 拖拽选择区域");
+        applyToolInteractionMode();
+        toolStatusLabel.setText("当前工具: 裁切 - 拖拽选择区域");
     }
 
     @FXML private void onDrawMode() {
         currentTool = Tool.DRAW;
-        toolStatusLabel.setText("当前工具: ✏ 画笔 — 自由绘制");
+        applyToolInteractionMode();
+        toolStatusLabel.setText("当前工具: 画笔 - 自由绘制");
     }
 
     @FXML private void onTextMode() {
         currentTool = Tool.TEXT;
-        toolStatusLabel.setText("当前工具: T 文字 — 点击添加文字");
+        applyToolInteractionMode();
+        toolStatusLabel.setText("当前工具: 文字 - 点击添加文字");
     }
 
     @FXML private void onArrowMode() {
         currentTool = Tool.ARROW;
-        toolStatusLabel.setText("当前工具: ➜ 箭头 — 拖拽绘制箭头");
+        applyToolInteractionMode();
+        toolStatusLabel.setText("当前工具: 箭头 - 拖拽绘制箭头");
     }
 
     @FXML private void onRectMode() {
         currentTool = Tool.RECT;
-        toolStatusLabel.setText("当前工具: ▭ 矩形 — 拖拽绘制矩形");
+        applyToolInteractionMode();
+        toolStatusLabel.setText("当前工具: 矩形 - 拖拽绘制矩形");
+    }
+
+    private void applyToolInteractionMode() {
+        boolean moveMode = currentTool == Tool.MOVE;
+        if (editorScrollPane != null) {
+            editorScrollPane.setPannable(moveMode);
+        }
+        if (drawCanvas != null) {
+            drawCanvas.setMouseTransparent(moveMode);
+        }
     }
 
     // ==================== 鼠标事件处理 ====================
 
     private void onMousePressed(MouseEvent event) {
+        if (currentTool == Tool.MOVE) {
+            return;
+        }
+
         startX = event.getX();
         startY = event.getY();
         isDrawing = true;
-
-        // 保存撤销快照
-        saveUndoSnapshot();
 
         gc.setStroke(colorPicker.getValue());
         gc.setFill(colorPicker.getValue());
@@ -158,6 +189,7 @@ public class ImageEditorController {
 
         switch (currentTool) {
             case DRAW -> {
+                pushUndoState();
                 gc.beginPath();
                 gc.moveTo(startX, startY);
                 gc.stroke();
@@ -166,13 +198,16 @@ public class ImageEditorController {
                 // 弹出文字输入
                 AlertUtil.showTextInput("添加文字", "请输入要标注的文字:", "")
                         .ifPresent(text -> {
+                            pushUndoState();
                             gc.setFont(javafx.scene.text.Font.font(lineWidthSpinner.getValue() * 6));
                             gc.fillText(text, startX, startY);
                         });
                 isDrawing = false;
             }
-            default -> { /* CROP, ARROW, RECT 在 release 时处理 */ }
+            case CROP, ARROW, RECT -> pushUndoState();
+            default -> {}
         }
+        event.consume();
     }
 
     private void onMouseDragged(MouseEvent event) {
@@ -187,6 +222,7 @@ public class ImageEditorController {
         }
         // CROP/ARROW/RECT 的预览可以在这里用 XOR 模式绘制，
         // 简化起见，这里只在 release 时画最终结果
+        event.consume();
     }
 
     private void onMouseReleased(MouseEvent event) {
@@ -231,6 +267,7 @@ public class ImageEditorController {
             }
             default -> {}
         }
+        event.consume();
     }
 
     /**
@@ -255,18 +292,52 @@ public class ImageEditorController {
 
     // ==================== 撤销 ====================
 
-    private void saveUndoSnapshot() {
-        canvasUndoSnapshot = drawCanvas.snapshot(null, null);
+    private void pushUndoState() {
+        undoStack.push(new EditorState(
+                copyImage(originalImage),
+                snapshotCanvasLayer(),
+                drawCanvas.getWidth(),
+                drawCanvas.getHeight()
+        ));
     }
 
     @FXML
     private void onUndo() {
-        if (canvasUndoSnapshot != null) {
-            gc.clearRect(0, 0, drawCanvas.getWidth(), drawCanvas.getHeight());
-            gc.drawImage(canvasUndoSnapshot, 0, 0);
-            canvasUndoSnapshot = null;
+        if (!undoStack.isEmpty()) {
+            restoreState(undoStack.pop());
             toolStatusLabel.setText("已撤销上一步操作");
+        } else {
+            toolStatusLabel.setText("没有可撤销的操作");
         }
+    }
+
+    private void restoreState(EditorState state) {
+        originalImage = copyImage(state.baseImage());
+        editorImageView.setImage(originalImage);
+        editorImageView.setFitWidth(state.canvasWidth());
+        editorImageView.setFitHeight(state.canvasHeight());
+
+        drawCanvas.setWidth(state.canvasWidth());
+        drawCanvas.setHeight(state.canvasHeight());
+        gc = drawCanvas.getGraphicsContext2D();
+        gc.clearRect(0, 0, drawCanvas.getWidth(), drawCanvas.getHeight());
+        gc.drawImage(state.overlayImage(), 0, 0);
+    }
+
+    private WritableImage snapshotCanvasLayer() {
+        SnapshotParameters params = new SnapshotParameters();
+        params.setFill(Color.TRANSPARENT);
+        return drawCanvas.snapshot(params, null);
+    }
+
+    private WritableImage copyImage(Image image) {
+        int width = Math.max(1, (int) Math.round(image.getWidth()));
+        int height = Math.max(1, (int) Math.round(image.getHeight()));
+        PixelReader reader = image.getPixelReader();
+        if (reader == null) {
+            return new WritableImage(width, height);
+        }
+        return new WritableImage(reader, width, height);
     }
 
     // ==================== 保存版本 ====================
@@ -288,6 +359,7 @@ public class ImageEditorController {
             originalImage = merged;
             editorImageView.setImage(merged);
             gc.clearRect(0, 0, drawCanvas.getWidth(), drawCanvas.getHeight());
+            undoStack.clear();
 
             // 刷新版本时间轴
             refreshVersionTimeline();
@@ -344,15 +416,16 @@ public class ImageEditorController {
                         "恢复版本",
                         "确定恢复到版本 v" + version.versionNum() + " (" + version.editType() + ") 吗？");
                 if (confirmed) {
-                    editService.restoreVersion(currentImage.id(), version.id());
+                    editService.restoreVersion(currentImage.id(), version.id(), currentImage.filePath());
                     // 重新加载图片
-                    originalImage = ImageUtil.loadImage(version.filePath());
+                    originalImage = ImageUtil.loadImage(currentImage.filePath());
                     editorImageView.setImage(originalImage);
                     if (originalImage != null) {
                         drawCanvas.setWidth(originalImage.getWidth());
                         drawCanvas.setHeight(originalImage.getHeight());
                     }
                     gc.clearRect(0, 0, drawCanvas.getWidth(), drawCanvas.getHeight());
+                    undoStack.clear();
                     refreshVersionTimeline();
                 }
             });

@@ -52,6 +52,7 @@ public class ScanTask extends Task<Void> {
     protected Void call() throws Exception {
         logger.info("扫描任务启动: {}", rootDirectory.getAbsolutePath());
         updateMessage("正在扫描目录结构...");
+        ensureScanSchema();
 
         // ==================== Phase 1: 文件系统扫描 & 入库 ====================
         DirectoryScanner scanner = new DirectoryScanner();
@@ -116,6 +117,8 @@ public class ScanTask extends Task<Void> {
         }
 
         long requestDelay = AIConfig.getRequestDelay();
+        int successCount = 0;
+        int failedCount = 0;
 
         for (int i = 0; i < pendingCount; i++) {
             if (isCancelled()) {
@@ -176,6 +179,11 @@ public class ScanTask extends Task<Void> {
                     logger.info("AI识别完成: {} (标签数: {})", img.fileName(),
                             tagsByCategory != null ? tagsByCategory.values().stream()
                                     .mapToInt(List::size).sum() : 0);
+                    markAiProcessed(img.id(), true);
+                    successCount++;
+                } else {
+                    markAiProcessed(img.id(), false);
+                    failedCount++;
                 }
 
                 // 限流保护：请求间隔
@@ -189,10 +197,12 @@ public class ScanTask extends Task<Void> {
                 return null;
             } catch (Exception e) {
                 logger.error("AI识别失败: {} - {}", img.fileName(), e.getMessage());
+                markAiProcessed(img.id(), false);
+                failedCount++;
             }
         }
 
-        updateMessage("扫描完成！共处理 " + pendingCount + " 张图片。");
+        updateMessage("扫描完成！成功 " + successCount + " 张，失败 " + failedCount + " 张。");
         updateProgress(1, 1);
         logger.info("扫描任务全部完成");
         return null;
@@ -236,5 +246,33 @@ public class ScanTask extends Task<Void> {
             logger.error("查询待处理图片失败", e);
         }
         return allImages;
+    }
+
+    private void ensureScanSchema() {
+        try (var conn = DatabaseConnection.getConnection();
+             var stmt = conn.createStatement()) {
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS ai_processed BOOLEAN NOT NULL DEFAULT FALSE");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS last_ai_scan TIMESTAMP");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE");
+        } catch (Exception e) {
+            logger.error("初始化扫描数据库字段失败", e);
+            throw new RuntimeException("初始化扫描数据库字段失败: " + e.getMessage(), e);
+        }
+    }
+
+    private void markAiProcessed(int imageId, boolean processed) {
+        String sql = """
+                UPDATE images
+                SET ai_processed = ?, last_ai_scan = NOW(), modified_at = NOW()
+                WHERE id = ?
+                """;
+        try (var conn = DatabaseConnection.getConnection();
+             var ps = conn.prepareStatement(sql)) {
+            ps.setBoolean(1, processed);
+            ps.setInt(2, imageId);
+            ps.executeUpdate();
+        } catch (Exception e) {
+            logger.warn("更新AI处理状态失败: imageId={}, processed={}", imageId, processed, e);
+        }
     }
 }

@@ -158,7 +158,7 @@ public class OpenAICompatibleService implements AIService {
     @Override
     public String testConnection(File testImageFile) {
         if (!AIConfig.isConfigured()) {
-            return "❌ 失败：API Key 未配置";
+            return "失败：API Key 未配置";
         }
 
         try {
@@ -172,7 +172,7 @@ public class OpenAICompatibleService implements AIService {
                 int totalTags = tags == null ? 0 : tags.values().stream().mapToInt(List::size).sum();
 
                 StringBuilder sb = new StringBuilder();
-                sb.append("✅ 连接成功！\n");
+                sb.append("成功：连接正常\n");
                 sb.append("  模型: ").append(AIConfig.getModel()).append("\n");
                 sb.append("  耗时: ").append(elapsed).append("ms\n");
                 sb.append("  描述: ").append(r.description()).append("\n");
@@ -189,10 +189,10 @@ public class OpenAICompatibleService implements AIService {
                 }
                 return sb.toString();
             } else {
-                return "❌ 失败：模型未返回有效结果，请检查API配置";
+                return "失败：模型未返回有效结果，请检查API配置";
             }
         } catch (Exception e) {
-            return "❌ 失败：" + e.getMessage();
+            return "失败：" + e.getMessage();
         }
     }
 

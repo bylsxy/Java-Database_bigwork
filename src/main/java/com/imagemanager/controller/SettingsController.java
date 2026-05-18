@@ -5,6 +5,7 @@ import com.imagemanager.ai.AIService;
 import com.imagemanager.ai.OpenAICompatibleService;
 import com.imagemanager.dao.SettingsDao;
 import com.imagemanager.dao.SettingsDaoImpl;
+import com.imagemanager.util.AlertUtil;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -51,16 +52,30 @@ public class SettingsController {
     @FXML private Button saveButton;
     @FXML private Button cancelButton;
 
+    private String originalBaseUrl;
+    private String originalApiKey;
+    private String originalModel;
+    private String originalDelay;
+    private String originalScanDirectory;
+    private boolean saved = false;
+    private boolean scanRequested = false;
+    private String savedScanDirectory = "";
+
     @FXML
     public void initialize() {
         // 加载当前配置
-        baseUrlField.setText(settingsDao.getValueOrDefault("ai_base_url",
-                "https://dashscope.aliyuncs.com/compatible-mode/v1"));
-        apiKeyField.setText(settingsDao.getValueOrDefault("ai_api_key", ""));
-        modelField.setText(settingsDao.getValueOrDefault("ai_model", "qwen-vl-plus"));
-        delayField.setText(settingsDao.getValueOrDefault("ai_request_delay", "1500"));
+        originalBaseUrl = settingsDao.getValueOrDefault("ai_base_url",
+                "https://dashscope.aliyuncs.com/compatible-mode/v1");
+        originalApiKey = settingsDao.getValueOrDefault("ai_api_key", "");
+        originalModel = settingsDao.getValueOrDefault("ai_model", "qwen-vl-plus");
+        originalDelay = settingsDao.getValueOrDefault("ai_request_delay", "1500");
+        originalScanDirectory = settingsDao.getValueOrDefault("scan_directory", "");
 
-        scanDirField.setText(settingsDao.getValueOrDefault("scan_directory", ""));
+        baseUrlField.setText(originalBaseUrl);
+        apiKeyField.setText(originalApiKey);
+        modelField.setText(originalModel);
+        delayField.setText(originalDelay);
+        scanDirField.setText(originalScanDirectory);
 
         // 幻灯片间隔 Spinner
         int currentInterval = 3;
@@ -82,20 +97,15 @@ public class SettingsController {
      */
     @FXML
     private void onTestAPI() {
-        // 先临时保存配置（不持久化），让测试使用最新输入的值
+        // 使用当前输入测试连接，但不写入正式配置。
         String baseUrl = baseUrlField.getText().trim();
         String apiKey = apiKeyField.getText().trim();
         String model = modelField.getText().trim();
+        String delay = delayField.getText().trim();
 
-        if (apiKey.isBlank()) {
-            testResultArea.setText("❌ 请先填写 API Key");
+        if (!validateAiConfig(baseUrl, apiKey, model, delay, true)) {
             return;
         }
-
-        // 临时写入数据库以便 AIConfig 能读取
-        settingsDao.upsert("ai_base_url", baseUrl);
-        settingsDao.upsert("ai_api_key", apiKey);
-        settingsDao.upsert("ai_model", model);
 
         // 选择测试图片
         FileChooser fileChooser = new FileChooser();
@@ -115,15 +125,20 @@ public class SettingsController {
         testStatusLabel.setText("正在连接AI模型...");
         testResultArea.setText("正在分析图片: " + testImage.getName() + "\n请稍候...");
 
-        new Thread(() -> {
-            String result = aiService.testConnection(testImage);
+        Thread testThread = new Thread(() -> {
+            var runtimeConfig = new AIConfig.RuntimeConfig(baseUrl, apiKey, model, delay, null);
+            String result = AIConfig.withTemporaryConfig(runtimeConfig,
+                    () -> aiService.testConnection(testImage));
             Platform.runLater(() -> {
                 testResultArea.setText(result);
                 testButton.setDisable(false);
                 testProgress.setVisible(false);
-                testStatusLabel.setText(result.startsWith("✅") ? "测试通过" : "测试失败");
+                testStatusLabel.setText(result.startsWith("成功") ? "测试通过" : "测试失败");
             });
-        }).start();
+        });
+        testThread.setDaemon(true);
+        testThread.setName("AI-Settings-Test");
+        testThread.start();
     }
 
     @FXML
@@ -163,19 +178,45 @@ public class SettingsController {
      */
     @FXML
     private void onSave() {
+        String baseUrl = baseUrlField.getText().trim();
+        String apiKey = apiKeyField.getText().trim();
+        String model = modelField.getText().trim();
+        String delay = delayField.getText().trim();
+        String scanDirectory = scanDirField.getText().trim();
+
+        if (!validateAiConfig(baseUrl, apiKey, model, delay, false)) {
+            return;
+        }
+        if (!scanDirectory.isBlank()) {
+            File scanDir = new File(scanDirectory);
+            if (!scanDir.exists() || !scanDir.isDirectory()) {
+                AlertUtil.showWarning("保存失败", "扫描目录不存在或不是文件夹");
+                return;
+            }
+        }
+
         // AI配置
-        settingsDao.upsert("ai_base_url", baseUrlField.getText().trim());
-        settingsDao.upsert("ai_api_key", apiKeyField.getText().trim());
-        settingsDao.upsert("ai_model", modelField.getText().trim());
-        settingsDao.upsert("ai_request_delay", delayField.getText().trim());
+        settingsDao.upsert("ai_base_url", baseUrl);
+        settingsDao.upsert("ai_api_key", apiKey);
+        settingsDao.upsert("ai_model", model);
+        settingsDao.upsert("ai_request_delay", delay);
 
         // 扫描目录
-        settingsDao.upsert("scan_directory", scanDirField.getText().trim());
+        settingsDao.upsert("scan_directory", scanDirectory);
 
         // 幻灯片
         settingsDao.upsert("slideshow_interval", String.valueOf(intervalSpinner.getValue()));
         int selectedOrder = orderComboBox.getSelectionModel().getSelectedIndex();
         settingsDao.upsert("slideshow_order", selectedOrder == 1 ? "RANDOM" : "SEQUENTIAL");
+
+        boolean aiChanged = !baseUrl.equals(originalBaseUrl)
+                || !apiKey.equals(originalApiKey)
+                || !model.equals(originalModel)
+                || !delay.equals(originalDelay);
+        boolean scanDirChanged = !scanDirectory.equals(originalScanDirectory);
+        saved = true;
+        savedScanDirectory = scanDirectory;
+        scanRequested = !scanDirectory.isBlank() && (scanDirChanged || aiChanged);
 
         logger.info("设置已保存");
 
@@ -188,5 +229,48 @@ public class SettingsController {
     private void onCancel() {
         Stage stage = (Stage) cancelButton.getScene().getWindow();
         stage.close();
+    }
+
+    public boolean isSaved() {
+        return saved;
+    }
+
+    public boolean isScanRequested() {
+        return scanRequested;
+    }
+
+    public String getSavedScanDirectory() {
+        return savedScanDirectory;
+    }
+
+    private boolean validateAiConfig(String baseUrl, String apiKey, String model,
+                                     String delay, boolean requireApiKey) {
+        if (baseUrl.isBlank()) {
+            AlertUtil.showWarning("配置不完整", "请填写 Base URL");
+            return false;
+        }
+        if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+            AlertUtil.showWarning("配置无效", "Base URL 必须以 http:// 或 https:// 开头");
+            return false;
+        }
+        if (requireApiKey && apiKey.isBlank()) {
+            AlertUtil.showWarning("配置不完整", "请先填写 API Key");
+            return false;
+        }
+        if (!apiKey.isBlank() && model.isBlank()) {
+            AlertUtil.showWarning("配置不完整", "填写 API Key 后也需要填写模型名称");
+            return false;
+        }
+        try {
+            long delayMs = Long.parseLong(delay);
+            if (delayMs < 0 || delayMs > 60000) {
+                AlertUtil.showWarning("配置无效", "请求间隔需要在 0 到 60000 毫秒之间");
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            AlertUtil.showWarning("配置无效", "请求间隔必须是数字");
+            return false;
+        }
+        return true;
     }
 }

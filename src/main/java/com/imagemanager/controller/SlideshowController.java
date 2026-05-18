@@ -15,11 +15,13 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,13 +32,18 @@ import java.util.List;
  * v2.0 增强功能：
  * <ul>
  *   <li>多选播放 — 仅播放 Ctrl 选中的图片（由 MainController 传入子集）</li>
- *   <li>背景音乐 — 内置3首MP3，ComboBox选择，Slider调音量</li>
+ *   <li>背景音乐 — 内置三首MP3 + 自定义本地文件，ComboBox选择，Slider调音量</li>
  *   <li>可配置播放间隔 — 从数据库 app_settings 读取</li>
  * </ul>
  */
 public class SlideshowController {
 
     private static final Logger logger = LoggerFactory.getLogger(SlideshowController.class);
+    private static final String NO_MUSIC_OPTION = "🔇 无音乐";
+    private static final String CUSTOM_MUSIC_OPTION = "🎵 自定义播放";
+    private static final String MUSIC_PLAYING_TEXT = "暂停音乐";
+    private static final String MUSIC_PAUSED_TEXT = "继续播放";
+    private static final String MUSIC_MUTED_TEXT = "播放音乐";
 
     /** 日期格式化器 */
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -84,6 +91,12 @@ public class SlideshowController {
 
     /** 播放间隔（秒），从设置读取 */
     private double playIntervalSeconds = 3.0;
+
+    /** 自定义音乐文件路径。ComboBox 只显示固定文案，实际路径存在这里。 */
+    private String customMusicPath;
+
+    /** 避免程序主动修改 ComboBox 选中项时重复触发选择事件。 */
+    private boolean updatingMusicSelection = false;
 
     // ==================== 初始化 ====================
 
@@ -134,27 +147,33 @@ public class SlideshowController {
     }
 
     /**
-     * 初始化音乐控件。
+     * 初始化音乐控件 — 内置三首音乐 + 自定义播放选项。
      */
     private void initMusicControls() {
         if (musicCombo == null) return;
 
-        // 填充音乐下拉列表
-        List<String> musicNames = new ArrayList<>();
-        musicNames.add("🔇 无音乐");
-        musicNames.addAll(musicService.getMusicLibrary().keySet());
-        musicCombo.setItems(FXCollections.observableArrayList(musicNames));
+        // 构建选项列表
+        List<String> musicOptions = new ArrayList<>();
+        musicOptions.add(NO_MUSIC_OPTION);
+        musicOptions.addAll(musicService.getBuiltinMusicNames());
+        musicOptions.add(CUSTOM_MUSIC_OPTION);
+        musicCombo.setItems(FXCollections.observableArrayList(musicOptions));
         musicCombo.getSelectionModel().selectFirst();
 
-        // 选择音乐时自动播放
+        // 选择音乐时的处理
         musicCombo.setOnAction(event -> {
+            if (updatingMusicSelection) {
+                return;
+            }
             String selected = musicCombo.getValue();
-            if (selected == null || selected.equals("🔇 无音乐")) {
+            if (selected == null || selected.equals(NO_MUSIC_OPTION)) {
                 musicService.stop();
-                musicToggleButton.setText("🔇");
+                updateMusicToggleButton();
+            } else if (selected.equals(CUSTOM_MUSIC_OPTION)) {
+                chooseAndPlayCustomMusic();
             } else {
-                musicService.play(selected);
-                musicToggleButton.setText("🔊");
+                // 内置音乐
+                playSelectedMusic(selected);
             }
         });
 
@@ -165,6 +184,9 @@ public class SlideshowController {
                 musicService.setVolume(newVal.doubleValue());
             });
         }
+
+        // 初始按钮状态：无音乐播放，图标为静音
+        updateMusicToggleButton();
     }
 
     // ==================== 图片显示 ====================
@@ -311,23 +333,108 @@ public class SlideshowController {
         logger.info("停止自动播放");
     }
 
-    // ==================== 音乐控制 (v2.0新增) ====================
+    // ==================== 音乐控制 ====================
 
     /**
-     * 音乐播放/暂停切换。
+     * 音乐播放/暂停切换按钮。
+     * 行为：
+     * - 如果有音乐正在播放 → 暂停
+     * - 如果有音乐处于暂停状态 → 恢复播放
+     * - 如果没有任何音乐（currentPlayer == null）→ 尝试根据 ComboBox 的选中项开始播放
      */
     @FXML
     private void onMusicToggle() {
-        if (musicService.isPlaying()) {
-            musicService.togglePause();
-            musicToggleButton.setText("🔇");
-        } else {
-            // 如果有选中的音乐，恢复播放
-            String selected = musicCombo != null ? musicCombo.getValue() : null;
-            if (selected != null && !selected.equals("🔇 无音乐")) {
-                musicService.play(selected);
-                musicToggleButton.setText("🔊");
+        if (musicService.hasLoadedMusic()) {
+            if (musicService.isPlaying()) {
+                musicService.pause();
+            } else {
+                musicService.resume();
             }
+            updateMusicToggleButton();
+            return;
+        }
+
+        if (musicCombo == null) {
+            return;
+        }
+
+        String selected = musicCombo.getValue();
+        if (selected == null || selected.equals(NO_MUSIC_OPTION)) {
+            AlertUtil.showWarning("无音乐", "请先从下拉列表中选择一首音乐");
+            return;
+        }
+
+        if (selected.equals(CUSTOM_MUSIC_OPTION)) {
+            if (customMusicPath != null && !customMusicPath.isBlank()) {
+                playSelectedMusic(customMusicPath);
+            } else {
+                chooseAndPlayCustomMusic();
+            }
+        } else {
+            // 没有任何音乐在播放，尝试从 ComboBox 选中的项开始播放
+            playSelectedMusic(selected);
+        }
+    }
+
+    private void chooseAndPlayCustomMusic() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("选择自定义音乐文件");
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("音频文件", "*.mp3", "*.wav", "*.m4a", "*.aac"),
+                new FileChooser.ExtensionFilter("所有文件", "*.*")
+        );
+
+        File selectedFile = fileChooser.showOpenDialog(musicCombo.getScene().getWindow());
+        if (selectedFile == null) {
+            selectNoMusicOption();
+            return;
+        }
+
+        customMusicPath = selectedFile.getAbsolutePath();
+        boolean played = musicService.play(customMusicPath);
+        if (played) {
+            selectMusicOption(CUSTOM_MUSIC_OPTION);
+        } else {
+            AlertUtil.showError("播放失败", "无法播放音乐文件: " + selectedFile.getName());
+            selectNoMusicOption();
+        }
+        updateMusicToggleButton();
+    }
+
+    private void playSelectedMusic(String musicIdentifier) {
+        boolean played = musicService.play(musicIdentifier);
+        if (!played) {
+            AlertUtil.showError("播放失败", "无法播放选中的音乐，请检查文件是否存在或格式是否受支持。");
+            selectNoMusicOption();
+        }
+        updateMusicToggleButton();
+    }
+
+    private void selectNoMusicOption() {
+        musicService.stop();
+        selectMusicOption(NO_MUSIC_OPTION);
+        updateMusicToggleButton();
+    }
+
+    private void selectMusicOption(String option) {
+        updatingMusicSelection = true;
+        try {
+            musicCombo.getSelectionModel().select(option);
+        } finally {
+            updatingMusicSelection = false;
+        }
+    }
+
+    private void updateMusicToggleButton() {
+        if (musicToggleButton == null) {
+            return;
+        }
+        if (!musicService.hasLoadedMusic()) {
+            musicToggleButton.setText(MUSIC_MUTED_TEXT);
+        } else if (musicService.isPlaying()) {
+            musicToggleButton.setText(MUSIC_PLAYING_TEXT);
+        } else {
+            musicToggleButton.setText(MUSIC_PAUSED_TEXT);
         }
     }
 
@@ -339,8 +446,7 @@ public class SlideshowController {
     @FXML
     private void onExit() {
         stopAutoPlay();
-        musicService.stop(); // v2.0: 停止音乐
-        // 关闭窗口
+        musicService.stop();
         Stage stage = (Stage) mainImageView.getScene().getWindow();
         stage.close();
     }

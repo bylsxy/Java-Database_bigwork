@@ -3,6 +3,8 @@ package com.imagemanager.ai;
 import com.imagemanager.dao.SettingsDao;
 import com.imagemanager.dao.SettingsDaoImpl;
 
+import java.util.function.Supplier;
+
 /**
  * AI 服务配置 — 管理 OpenAI 兼容 API 的连接参数。
  * <p>
@@ -18,11 +20,19 @@ public class AIConfig {
     private static final String DEFAULT_MODEL = "qwen-vl-plus";
     private static final String DEFAULT_DELAY = "1500";
     private static final String DEFAULT_MAX_RETRIES = "3";
+    private static final ThreadLocal<RuntimeConfig> RUNTIME_CONFIG = new ThreadLocal<>();
+
+    public record RuntimeConfig(String baseUrl, String apiKey, String model,
+                                String requestDelay, String maxRetries) {}
 
     /**
      * 获取 API Base URL。
      */
     public static String getBaseUrl() {
+        RuntimeConfig config = RUNTIME_CONFIG.get();
+        if (config != null && config.baseUrl() != null && !config.baseUrl().isBlank()) {
+            return config.baseUrl();
+        }
         return settingsDao.getValueOrDefault("ai_base_url", DEFAULT_BASE_URL);
     }
 
@@ -30,6 +40,10 @@ public class AIConfig {
      * 获取 API Key。
      */
     public static String getApiKey() {
+        RuntimeConfig config = RUNTIME_CONFIG.get();
+        if (config != null && config.apiKey() != null) {
+            return config.apiKey();
+        }
         return settingsDao.getValueOrDefault("ai_api_key", "");
     }
 
@@ -37,6 +51,10 @@ public class AIConfig {
      * 获取模型名称（如 qwen-vl-plus, gpt-4o-mini 等）。
      */
     public static String getModel() {
+        RuntimeConfig config = RUNTIME_CONFIG.get();
+        if (config != null && config.model() != null && !config.model().isBlank()) {
+            return config.model();
+        }
         return settingsDao.getValueOrDefault("ai_model", DEFAULT_MODEL);
     }
 
@@ -45,6 +63,10 @@ public class AIConfig {
      */
     public static long getRequestDelay() {
         try {
+            RuntimeConfig config = RUNTIME_CONFIG.get();
+            if (config != null && config.requestDelay() != null && !config.requestDelay().isBlank()) {
+                return Long.parseLong(config.requestDelay());
+            }
             return Long.parseLong(settingsDao.getValueOrDefault("ai_request_delay", DEFAULT_DELAY));
         } catch (NumberFormatException e) {
             return Long.parseLong(DEFAULT_DELAY);
@@ -56,6 +78,10 @@ public class AIConfig {
      */
     public static int getMaxRetries() {
         try {
+            RuntimeConfig config = RUNTIME_CONFIG.get();
+            if (config != null && config.maxRetries() != null && !config.maxRetries().isBlank()) {
+                return Integer.parseInt(config.maxRetries());
+            }
             return Integer.parseInt(settingsDao.getValueOrDefault("ai_max_retries", DEFAULT_MAX_RETRIES));
         } catch (NumberFormatException e) {
             return Integer.parseInt(DEFAULT_MAX_RETRIES);
@@ -77,5 +103,19 @@ public class AIConfig {
         settingsDao.upsert("ai_base_url", baseUrl);
         settingsDao.upsert("ai_api_key", apiKey);
         settingsDao.upsert("ai_model", model);
+    }
+
+    public static <T> T withTemporaryConfig(RuntimeConfig config, Supplier<T> action) {
+        RuntimeConfig previous = RUNTIME_CONFIG.get();
+        RUNTIME_CONFIG.set(config);
+        try {
+            return action.get();
+        } finally {
+            if (previous == null) {
+                RUNTIME_CONFIG.remove();
+            } else {
+                RUNTIME_CONFIG.set(previous);
+            }
+        }
     }
 }

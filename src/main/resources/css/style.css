@@ -369,6 +369,62 @@
     -fx-text-fill: white;
 }
 
+/* ==================== 图片编辑器 ==================== */
+
+.editor-root {
+    -fx-background-color: #20242B;
+}
+
+.editor-toolbar {
+    -fx-background-color: #2C3E50;
+    -fx-padding: 8 12 8 12;
+    -fx-spacing: 8;
+}
+
+.editor-tool-button,
+.editor-save-button {
+    -fx-background-radius: 4;
+    -fx-padding: 6 12 6 12;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+}
+
+.editor-tool-button {
+    -fx-background-color: #EEF2F6;
+    -fx-text-fill: #26313D;
+}
+
+.editor-tool-button:hover {
+    -fx-background-color: #DDE7F0;
+}
+
+.editor-save-button {
+    -fx-background-color: #27AE60;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.editor-save-button:hover {
+    -fx-background-color: #219A52;
+}
+
+.editor-canvas-scroll {
+    -fx-background-color: #20242B;
+    -fx-background: #20242B;
+}
+
+.editor-canvas-container {
+    -fx-background-color: #20242B;
+    -fx-padding: 24;
+    -fx-alignment: center;
+}
+
+.version-timeline-bar {
+    -fx-background-color: #F5F6F8;
+    -fx-border-color: #DDE2E8 transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
 /* ==================== 滚动条美化 ==================== */
 
 .scroll-bar {

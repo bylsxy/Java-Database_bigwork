@@ -26,7 +26,7 @@ public interface VersionDao {
     ImageVersion createVersion(ImageVersion version);
 
     /**
-     * 恢复到指定版本（调用存储过程 sp_restore_version）。
+     * 将指定版本标记为当前版本。
      */
     void restoreVersion(int imageId, int versionId);
 

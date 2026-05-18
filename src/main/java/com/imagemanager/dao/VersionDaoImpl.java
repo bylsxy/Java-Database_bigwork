@@ -15,9 +15,11 @@ import java.util.Optional;
 public class VersionDaoImpl implements VersionDao {
 
     private static final Logger logger = LoggerFactory.getLogger(VersionDaoImpl.class);
+    private static volatile boolean schemaReady = false;
 
     @Override
     public List<ImageVersion> findByImageId(int imageId) {
+        ensureSchema();
         String sql = """
                 SELECT id, image_id, version_num, file_path, file_size,
                        width, height, thumbnail, edit_type, description,
@@ -43,6 +45,7 @@ public class VersionDaoImpl implements VersionDao {
 
     @Override
     public Optional<ImageVersion> findCurrentVersion(int imageId) {
+        ensureSchema();
         String sql = """
                 SELECT id, image_id, version_num, file_path, file_size,
                        width, height, thumbnail, edit_type, description,
@@ -66,6 +69,7 @@ public class VersionDaoImpl implements VersionDao {
 
     @Override
     public ImageVersion createVersion(ImageVersion version) {
+        ensureSchema();
         // 先取消当前版本标记
         String resetSql = "UPDATE image_versions SET is_current = FALSE WHERE image_id = ?";
         String insertSql = """
@@ -130,20 +134,40 @@ public class VersionDaoImpl implements VersionDao {
 
     @Override
     public void restoreVersion(int imageId, int versionId) {
-        String sql = "CALL sp_restore_version(?, ?)";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, imageId);
-            ps.setInt(2, versionId);
-            ps.execute();
+        ensureSchema();
+        String resetSql = "UPDATE image_versions SET is_current = FALSE WHERE image_id = ?";
+        String currentSql = "UPDATE image_versions SET is_current = TRUE WHERE id = ? AND image_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement resetPs = conn.prepareStatement(resetSql);
+                 PreparedStatement currentPs = conn.prepareStatement(currentSql)) {
+                resetPs.setInt(1, imageId);
+                resetPs.executeUpdate();
+
+                currentPs.setInt(1, versionId);
+                currentPs.setInt(2, imageId);
+                int affected = currentPs.executeUpdate();
+                if (affected == 0) {
+                    throw new SQLException("版本不存在: " + versionId);
+                }
+
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
             logger.info("版本恢复成功: imageId={}, versionId={}", imageId, versionId);
         } catch (SQLException e) {
             logger.error("版本恢复失败: imageId={}, versionId={}", imageId, versionId, e);
+            throw new RuntimeException("版本恢复失败", e);
         }
     }
 
     @Override
     public int countVersions(int imageId) {
+        ensureSchema();
         String sql = "SELECT COUNT(*) FROM image_versions WHERE image_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -155,6 +179,44 @@ public class VersionDaoImpl implements VersionDao {
             logger.error("统计版本数量失败: imageId={}", imageId, e);
         }
         return 0;
+    }
+
+    private void ensureSchema() {
+        if (schemaReady) {
+            return;
+        }
+        synchronized (VersionDaoImpl.class) {
+            if (schemaReady) {
+                return;
+            }
+
+            String createVersionsSql = """
+                    CREATE TABLE IF NOT EXISTS image_versions (
+                        id SERIAL PRIMARY KEY,
+                        image_id INTEGER NOT NULL REFERENCES images(id) ON DELETE CASCADE,
+                        version_num INTEGER NOT NULL DEFAULT 1,
+                        file_path TEXT NOT NULL,
+                        file_size BIGINT,
+                        width INTEGER,
+                        height INTEGER,
+                        thumbnail BYTEA,
+                        edit_type VARCHAR(50),
+                        description TEXT,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        is_current BOOLEAN NOT NULL DEFAULT FALSE,
+                        UNIQUE(image_id, version_num)
+                    )
+                    """;
+            try (Connection conn = DatabaseConnection.getConnection();
+                 Statement stmt = conn.createStatement()) {
+                stmt.execute(createVersionsSql);
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_versions_image ON image_versions (image_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_versions_current ON image_versions (image_id) WHERE is_current = TRUE");
+                schemaReady = true;
+            } catch (SQLException e) {
+                logger.error("初始化图片版本表失败", e);
+            }
+        }
     }
 
     private ImageVersion mapRow(ResultSet rs) throws SQLException {

@@ -73,10 +73,10 @@
                 <Separator orientation="VERTICAL" prefHeight="25"/>
 
                 <!-- v2.0新增：🎵 背景音乐控制 -->
-                <ComboBox fx:id="musicCombo" prefWidth="130" promptText="🎵 背景音乐"
+                <ComboBox fx:id="musicCombo" prefWidth="130" promptText="背景音乐"
                           styleClass="music-combo"/>
-                <Button fx:id="musicToggleButton" text="🔇" onAction="#onMusicToggle"
-                        styleClass="control-button" prefWidth="40"/>
+                <Button fx:id="musicToggleButton" text="播放音乐" onAction="#onMusicToggle"
+                        styleClass="control-button" prefWidth="90"/>
                 <Slider fx:id="volumeSlider" min="0" max="1" value="0.5"
                         prefWidth="80" styleClass="volume-slider"/>
 

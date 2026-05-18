@@ -23,11 +23,13 @@ public class SearchService {
 
     private final TagDao tagDao;
     private final ImageDao imageDao;
+    private final DirectoryDao directoryDao;
     private final AIService aiService;
 
     public SearchService() {
         this.tagDao = new TagDaoImpl();
         this.imageDao = new ImageDaoImpl();
+        this.directoryDao = new DirectoryDaoImpl();
         this.aiService = new OpenAICompatibleService();
     }
 
@@ -57,31 +59,42 @@ public class SearchService {
      * @return 搜索结果
      */
     public SearchResult search(String query, SearchMode mode) {
+        return search(query, mode, null);
+    }
+
+    public SearchResult search(String query, SearchMode mode, String directoryPath) {
         if (query == null || query.isBlank()) {
             return new SearchResult(List.of(), "", 0, "请输入搜索内容");
         }
 
+        Optional<Integer> directoryId = resolveDirectoryId(directoryPath);
+        if (directoryPath != null && !directoryPath.isBlank() && directoryId.isEmpty()) {
+            return new SearchResult(List.of(), query, 0, "当前目录尚未入库，请先加载该文件夹");
+        }
+
         return switch (mode) {
-            case KEYWORD -> searchByKeyword(query);
-            case AI_SQL -> searchByAI(query);
+            case KEYWORD -> searchByKeyword(query, directoryId);
+            case AI_SQL -> searchByAI(query, directoryId);
         };
     }
 
     /**
      * 关键词直接搜索。
      */
-    private SearchResult searchByKeyword(String keyword) {
+    private SearchResult searchByKeyword(String keyword, Optional<Integer> directoryId) {
         logger.info("关键词搜索: {}", keyword);
         try {
-            List<Integer> imageIds = tagDao.searchImagesByKeyword(keyword);
+            List<Integer> imageIds = directoryId.isPresent()
+                    ? tagDao.searchImagesByKeyword(keyword, directoryId.get())
+                    : tagDao.searchImagesByKeyword(keyword);
             List<ImageFile> images = loadImagesByIds(imageIds);
 
             // 记录搜索历史
             recordSearchHistory(keyword, "KEYWORD", null, images.size());
 
             String msg = images.isEmpty()
-                    ? "未找到匹配 \"" + keyword + "\" 的图片"
-                    : "找到 " + images.size() + " 张匹配的图片";
+                    ? "当前文件夹未找到匹配 \"" + keyword + "\" 的图片"
+                    : "当前文件夹找到 " + images.size() + " 张匹配的图片";
 
             return new SearchResult(images, keyword, images.size(), msg);
         } catch (Exception e) {
@@ -93,7 +106,7 @@ public class SearchService {
     /**
      * AI自然语言转SQL搜索。
      */
-    private SearchResult searchByAI(String naturalLanguageQuery) {
+    private SearchResult searchByAI(String naturalLanguageQuery, Optional<Integer> directoryId) {
         logger.info("AI智能搜索: {}", naturalLanguageQuery);
         try {
             // 1. 调用AI将自然语言转为SQL
@@ -109,13 +122,19 @@ public class SearchService {
             // 2. 执行SQL
             List<Integer> imageIds = tagDao.executeSearchSQL(sql);
             List<ImageFile> images = loadImagesByIds(imageIds);
+            if (directoryId.isPresent()) {
+                int targetDirectoryId = directoryId.get();
+                images = images.stream()
+                        .filter(image -> image.directoryId() == targetDirectoryId)
+                        .toList();
+            }
 
             // 3. 记录搜索历史
             recordSearchHistory(naturalLanguageQuery, "AI_SQL", sql, images.size());
 
             String msg = images.isEmpty()
-                    ? "AI搜索未找到匹配结果\n生成的SQL: " + sql
-                    : "AI搜索找到 " + images.size() + " 张匹配的图片\nSQL: " + sql;
+                    ? "当前文件夹 AI 搜索未找到匹配结果\n生成的SQL: " + sql
+                    : "当前文件夹 AI 搜索找到 " + images.size() + " 张匹配的图片\nSQL: " + sql;
 
             return new SearchResult(images, sql, images.size(), msg);
         } catch (SecurityException e) {
@@ -138,6 +157,13 @@ public class SearchService {
             imageDao.findById(id).ifPresent(images::add);
         }
         return images;
+    }
+
+    private Optional<Integer> resolveDirectoryId(String directoryPath) {
+        if (directoryPath == null || directoryPath.isBlank()) {
+            return Optional.empty();
+        }
+        return directoryDao.findByPath(directoryPath).map(directory -> directory.id());
     }
 
     /**
