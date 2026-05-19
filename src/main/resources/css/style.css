@@ -245,6 +245,22 @@
     -fx-background-color: #1A252F;
 }
 
+.slideshow-check {
+    -fx-text-fill: #E0E0E0;
+    -fx-cursor: hand;
+}
+
+.slideshow-check .box {
+    -fx-background-color: #24364A;
+    -fx-border-color: #6F8194;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+}
+
+.slideshow-check:selected .mark {
+    -fx-background-color: white;
+}
+
 .play-button {
     -fx-background-color: #27AE60;
 }
@@ -289,6 +305,75 @@
     -fx-opacity: 1.0;
     -fx-border-color: #E74C3C;
     -fx-border-width: 2;
+}
+
+/* ==================== 单张图片查看界面 ==================== */
+
+.viewer-root {
+    -fx-background-color: #20242B;
+}
+
+.viewer-image-container {
+    -fx-background-color: #20242B;
+    -fx-alignment: center;
+}
+
+.viewer-controls {
+    -fx-background-color: #F1F4F7;
+}
+
+.viewer-info-bar {
+    -fx-background-color: #E7ECF2;
+    -fx-border-color: #D4DCE5 transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    -fx-min-height: 30;
+}
+
+.viewer-info-text {
+    -fx-text-fill: #34495E;
+    -fx-font-size: 12px;
+}
+
+.viewer-control-bar {
+    -fx-background-color: #F1F4F7;
+    -fx-min-height: 48;
+}
+
+.viewer-button {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #C9D3DF;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-text-fill: #2C3E50;
+    -fx-cursor: hand;
+    -fx-min-height: 32;
+}
+
+.viewer-button:hover {
+    -fx-background-color: #EAF3FC;
+    -fx-border-color: #8DBBE8;
+}
+
+.viewer-play-button {
+    -fx-background-color: #27AE60;
+    -fx-border-color: #27AE60;
+    -fx-text-fill: white;
+}
+
+.viewer-play-button:hover {
+    -fx-background-color: #219A52;
+    -fx-border-color: #219A52;
+}
+
+.viewer-close-button {
+    -fx-background-color: #E74C3C;
+    -fx-border-color: #E74C3C;
+    -fx-text-fill: white;
+}
+
+.viewer-close-button:hover {
+    -fx-background-color: #C0392B;
+    -fx-border-color: #C0392B;
 }
 
 /* ==================== 重命名对话框 ==================== */

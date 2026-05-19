@@ -345,79 +345,123 @@ public class TagDaoImpl implements TagDao {
     @Override
     public List<Integer> searchImagesByKeyword(String keyword) {
         ensureSearchSchema();
-        String sql = """
-                SELECT DISTINCT i.id
-                FROM images i
-                LEFT JOIN ai_analysis_results ar ON i.id = ar.image_id
-                LEFT JOIN image_tags it ON i.id = it.image_id
-                LEFT JOIN tags t ON it.tag_id = t.id
-                WHERE i.is_deleted = FALSE
-                  AND (
-                       i.file_name ILIKE ?
-                    OR i.file_path ILIKE ?
-                    OR COALESCE(t.name, '') ILIKE ?
-                    OR COALESCE(ar.description, '') ILIKE ?
-                  )
-                ORDER BY i.id
-                LIMIT 200
-                """;
-        List<Integer> ids = new ArrayList<>();
-        String pattern = "%" + keyword + "%";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, pattern);
-            ps.setString(2, pattern);
-            ps.setString(3, pattern);
-            ps.setString(4, pattern);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    ids.add(rs.getInt("id"));
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("关键词搜索失败: keyword={}", keyword, e);
-        }
-        return ids;
+        return searchImagesByKeywordInternal(keyword, null);
     }
 
     @Override
     public List<Integer> searchImagesByKeyword(String keyword, int directoryId) {
         ensureSearchSchema();
-        String sql = """
-                SELECT DISTINCT i.id
-                FROM images i
-                LEFT JOIN ai_analysis_results ar ON i.id = ar.image_id
-                LEFT JOIN image_tags it ON i.id = it.image_id
-                LEFT JOIN tags t ON it.tag_id = t.id
-                WHERE i.is_deleted = FALSE
-                  AND i.directory_id = ?
-                  AND (
-                       i.file_name ILIKE ?
-                    OR i.file_path ILIKE ?
-                    OR COALESCE(t.name, '') ILIKE ?
-                    OR COALESCE(ar.description, '') ILIKE ?
-                  )
-                ORDER BY i.id
-                LIMIT 200
-                """;
+        return searchImagesByKeywordInternal(keyword, directoryId);
+    }
+
+    private List<Integer> searchImagesByKeywordInternal(String keyword, Integer rootDirectoryId) {
         List<Integer> ids = new ArrayList<>();
-        String pattern = "%" + keyword + "%";
+        List<String> terms = buildSearchTerms(keyword);
+        if (terms.isEmpty()) {
+            return ids;
+        }
+
+        StringBuilder sql = new StringBuilder();
+        if (rootDirectoryId != null) {
+            sql.append("""
+                    WITH RECURSIVE dir_tree AS (
+                        SELECT id FROM directories WHERE id = ?
+                        UNION ALL
+                        SELECT d.id FROM directories d
+                        JOIN dir_tree dt ON d.parent_id = dt.id
+                    ),
+                    """);
+        } else {
+            sql.append("WITH ");
+        }
+
+        sql.append("""
+                searchable AS (
+                    SELECT
+                        i.id,
+                        LOWER(CONCAT_WS(' ', i.file_name, i.file_path, ar.description,
+                            STRING_AGG(COALESCE(t.name, ''), ' '))) AS search_text,
+                        LOWER(REPLACE(REPLACE(REPLACE(REPLACE(CONCAT_WS('', i.file_name, i.file_path,
+                            ar.description, STRING_AGG(COALESCE(t.name, ''), '')), ' ', ''), '_', ''), '-', ''), '.', '')) AS compact_text
+                    FROM images i
+                    LEFT JOIN ai_analysis_results ar ON i.id = ar.image_id
+                    LEFT JOIN image_tags it ON i.id = it.image_id
+                    LEFT JOIN tags t ON it.tag_id = t.id
+                    WHERE i.is_deleted = FALSE
+                """);
+
+        if (rootDirectoryId != null) {
+            sql.append("      AND i.directory_id IN (SELECT id FROM dir_tree)\n");
+        }
+
+        sql.append("""
+                    GROUP BY i.id, i.file_name, i.file_path, ar.description
+                )
+                SELECT id
+                FROM searchable
+                WHERE 1 = 1
+                """);
+
+        for (int i = 0; i < terms.size(); i++) {
+            sql.append("""
+                      AND (
+                           search_text LIKE ?
+                        OR compact_text LIKE ?
+                        OR compact_text LIKE ?
+                      )
+                    """);
+        }
+
+        sql.append("ORDER BY id LIMIT 500");
+
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, directoryId);
-            ps.setString(2, pattern);
-            ps.setString(3, pattern);
-            ps.setString(4, pattern);
-            ps.setString(5, pattern);
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int paramIndex = 1;
+            if (rootDirectoryId != null) {
+                ps.setInt(paramIndex++, rootDirectoryId);
+            }
+            for (String term : terms) {
+                String compactTerm = compactSearchText(term);
+                ps.setString(paramIndex++, "%" + term.toLowerCase(Locale.ROOT) + "%");
+                ps.setString(paramIndex++, "%" + compactTerm + "%");
+                ps.setString(paramIndex++, "%" + wildcardBetweenChars(compactTerm) + "%");
+            }
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     ids.add(rs.getInt("id"));
                 }
             }
         } catch (SQLException e) {
-            logger.error("目录内关键词搜索失败: keyword={}, directoryId={}", keyword, directoryId, e);
+            logger.error("关键词搜索失败: keyword={}, rootDirectoryId={}", keyword, rootDirectoryId, e);
         }
         return ids;
+    }
+
+    private List<String> buildSearchTerms(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return List.of();
+        }
+        String normalized = keyword.trim().toLowerCase(Locale.ROOT);
+        String[] split = normalized.split("[\\s,，;；]+");
+        List<String> terms = new ArrayList<>();
+        for (String term : split) {
+            if (!term.isBlank()) {
+                terms.add(term);
+            }
+        }
+        return terms;
+    }
+
+    private String compactSearchText(String text) {
+        return text == null ? "" : text.toLowerCase(Locale.ROOT)
+                .replaceAll("[\\s_\\-.]+", "");
+    }
+
+    private String wildcardBetweenChars(String text) {
+        if (text == null || text.length() < 2) {
+            return text == null ? "" : text;
+        }
+        return String.join("%", text.split(""));
     }
 
     @Override

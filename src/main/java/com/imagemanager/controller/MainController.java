@@ -161,7 +161,7 @@ public class MainController {
     private void initSearchBar() {
         if (searchModeCombo != null) {
             searchModeCombo.setItems(FXCollections.observableArrayList(
-                    "🔍 关键词", "🤖 AI智能"
+                    "关键词", "AI智能"
             ));
             searchModeCombo.getSelectionModel().selectFirst();
         }
@@ -379,7 +379,7 @@ public class MainController {
         // 单击选中
         card.setOnMouseClicked(event -> handleCardClick(image, card, event));
 
-        // 双击进入幻灯片
+        // 双击进入图片查看器
         // （单击事件中检查 clickCount）
 
         // 右键菜单
@@ -403,8 +403,8 @@ public class MainController {
     private void handleCardClick(ImageFile image, VBox card, MouseEvent event) {
         if (event.getButton() == MouseButton.PRIMARY) {
             if (event.getClickCount() == 2) {
-                // 双击 → 进入幻灯片
-                openSlideshow(currentImages.indexOf(image));
+                // 双击 → 进入单张图片查看器
+                openImageViewer(currentImages.indexOf(image));
                 return;
             }
 
@@ -535,30 +535,50 @@ public class MainController {
     private void showContextMenu(Node anchor, double screenX, double screenY) {
         ContextMenu contextMenu = new ContextMenu();
 
-        MenuItem deleteItem = new MenuItem("🗑 删除");
-        deleteItem.setOnAction(e -> onDelete());
-
-        MenuItem copyItem = new MenuItem("📋 复制");
-        copyItem.setOnAction(e -> onCopy());
-
-        MenuItem pasteItem = new MenuItem("📌 粘贴");
-        pasteItem.setOnAction(e -> onPaste());
-        pasteItem.setDisable(imageService.getClipboard().isEmpty());
-
-        MenuItem renameItem = new MenuItem("✏ 重命名");
-        renameItem.setOnAction(e -> onRename());
+        MenuItem viewItem = new MenuItem("查看图片");
+        viewItem.setOnAction(e -> onViewImage());
+        viewItem.setDisable(selectedImages.size() != 1);
 
         MenuItem editItem = new MenuItem("编辑图片");
         editItem.setOnAction(e -> onEditImage());
         editItem.setDisable(selectedImages.size() != 1);
 
+        MenuItem playFromHereItem = new MenuItem("从此处播放幻灯片");
+        playFromHereItem.setOnAction(e -> onPlayFromSelected());
+        playFromHereItem.setDisable(selectedImages.size() != 1);
+
         MenuItem tagItem = new MenuItem("管理标签");
         tagItem.setOnAction(e -> onManageTags());
         tagItem.setDisable(selectedImages.size() != 1);
 
+        MenuItem infoItem = new MenuItem("查看图片信息");
+        infoItem.setOnAction(e -> onShowImageInfo());
+        infoItem.setDisable(selectedImages.size() != 1);
+
+        MenuItem openFolderItem = new MenuItem("打开所在文件夹");
+        openFolderItem.setOnAction(e -> onOpenContainingFolder());
+        openFolderItem.setDisable(selectedImages.size() != 1);
+
+        MenuItem deleteItem = new MenuItem("删除");
+        deleteItem.setOnAction(e -> onDelete());
+
+        MenuItem copyItem = new MenuItem("复制");
+        copyItem.setOnAction(e -> onCopy());
+
+        MenuItem pasteItem = new MenuItem("粘贴");
+        pasteItem.setOnAction(e -> onPaste());
+        pasteItem.setDisable(imageService.getClipboard().isEmpty());
+
+        MenuItem renameItem = new MenuItem("重命名");
+        renameItem.setOnAction(e -> onRename());
+
         contextMenu.getItems().addAll(
+                viewItem,
                 editItem,
+                playFromHereItem,
                 tagItem,
+                infoItem,
+                openFolderItem,
                 new SeparatorMenuItem(),
                 deleteItem,
                 copyItem,
@@ -568,8 +588,124 @@ public class MainController {
 
         contextMenu.show(anchor, screenX, screenY);
     }
-
     // ==================== 操作处理 ====================
+
+    /**
+     * 打开单张图片查看器。查看器只负责浏览，不包含自动播放和背景音乐。
+     */
+    private void onViewImage() {
+        if (selectedImages.size() != 1) {
+            AlertUtil.showWarning("无法查看", "请只选择一张图片");
+            return;
+        }
+
+        ImageFile image = selectedImages.iterator().next();
+        int startIndex = currentImages.indexOf(image);
+        openImageViewer(startIndex < 0 ? 0 : startIndex);
+    }
+
+    private void openImageViewer(int startIndex) {
+        if (currentImages.isEmpty()) {
+            return;
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/fxml/ImageViewerView.fxml"));
+            Parent viewerRoot = loader.load();
+
+            ImageViewerController controller = loader.getController();
+            controller.initViewer(currentImages, startIndex);
+            controller.setEditAction(this::openImageEditor);
+            controller.setPlayAction(this::openSlideshowFromImage);
+
+            ImageFile image = currentImages.get(Math.max(0, Math.min(startIndex, currentImages.size() - 1)));
+            Stage viewerStage = new Stage();
+            viewerStage.setTitle("图片查看 - " + image.fileName());
+            Scene scene = new Scene(viewerRoot, 960, 680);
+            scene.getStylesheets().add(
+                    getClass().getResource("/css/style.css").toExternalForm());
+            viewerStage.setScene(scene);
+            viewerStage.initOwner(thumbnailPane.getScene().getWindow());
+            viewerStage.setMinWidth(720);
+            viewerStage.setMinHeight(520);
+            viewerStage.show();
+        } catch (Exception e) {
+            logger.error("打开图片查看器失败", e);
+            AlertUtil.showError("打开查看器失败", e.getMessage());
+        }
+    }
+
+    private void onPlayFromSelected() {
+        if (selectedImages.size() != 1) {
+            AlertUtil.showWarning("无法播放", "请只选择一张图片作为起点");
+            return;
+        }
+        openSlideshowFromImage(selectedImages.iterator().next());
+    }
+
+    private void openSlideshowFromImage(ImageFile image) {
+        int startIndex = currentImages.indexOf(image);
+        openSlideshow(startIndex < 0 ? 0 : startIndex);
+    }
+
+    private void onShowImageInfo() {
+        if (selectedImages.size() != 1) {
+            AlertUtil.showWarning("无法查看信息", "请只选择一张图片");
+            return;
+        }
+
+        ImageFile image = selectedImages.iterator().next();
+        String modifiedAt = image.modifiedAt() == null ? "未知" : image.modifiedAt().toString();
+        String createdAt = image.createdAt() == null ? "未知" : image.createdAt().toString();
+        String content = """
+                文件名: %s
+                路径: %s
+                格式: %s
+                分辨率: %s
+                大小: %s
+                创建时间: %s
+                修改时间: %s
+                """.formatted(
+                image.fileName(),
+                image.filePath(),
+                image.format(),
+                image.resolution(),
+                image.formattedSize(),
+                createdAt,
+                modifiedAt
+        );
+
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("图片信息");
+        alert.setHeaderText(image.fileName());
+        alert.setContentText(content);
+        alert.showAndWait();
+    }
+
+    private void onOpenContainingFolder() {
+        if (selectedImages.size() != 1) {
+            AlertUtil.showWarning("无法打开文件夹", "请只选择一张图片");
+            return;
+        }
+
+        File parentDir = new File(selectedImages.iterator().next().filePath()).getParentFile();
+        if (parentDir == null || !parentDir.exists()) {
+            AlertUtil.showWarning("打开失败", "图片所在文件夹不存在");
+            return;
+        }
+
+        try {
+            if (!java.awt.Desktop.isDesktopSupported()) {
+                AlertUtil.showWarning("打开失败", "当前环境不支持打开文件夹");
+                return;
+            }
+            java.awt.Desktop.getDesktop().open(parentDir);
+        } catch (Exception e) {
+            logger.error("打开图片所在文件夹失败", e);
+            AlertUtil.showError("打开失败", e.getMessage());
+        }
+    }
 
     /**
      * 删除选中的图片。
@@ -667,7 +803,10 @@ public class MainController {
             return;
         }
 
-        ImageFile image = selectedImages.iterator().next();
+        openImageEditor(selectedImages.iterator().next());
+    }
+
+    private void openImageEditor(ImageFile image) {
         try {
             FXMLLoader loader = new FXMLLoader(
                     getClass().getResource("/fxml/ImageEditorView.fxml"));
@@ -890,7 +1029,7 @@ public class MainController {
     // ==================== 幻灯片播放 ====================
 
     /**
-     * 点击播放按钮或双击缩略图时，打开幻灯片播放窗口。
+     * 点击播放按钮时，打开幻灯片播放窗口。
      * v2.0: 如果有 Ctrl 多选，仅播放选中的图片。
      */
     @FXML
@@ -939,6 +1078,7 @@ public class MainController {
             scene.getStylesheets().add(
                     getClass().getResource("/css/style.css").toExternalForm());
             slideshowStage.setScene(scene);
+            slideshowStage.setOnCloseRequest(event -> controller.dispose());
             slideshowStage.show();
 
         } catch (Exception e) {
@@ -991,7 +1131,7 @@ public class MainController {
             selectedImages.clear();
             currentImages = new ArrayList<>(result.images());
             displayThumbnails(currentImages);
-            directoryNameLabel.setText("当前文件夹搜索: \"" + query + "\"");
+            directoryNameLabel.setText("当前文件夹及子文件夹搜索: \"" + query + "\"");
             imageCountLabel.setText(result.totalCount() + " 张图片");
             selectionLabel.setText("");
             statusLabel.setText(result.message());

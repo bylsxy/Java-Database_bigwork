@@ -14,6 +14,7 @@ com\imagemanager\controller\MainController$TagViewItem.class
 com\imagemanager\service\SearchService.class
 com\imagemanager\service\EditService.class
 com\imagemanager\controller\MainController.class
+com\imagemanager\controller\ImageViewerController.class
 com\imagemanager\model\ImageTag.class
 com\imagemanager\scanner\DirectoryScanner$1.class
 com\imagemanager\controller\ImageEditorController.class

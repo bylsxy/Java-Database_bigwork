@@ -51,28 +51,38 @@
                 <padding><Insets top="8" right="15" bottom="8" left="15"/></padding>
 
                 <!-- 缩放控制 -->
-                <Button fx:id="zoomInButton" text="🔍+" onAction="#onZoomIn"
+                <Button fx:id="zoomInButton" text="放大" onAction="#onZoomIn"
                         styleClass="control-button" prefWidth="50"/>
-                <Button fx:id="zoomOutButton" text="🔍-" onAction="#onZoomOut"
+                <Button fx:id="zoomOutButton" text="缩小" onAction="#onZoomOut"
                         styleClass="control-button" prefWidth="50"/>
+
+                <Button fx:id="fitButton" text="适应" onAction="#onFitToWindow"
+                        styleClass="control-button" prefWidth="58"/>
+                <Button fx:id="actualSizeButton" text="1:1" onAction="#onActualSize"
+                        styleClass="control-button" prefWidth="58"/>
 
                 <Separator orientation="VERTICAL" prefHeight="25"/>
 
                 <!-- 导航控制 -->
-                <Button fx:id="prevButton" text="⬅" onAction="#onPrevious"
-                        styleClass="control-button" prefWidth="50"/>
-                <Button fx:id="nextButton" text="➡" onAction="#onNext"
-                        styleClass="control-button" prefWidth="50"/>
+                <Button fx:id="prevButton" text="上一张" onAction="#onPrevious"
+                        styleClass="control-button" prefWidth="70"/>
+                <Button fx:id="nextButton" text="下一张" onAction="#onNext"
+                        styleClass="control-button" prefWidth="70"/>
+
+                <CheckBox fx:id="loopCheckBox" text="循环" selected="true"
+                          styleClass="slideshow-check"/>
+                <Button fx:id="fullScreenButton" text="全屏" onAction="#onToggleFullScreen"
+                        styleClass="control-button" prefWidth="70"/>
 
                 <Separator orientation="VERTICAL" prefHeight="25"/>
 
                 <!-- 播放控制 -->
-                <Button fx:id="playButton" text="▶ 播放" onAction="#onPlayToggle"
+                <Button fx:id="playButton" text="播放" onAction="#onPlayToggle"
                         styleClass="control-button play-button" prefWidth="80"/>
 
                 <Separator orientation="VERTICAL" prefHeight="25"/>
 
-                <!-- v2.0新增：🎵 背景音乐控制 -->
+                <!-- v2.0新增：背景音乐控制 -->
                 <ComboBox fx:id="musicCombo" prefWidth="130" promptText="背景音乐"
                           styleClass="music-combo"/>
                 <Button fx:id="musicToggleButton" text="播放音乐" onAction="#onMusicToggle"
@@ -83,7 +93,7 @@
                 <Separator orientation="VERTICAL" prefHeight="25"/>
 
                 <!-- 退出 -->
-                <Button fx:id="exitButton" text="✕ 退出" onAction="#onExit"
+                <Button fx:id="exitButton" text="退出" onAction="#onExit"
                         styleClass="control-button exit-button" prefWidth="80"/>
             </HBox>
 

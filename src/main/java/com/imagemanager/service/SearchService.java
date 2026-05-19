@@ -8,8 +8,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 搜索服务 — 提供关键词搜索和AI智能搜索两种模式。
@@ -93,8 +95,8 @@ public class SearchService {
             recordSearchHistory(keyword, "KEYWORD", null, images.size());
 
             String msg = images.isEmpty()
-                    ? "当前文件夹未找到匹配 \"" + keyword + "\" 的图片"
-                    : "当前文件夹找到 " + images.size() + " 张匹配的图片";
+                    ? "当前文件夹及子文件夹未找到匹配 \"" + keyword + "\" 的图片"
+                    : "当前文件夹及子文件夹找到 " + images.size() + " 张匹配的图片";
 
             return new SearchResult(images, keyword, images.size(), msg);
         } catch (Exception e) {
@@ -123,9 +125,9 @@ public class SearchService {
             List<Integer> imageIds = tagDao.executeSearchSQL(sql);
             List<ImageFile> images = loadImagesByIds(imageIds);
             if (directoryId.isPresent()) {
-                int targetDirectoryId = directoryId.get();
+                Set<Integer> allowedDirectoryIds = descendantDirectoryIds(directoryId.get());
                 images = images.stream()
-                        .filter(image -> image.directoryId() == targetDirectoryId)
+                        .filter(image -> allowedDirectoryIds.contains(image.directoryId()))
                         .toList();
             }
 
@@ -133,8 +135,8 @@ public class SearchService {
             recordSearchHistory(naturalLanguageQuery, "AI_SQL", sql, images.size());
 
             String msg = images.isEmpty()
-                    ? "当前文件夹 AI 搜索未找到匹配结果\n生成的SQL: " + sql
-                    : "当前文件夹 AI 搜索找到 " + images.size() + " 张匹配的图片\nSQL: " + sql;
+                    ? "当前文件夹及子文件夹 AI 搜索未找到匹配结果\n生成的SQL: " + sql
+                    : "当前文件夹及子文件夹 AI 搜索找到 " + images.size() + " 张匹配的图片\nSQL: " + sql;
 
             return new SearchResult(images, sql, images.size(), msg);
         } catch (SecurityException e) {
@@ -164,6 +166,14 @@ public class SearchService {
             return Optional.empty();
         }
         return directoryDao.findByPath(directoryPath).map(directory -> directory.id());
+    }
+
+    private Set<Integer> descendantDirectoryIds(int rootDirectoryId) {
+        Set<Integer> ids = new HashSet<>();
+        for (var directory : directoryDao.findDescendants(rootDirectoryId)) {
+            ids.add(directory.id());
+        }
+        return ids;
     }
 
     /**

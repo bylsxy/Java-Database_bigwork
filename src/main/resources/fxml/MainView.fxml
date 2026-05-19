@@ -3,21 +3,6 @@
 <?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.text.*?>
-
-<!--
-    主界面布局 — 仿"美图看看"三区域设计 (v2.0 改进版)
-    
-    ┌────────────────────────────────────────────────────┐
-    │  [工具栏: 路径 | 搜索栏(下拉) | 设置]               │
-    ├────────────┬───────────────────────────────────────┤
-    │  目录树     │  [目录信息]                             │
-    │  (TreeView) │  [缩略图网格 FlowPane in ScrollPane]   │
-    │            │                                       │
-    ├────────────┴───────────────────────────────────────┤
-    │  [状态栏]   [AI进度条]                    [播放按钮] │
-    └────────────────────────────────────────────────────┘
--->
 
 <BorderPane xmlns="http://javafx.com/javafx/26"
             xmlns:fx="http://javafx.com/fxml/1"
@@ -25,52 +10,43 @@
             prefWidth="1200" prefHeight="800"
             styleClass="root-pane">
 
-    <!-- ==================== 顶部工具栏 ==================== -->
     <top>
         <VBox>
             <ToolBar styleClass="top-toolbar">
-                <Label text="📁" styleClass="toolbar-icon"/>
-                <Label fx:id="pathLabel" text="我的电脑" styleClass="path-label"/>
+                <Label text="图片库" styleClass="toolbar-icon"/>
+                <Label fx:id="pathLabel" text="我的图片" styleClass="path-label"/>
                 <Pane HBox.hgrow="ALWAYS"/>
 
-                <!-- 搜索栏（v2.0新增） -->
                 <ComboBox fx:id="searchModeCombo" prefWidth="110"
                           promptText="搜索模式" styleClass="search-mode-combo"/>
                 <TextField fx:id="searchField" prefWidth="260"
-                           promptText="搜索图片（标签/文件名/AI描述）..."
+                           promptText="搜索图片、标签或 AI 描述..."
                            styleClass="search-field"/>
-                <Button fx:id="searchButton" text="🔍" onAction="#onSearch"
+                <Button fx:id="searchButton" text="搜索" onAction="#onSearch"
                         styleClass="search-button"/>
 
                 <Separator orientation="VERTICAL" prefHeight="24"/>
 
-                <!-- 设置按钮（v2.0新增） -->
-                <Button fx:id="settingsButton" text="⚙️ 设置" onAction="#onOpenSettings"
+                <Button fx:id="settingsButton" text="设置" onAction="#onOpenSettings"
                         styleClass="settings-button"/>
             </ToolBar>
         </VBox>
     </top>
 
-    <!-- ==================== 中央内容区 ==================== -->
     <center>
         <SplitPane fx:id="mainSplitPane" dividerPositions="0.25" styleClass="main-split">
-
-            <!-- 左侧：目录树 -->
             <VBox styleClass="tree-container">
-                <Label text="我的电脑" styleClass="tree-header"/>
+                <Label text="我的图片" styleClass="tree-header"/>
                 <TreeView fx:id="directoryTree" VBox.vgrow="ALWAYS" styleClass="directory-tree"/>
             </VBox>
 
-            <!-- 右侧：缩略图预览区 -->
             <VBox styleClass="preview-container">
-                <!-- 目录信息栏 -->
                 <HBox styleClass="directory-info-bar" alignment="CENTER_LEFT" spacing="10">
                     <padding><Insets top="5" right="10" bottom="5" left="10"/></padding>
                     <Label fx:id="directoryNameLabel" text="" styleClass="directory-name"/>
                     <Label fx:id="imageCountLabel" text="" styleClass="image-count"/>
                 </HBox>
 
-                <!-- 缩略图滚动区域 -->
                 <ScrollPane fx:id="thumbnailScroll" fitToWidth="true" VBox.vgrow="ALWAYS"
                             styleClass="thumbnail-scroll" pannable="true">
                     <FlowPane fx:id="thumbnailPane" hgap="15" vgap="15"
@@ -82,7 +58,6 @@
         </SplitPane>
     </center>
 
-    <!-- ==================== 底部状态栏 ==================== -->
     <bottom>
         <HBox styleClass="status-bar" alignment="CENTER_LEFT" spacing="12">
             <padding><Insets top="6" right="15" bottom="6" left="15"/></padding>
@@ -90,7 +65,6 @@
 
             <Pane HBox.hgrow="ALWAYS"/>
 
-            <!-- AI扫描进度（v2.0新增） -->
             <Label fx:id="scanProgressLabel" text="" styleClass="scan-progress-label"
                    visible="false" managed="false"/>
             <ProgressBar fx:id="scanProgressBar" prefWidth="180" prefHeight="14"
@@ -99,7 +73,7 @@
             <Separator orientation="VERTICAL" prefHeight="20"/>
             <Label fx:id="selectionLabel" text="" styleClass="selection-text"/>
             <Separator orientation="VERTICAL" prefHeight="20"/>
-            <Button fx:id="slideshowButton" text="▶ 播放" onAction="#onSlideshow"
+            <Button fx:id="slideshowButton" text="播放" onAction="#onSlideshow"
                     styleClass="slideshow-button" disable="true"/>
         </HBox>
     </bottom>

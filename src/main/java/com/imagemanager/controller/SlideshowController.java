@@ -8,9 +8,13 @@ import com.imagemanager.util.AlertUtil;
 import com.imagemanager.util.ImageUtil;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
@@ -24,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -39,11 +44,13 @@ import java.util.List;
 public class SlideshowController {
 
     private static final Logger logger = LoggerFactory.getLogger(SlideshowController.class);
-    private static final String NO_MUSIC_OPTION = "🔇 无音乐";
-    private static final String CUSTOM_MUSIC_OPTION = "🎵 自定义播放";
+    private static final String NO_MUSIC_OPTION = "无音乐";
+    private static final String CUSTOM_MUSIC_OPTION = "自定义播放";
     private static final String MUSIC_PLAYING_TEXT = "暂停音乐";
     private static final String MUSIC_PAUSED_TEXT = "继续播放";
     private static final String MUSIC_MUTED_TEXT = "播放音乐";
+    private static final double MIN_ZOOM = 0.2;
+    private static final double MAX_ZOOM = 5.0;
 
     /** 日期格式化器 */
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -58,6 +65,8 @@ public class SlideshowController {
     @FXML private Button playButton;
     @FXML private Button prevButton;
     @FXML private Button nextButton;
+    @FXML private Button fullScreenButton;
+    @FXML private CheckBox loopCheckBox;
 
     // v2.0: 音乐控件
     @FXML private ComboBox<String> musicCombo;
@@ -92,6 +101,12 @@ public class SlideshowController {
     /** 播放间隔（秒），从设置读取 */
     private double playIntervalSeconds = 3.0;
 
+    /** 是否按随机顺序播放，从设置页读取。 */
+    private boolean randomOrder = false;
+
+    /** 是否已经注册键盘事件，避免重复初始化时多次绑定。 */
+    private boolean keyboardShortcutsRegistered = false;
+
     /** 自定义音乐文件路径。ComboBox 只显示固定文案，实际路径存在这里。 */
     private String customMusicPath;
 
@@ -108,8 +123,13 @@ public class SlideshowController {
      * @param startIndex 起始图片的索引
      */
     public void initSlideshow(List<ImageFile> images, int startIndex) {
-        this.images = images;
-        this.currentIndex = Math.max(0, Math.min(startIndex, images.size() - 1));
+        if (images == null || images.isEmpty()) {
+            this.images = List.of();
+            return;
+        }
+
+        this.images = new ArrayList<>(images);
+        this.currentIndex = Math.max(0, Math.min(startIndex, this.images.size() - 1));
 
         // 加载播放间隔设置
         try {
@@ -118,6 +138,8 @@ public class SlideshowController {
         } catch (NumberFormatException e) {
             playIntervalSeconds = 3.0;
         }
+        randomOrder = "RANDOM".equals(settingsDao.getValueOrDefault("slideshow_order", "SEQUENTIAL"));
+        applyPlaybackOrder();
 
         // 构建底部缩略图条
         buildThumbnailStrip();
@@ -125,9 +147,7 @@ public class SlideshowController {
         // 构建自动播放定时器（使用可配置间隔）
         autoPlayTimeline = new Timeline(
                 new KeyFrame(Duration.seconds(playIntervalSeconds), event -> {
-                    if (currentIndex < images.size() - 1) {
-                        showImage(++currentIndex);
-                    } else {
+                    if (!showNextImage(true)) {
                         stopAutoPlay();
                         AlertUtil.showInfo("播放完毕", "已经是最后一张了");
                     }
@@ -144,6 +164,73 @@ public class SlideshowController {
 
         // 显示初始图片
         showImage(currentIndex);
+        registerKeyboardShortcuts();
+    }
+
+    private void applyPlaybackOrder() {
+        if (!randomOrder || images.size() <= 2) {
+            return;
+        }
+
+        ImageFile startImage = images.get(currentIndex);
+        List<ImageFile> shuffled = new ArrayList<>(images);
+        shuffled.remove(startImage);
+        Collections.shuffle(shuffled);
+        shuffled.add(0, startImage);
+        images = shuffled;
+        currentIndex = 0;
+        logger.info("幻灯片随机播放已启用，共 {} 张图片", images.size());
+    }
+
+    private void registerKeyboardShortcuts() {
+        if (keyboardShortcutsRegistered) {
+            return;
+        }
+        Platform.runLater(() -> {
+            Scene scene = mainImageView.getScene();
+            if (scene == null) {
+                return;
+            }
+            scene.addEventFilter(KeyEvent.KEY_PRESSED, this::handleKeyPressed);
+            keyboardShortcutsRegistered = true;
+        });
+    }
+
+    private void handleKeyPressed(KeyEvent event) {
+        KeyCode code = event.getCode();
+        if (code == KeyCode.LEFT || code == KeyCode.UP) {
+            onPrevious();
+            event.consume();
+        } else if (code == KeyCode.RIGHT || code == KeyCode.DOWN || code == KeyCode.SPACE) {
+            onNext();
+            event.consume();
+        } else if (code == KeyCode.ENTER) {
+            onPlayToggle();
+            event.consume();
+        } else if (code == KeyCode.ADD || code == KeyCode.EQUALS) {
+            onZoomIn();
+            event.consume();
+        } else if (code == KeyCode.SUBTRACT || code == KeyCode.MINUS) {
+            onZoomOut();
+            event.consume();
+        } else if (code == KeyCode.DIGIT0) {
+            onFitToWindow();
+            event.consume();
+        } else if (code == KeyCode.DIGIT1) {
+            onActualSize();
+            event.consume();
+        } else if (code == KeyCode.F11 || code == KeyCode.F) {
+            onToggleFullScreen();
+            event.consume();
+        } else if (code == KeyCode.ESCAPE) {
+            Stage stage = getStage();
+            if (stage != null && stage.isFullScreen()) {
+                stage.setFullScreen(false);
+            } else {
+                onExit();
+            }
+            event.consume();
+        }
     }
 
     /**
@@ -197,8 +284,8 @@ public class SlideshowController {
     private void showImage(int index) {
         if (images == null || images.isEmpty()) return;
 
-        currentIndex = index;
-        ImageFile image = images.get(index);
+        currentIndex = Math.max(0, Math.min(index, images.size() - 1));
+        ImageFile image = images.get(currentIndex);
 
         // 加载原图
         Image fullImage = ImageUtil.loadImage(image.filePath());
@@ -212,11 +299,12 @@ public class SlideshowController {
         updateInfoBar(image);
 
         // 更新缩略图条高亮
-        updateThumbnailStripHighlight(index);
+        updateThumbnailStripHighlight(currentIndex);
 
         // 更新按钮状态
-        prevButton.setDisable(index == 0);
-        nextButton.setDisable(index == images.size() - 1);
+        boolean loopEnabled = loopCheckBox == null || loopCheckBox.isSelected();
+        prevButton.setDisable(currentIndex == 0 && !loopEnabled);
+        nextButton.setDisable(currentIndex == images.size() - 1 && !loopEnabled);
     }
 
     /**
@@ -250,10 +338,7 @@ public class SlideshowController {
      */
     @FXML
     private void onPrevious() {
-        if (currentIndex > 0) {
-            zoomLevel = 1.0; // 切换图片时重置缩放
-            showImage(--currentIndex);
-        } else {
+        if (!showPreviousImage()) {
             AlertUtil.showInfo("提示", "已经是第一张了");
         }
     }
@@ -263,12 +348,51 @@ public class SlideshowController {
      */
     @FXML
     private void onNext() {
-        if (currentIndex < images.size() - 1) {
-            zoomLevel = 1.0;
-            showImage(++currentIndex);
-        } else {
+        if (!showNextImage(true)) {
             AlertUtil.showInfo("提示", "已经是最后一张了");
         }
+    }
+
+    private boolean showPreviousImage() {
+        if (images == null || images.size() <= 1) {
+            return false;
+        }
+
+        int targetIndex;
+        if (currentIndex > 0) {
+            targetIndex = currentIndex - 1;
+        } else if (isLoopEnabled()) {
+            targetIndex = images.size() - 1;
+        } else {
+            return false;
+        }
+
+        zoomLevel = 1.0;
+        showImage(targetIndex);
+        return true;
+    }
+
+    private boolean showNextImage(boolean allowLoop) {
+        if (images == null || images.size() <= 1) {
+            return false;
+        }
+
+        int targetIndex;
+        if (currentIndex < images.size() - 1) {
+            targetIndex = currentIndex + 1;
+        } else if (allowLoop && isLoopEnabled()) {
+            targetIndex = 0;
+        } else {
+            return false;
+        }
+
+        zoomLevel = 1.0;
+        showImage(targetIndex);
+        return true;
+    }
+
+    private boolean isLoopEnabled() {
+        return loopCheckBox == null || loopCheckBox.isSelected();
     }
 
     // ==================== 缩放控制 ====================
@@ -278,7 +402,7 @@ public class SlideshowController {
      */
     @FXML
     private void onZoomIn() {
-        if (zoomLevel < 5.0) {
+        if (zoomLevel < MAX_ZOOM) {
             zoomLevel += 0.2;
             applyZoom();
             updateInfoBar(images.get(currentIndex));
@@ -290,11 +414,38 @@ public class SlideshowController {
      */
     @FXML
     private void onZoomOut() {
-        if (zoomLevel > 0.2) {
+        if (zoomLevel > MIN_ZOOM) {
             zoomLevel -= 0.2;
             applyZoom();
             updateInfoBar(images.get(currentIndex));
         }
+    }
+
+    @FXML
+    private void onFitToWindow() {
+        zoomLevel = 1.0;
+        applyZoom();
+        if (!images.isEmpty()) {
+            updateInfoBar(images.get(currentIndex));
+        }
+    }
+
+    @FXML
+    private void onActualSize() {
+        Image image = mainImageView.getImage();
+        if (image == null || image.getWidth() <= 0 || image.getHeight() <= 0) {
+            return;
+        }
+
+        double fitWidth = Math.max(1, mainImageView.getFitWidth());
+        double fitHeight = Math.max(1, mainImageView.getFitHeight());
+        double fittedScale = Math.min(fitWidth / image.getWidth(), fitHeight / image.getHeight());
+        if (fittedScale <= 0) {
+            return;
+        }
+        zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, 1.0 / fittedScale));
+        applyZoom();
+        updateInfoBar(images.get(currentIndex));
     }
 
     /**
@@ -320,17 +471,36 @@ public class SlideshowController {
     }
 
     private void startAutoPlay() {
+        if (images == null || images.size() <= 1) {
+            AlertUtil.showInfo("提示", "至少需要两张图片才能自动播放");
+            return;
+        }
         isPlaying = true;
-        playButton.setText("⏹ 停止");
+        playButton.setText("停止");
         autoPlayTimeline.play();
         logger.info("开始自动播放（间隔: {}秒）", playIntervalSeconds);
     }
 
     private void stopAutoPlay() {
         isPlaying = false;
-        playButton.setText("▶ 播放");
+        playButton.setText("播放");
+        if (autoPlayTimeline == null) {
+            return;
+        }
         autoPlayTimeline.stop();
         logger.info("停止自动播放");
+    }
+
+    @FXML
+    private void onToggleFullScreen() {
+        Stage stage = getStage();
+        if (stage == null) {
+            return;
+        }
+        stage.setFullScreen(!stage.isFullScreen());
+        if (fullScreenButton != null) {
+            fullScreenButton.setText(stage.isFullScreen() ? "退出全屏" : "全屏");
+        }
     }
 
     // ==================== 音乐控制 ====================
@@ -445,10 +615,23 @@ public class SlideshowController {
      */
     @FXML
     private void onExit() {
+        dispose();
+        Stage stage = getStage();
+        if (stage != null) {
+            stage.close();
+        }
+    }
+
+    public void dispose() {
         stopAutoPlay();
         musicService.stop();
-        Stage stage = (Stage) mainImageView.getScene().getWindow();
-        stage.close();
+    }
+
+    private Stage getStage() {
+        if (mainImageView == null || mainImageView.getScene() == null) {
+            return null;
+        }
+        return (Stage) mainImageView.getScene().getWindow();
     }
 
     // ==================== 底部缩略图条 ====================
@@ -501,5 +684,16 @@ public class SlideshowController {
                 stripThumbnails[i].getStyleClass().add("active");
             }
         }
+        scrollActiveThumbnailIntoView(activeIndex);
+    }
+
+    private void scrollActiveThumbnailIntoView(int activeIndex) {
+        if (thumbnailStripScroll == null || stripThumbnails.length <= 1) {
+            return;
+        }
+        Platform.runLater(() -> {
+            double maxIndex = Math.max(1, stripThumbnails.length - 1);
+            thumbnailStripScroll.setHvalue(Math.max(0, Math.min(1, activeIndex / maxIndex)));
+        });
     }
 }
