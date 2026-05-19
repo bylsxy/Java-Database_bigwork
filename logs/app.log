@@ -423,3 +423,132 @@
 2026-05-19 12:15:42.324 [JavaFX Application Thread] INFO  com.imagemanager.service.MusicService - 继续播放音乐: 柔和吉他
 2026-05-19 12:15:42.324 [JavaFX Application Thread] DEBUG com.imagemanager.service.MusicService - 音乐进入播放状态: 柔和吉他
 2026-05-19 12:16:46.212 [JavaFX Application Thread] INFO  com.imagemanager.controller.SettingsController - 设置页面初始化完成
+2026-05-19 12:17:23.753 [JavaFX Application Thread] INFO  com.imagemanager.controller.SettingsController - 设置页面初始化完成
+2026-05-19 12:20:33.439 [JavaFX Application Thread] INFO  com.imagemanager.controller.ImageEditorController - 编辑器已初始化: Pasted image 20250401163200.png
+2026-05-19 12:20:39.770 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: F:\TEST
+2026-05-19 12:20:39.771 [virtual-1099] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: F:\TEST
+2026-05-19 12:20:39.775 [virtual-1099] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 19 下的图片: 共 4 张
+2026-05-19 12:20:39.777 [virtual-1099] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 19 下的图片: 共 4 张
+2026-05-19 12:22:22.349 [JavaFX Application Thread] INFO  com.imagemanager.controller.ImageEditorController - 编辑器已初始化: 【哲风壁纸】二次元少女-动漫插画.png
+2026-05-19 12:22:28.858 [JavaFX Application Thread] INFO  com.imagemanager.service.EditService - 新版本已保存: imageId=134, version=2, path=F:\TEST\.versions\【哲风壁纸】二次元少女-动漫插画_v2.png
+2026-05-19 12:22:34.162 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: F:\TEST
+2026-05-19 12:22:34.162 [virtual-1387] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: F:\TEST
+2026-05-19 12:22:34.166 [virtual-1387] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 19 下的图片: 共 4 张
+2026-05-19 12:22:34.167 [virtual-1387] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 19 下的图片: 共 4 张
+2026-05-19 12:22:34.925 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序关闭中，释放资源...
+2026-05-19 12:22:34.926 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown initiated...
+2026-05-19 12:22:34.927 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown completed.
+2026-05-19 12:22:34.927 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池已关闭
+2026-05-19 12:22:34.928 [JavaFX Application Thread] INFO  com.imagemanager.App - 资源释放完毕
+2026-05-19 12:22:35.909 [JavaFX Application Thread] INFO  com.imagemanager.controller.SlideshowController - 停止自动播放
+2026-05-19 12:22:35.964 [JavaFX Application Thread] DEBUG com.imagemanager.service.MusicService - 音乐已停止
+2026-05-19 12:22:35.983 [JavaFX Application Thread] DEBUG com.imagemanager.service.MusicService - 音乐进入停止状态: null
+2026-05-19 12:40:29.521 [JavaFX Application Thread] INFO  com.imagemanager.App - 正在初始化数据库连接...
+2026-05-19 12:40:29.532 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Starting...
+2026-05-19 12:40:29.787 [JavaFX Application Thread] INFO  com.zaxxer.hikari.pool.HikariPool - DIMS-HikariPool - Added connection org.postgresql.jdbc.PgConnection@d766c21
+2026-05-19 12:40:29.789 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Start completed.
+2026-05-19 12:40:29.789 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池初始化成功 [URL=jdbc:postgresql://localhost:5432/image_manager] [池大小=10]
+2026-05-19 12:40:29.789 [JavaFX Application Thread] INFO  com.imagemanager.App - 数据库连接初始化成功
+2026-05-19 12:40:30.337 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 初始化主界面...
+2026-05-19 12:40:30.341 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 主界面初始化完成
+2026-05-19 12:40:30.731 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序启动成功
+2026-05-19 12:40:33.258 [JavaFX Application Thread] INFO  com.imagemanager.App - 用户取消了首次启动向导
+2026-05-19 12:40:33.861 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: F:\
+2026-05-19 12:40:33.866 [virtual-66] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: F:\
+2026-05-19 12:40:33.876 [virtual-66] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 2 下的图片: 共 0 张
+2026-05-19 12:40:33.878 [virtual-66] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 2 下的图片: 共 0 张
+2026-05-19 12:40:34.653 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: E:\
+2026-05-19 12:40:34.653 [virtual-73] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: E:\
+2026-05-19 12:40:34.656 [virtual-73] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 1 下的图片: 共 0 张
+2026-05-19 12:40:34.656 [virtual-73] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 1 下的图片: 共 0 张
+2026-05-19 12:40:35.816 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: E:\攻略
+2026-05-19 12:40:35.817 [virtual-74] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: E:\攻略
+2026-05-19 12:40:35.821 [virtual-74] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 31 下的图片: 共 0 张
+2026-05-19 12:40:35.822 [virtual-74] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 31 下的图片: 共 0 张
+2026-05-19 12:40:37.026 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: F:\TEST2
+2026-05-19 12:40:37.027 [virtual-75] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: F:\TEST2
+2026-05-19 12:40:37.031 [virtual-75] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 18 下的图片: 共 5 张
+2026-05-19 12:40:37.032 [virtual-75] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 18 下的图片: 共 5 张
+2026-05-19 12:40:38.827 [JavaFX Application Thread] DEBUG com.imagemanager.service.MusicService - 音乐目录已存在: C:\Users\w1831/DIMS_Music
+2026-05-19 12:40:59.879 [JavaFX Application Thread] INFO  com.imagemanager.controller.SlideshowController - 停止自动播放
+2026-05-19 12:41:09.094 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序关闭中，释放资源...
+2026-05-19 12:41:09.095 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown initiated...
+2026-05-19 12:41:09.097 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown completed.
+2026-05-19 12:41:09.097 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池已关闭
+2026-05-19 12:41:09.097 [JavaFX Application Thread] INFO  com.imagemanager.App - 资源释放完毕
+2026-05-19 12:51:00.479 [JavaFX Application Thread] INFO  com.imagemanager.App - 正在初始化数据库连接...
+2026-05-19 12:51:00.491 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Starting...
+2026-05-19 12:51:00.742 [JavaFX Application Thread] INFO  com.zaxxer.hikari.pool.HikariPool - DIMS-HikariPool - Added connection org.postgresql.jdbc.PgConnection@19c4c0cf
+2026-05-19 12:51:00.744 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Start completed.
+2026-05-19 12:51:00.744 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池初始化成功 [URL=jdbc:postgresql://localhost:5432/image_manager] [池大小=10]
+2026-05-19 12:51:00.744 [JavaFX Application Thread] INFO  com.imagemanager.App - 数据库连接初始化成功
+2026-05-19 12:51:01.281 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 初始化主界面...
+2026-05-19 12:51:01.313 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 主界面初始化完成
+2026-05-19 12:51:01.746 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序启动成功
+2026-05-19 12:51:04.988 [JavaFX Application Thread] INFO  com.imagemanager.App - 用户取消了首次启动向导
+2026-05-19 12:51:06.048 [JavaFX Application Thread] INFO  com.imagemanager.controller.SettingsController - 设置页面初始化完成
+2026-05-19 12:51:21.573 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: ai_base_url = https://dashscope.aliyuncs.com/compatible-mode/v1
+2026-05-19 12:51:21.574 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: ai_api_key = 
+2026-05-19 12:51:21.574 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: ai_model = qwen-vl-plus
+2026-05-19 12:51:21.575 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: ai_request_delay = 1500
+2026-05-19 12:51:21.575 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: scan_directory = 
+2026-05-19 12:51:21.575 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: theme_background_path = F:\TEST2\二次元少女-动漫插画.png
+2026-05-19 12:51:21.576 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: theme_background_opacity = 0.35
+2026-05-19 12:51:21.576 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: slideshow_interval = 3
+2026-05-19 12:51:21.577 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: slideshow_order = SEQUENTIAL
+2026-05-19 12:51:21.577 [JavaFX Application Thread] INFO  com.imagemanager.controller.SettingsController - 设置已保存
+2026-05-19 12:51:22.483 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\
+2026-05-19 12:51:22.488 [virtual-66] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\
+2026-05-19 12:51:22.502 [virtual-66] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 7 下的图片: 共 0 张
+2026-05-19 12:51:22.502 [virtual-66] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 7 下的图片: 共 0 张
+2026-05-19 12:51:22.864 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: F:\
+2026-05-19 12:51:22.864 [virtual-73] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: F:\
+2026-05-19 12:51:22.867 [virtual-73] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 2 下的图片: 共 0 张
+2026-05-19 12:51:22.867 [virtual-73] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 2 下的图片: 共 0 张
+2026-05-19 12:51:23.593 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: F:\2015
+2026-05-19 12:51:23.593 [virtual-74] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: F:\2015
+2026-05-19 12:51:23.596 [virtual-74] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 11 下的图片: 共 0 张
+2026-05-19 12:51:23.597 [virtual-74] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 11 下的图片: 共 0 张
+2026-05-19 12:51:24.221 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: F:\TSET
+2026-05-19 12:51:24.222 [virtual-75] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: F:\TSET
+2026-05-19 12:51:24.224 [virtual-75] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 21 下的图片: 共 0 张
+2026-05-19 12:51:24.225 [virtual-75] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 21 下的图片: 共 0 张
+2026-05-19 12:51:25.032 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: F:\TEST2
+2026-05-19 12:51:25.032 [virtual-76] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: F:\TEST2
+2026-05-19 12:51:25.036 [virtual-76] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 18 下的图片: 共 5 张
+2026-05-19 12:51:25.037 [virtual-76] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 18 下的图片: 共 5 张
+2026-05-19 12:51:40.606 [JavaFX Application Thread] INFO  com.imagemanager.controller.SettingsController - 设置页面初始化完成
+2026-05-19 12:51:50.000 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: ai_base_url = https://dashscope.aliyuncs.com/compatible-mode/v1
+2026-05-19 12:51:50.001 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: ai_api_key = 
+2026-05-19 12:51:50.001 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: ai_model = qwen-vl-plus
+2026-05-19 12:51:50.001 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: ai_request_delay = 1500
+2026-05-19 12:51:50.002 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: scan_directory = 
+2026-05-19 12:51:50.002 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: theme_background_path = F:\TEST2\二次元少女-动漫插画.png
+2026-05-19 12:51:50.002 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: theme_background_opacity = 0.1315534443531221
+2026-05-19 12:51:50.003 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: slideshow_interval = 3
+2026-05-19 12:51:50.003 [JavaFX Application Thread] DEBUG com.imagemanager.dao.SettingsDaoImpl - 设置已更新: slideshow_order = RANDOM
+2026-05-19 12:51:50.003 [JavaFX Application Thread] INFO  com.imagemanager.controller.SettingsController - 设置已保存
+2026-05-19 12:51:52.228 [JavaFX Application Thread] DEBUG com.imagemanager.service.MusicService - 音乐目录已存在: C:\Users\w1831/DIMS_Music
+2026-05-19 12:51:52.232 [JavaFX Application Thread] INFO  com.imagemanager.controller.SlideshowController - 幻灯片随机播放已启用，共 5 张图片
+2026-05-19 12:51:55.751 [JavaFX Application Thread] INFO  com.imagemanager.controller.SlideshowController - 开始自动播放（间隔: 3.0秒）
+2026-05-19 12:52:15.798 [JavaFX Application Thread] INFO  com.imagemanager.controller.SlideshowController - 停止自动播放
+2026-05-19 12:52:18.783 [JavaFX Application Thread] INFO  com.imagemanager.controller.SlideshowController - 停止自动播放
+2026-05-19 12:52:33.412 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序关闭中，释放资源...
+2026-05-19 12:52:33.412 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown initiated...
+2026-05-19 12:52:33.415 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown completed.
+2026-05-19 12:52:33.415 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池已关闭
+2026-05-19 12:52:33.415 [JavaFX Application Thread] INFO  com.imagemanager.App - 资源释放完毕
+2026-05-19 20:29:11.686 [JavaFX Application Thread] INFO  com.imagemanager.App - 正在初始化数据库连接...
+2026-05-19 20:29:11.699 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Starting...
+2026-05-19 20:29:11.974 [JavaFX Application Thread] INFO  com.zaxxer.hikari.pool.HikariPool - DIMS-HikariPool - Added connection org.postgresql.jdbc.PgConnection@19c4c0cf
+2026-05-19 20:29:11.975 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Start completed.
+2026-05-19 20:29:11.975 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池初始化成功 [URL=jdbc:postgresql://localhost:5432/image_manager] [池大小=10]
+2026-05-19 20:29:11.976 [JavaFX Application Thread] INFO  com.imagemanager.App - 数据库连接初始化成功
+2026-05-19 20:29:12.654 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 初始化主界面...
+2026-05-19 20:29:12.786 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 主界面初始化完成
+2026-05-19 20:29:13.213 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序启动成功
+2026-05-19 20:29:14.729 [JavaFX Application Thread] INFO  com.imagemanager.App - 用户取消了首次启动向导
+2026-05-19 20:29:16.266 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\
+2026-05-19 20:29:16.271 [virtual-66] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\
+2026-05-19 20:29:16.286 [virtual-66] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 7 下的图片: 共 0 张
+2026-05-19 20:29:16.287 [virtual-66] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 7 下的图片: 共 0 张

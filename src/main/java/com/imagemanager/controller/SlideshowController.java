@@ -6,6 +6,7 @@ import com.imagemanager.model.ImageFile;
 import com.imagemanager.service.MusicService;
 import com.imagemanager.util.AlertUtil;
 import com.imagemanager.util.ImageUtil;
+import com.imagemanager.util.ThemeUtil;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
@@ -17,6 +18,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
@@ -57,6 +59,9 @@ public class SlideshowController {
 
     // ==================== FXML 注入 ====================
 
+    @FXML private StackPane slideshowRoot;
+    @FXML private ImageView themeBackgroundImageView;
+    @FXML private BorderPane slideshowContentPane;
     @FXML private StackPane imageContainer;
     @FXML private ImageView mainImageView;
     @FXML private Label infoLabel;
@@ -158,6 +163,8 @@ public class SlideshowController {
         // 绑定 ImageView 尺寸到容器
         mainImageView.fitWidthProperty().bind(imageContainer.widthProperty().subtract(20));
         mainImageView.fitHeightProperty().bind(imageContainer.heightProperty().subtract(20));
+        ThemeUtil.applyThemeBackground(slideshowRoot, themeBackgroundImageView, settingsDao);
+        ThemeUtil.markThemedSurface(slideshowContentPane);
 
         // v2.0: 初始化音乐控件
         initMusicControls();

@@ -116,6 +116,8 @@ public class SettingsDaoImpl implements SettingsDao {
                         ('slideshow_interval', '3'),
                         ('slideshow_order', 'SEQUENTIAL'),
                         ('slideshow_music', 'none'),
+                        ('theme_background_path', ''),
+                        ('theme_background_opacity', '0.35'),
                         ('ai_request_delay', '1500'),
                         ('ai_max_retries', '3')
                     ON CONFLICT (key) DO NOTHING

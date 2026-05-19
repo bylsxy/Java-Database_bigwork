@@ -6,6 +6,7 @@ import com.imagemanager.ai.OpenAICompatibleService;
 import com.imagemanager.dao.SettingsDao;
 import com.imagemanager.dao.SettingsDaoImpl;
 import com.imagemanager.util.AlertUtil;
+import com.imagemanager.util.ThemeUtil;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -48,6 +49,11 @@ public class SettingsController {
     @FXML private Spinner<Integer> intervalSpinner;
     @FXML private ComboBox<String> orderComboBox;
 
+    // 界面主题
+    @FXML private TextField themeBackgroundField;
+    @FXML private Slider themeOpacitySlider;
+    @FXML private Label themeOpacityLabel;
+
     // 底部按钮
     @FXML private Button saveButton;
     @FXML private Button cancelButton;
@@ -70,12 +76,20 @@ public class SettingsController {
         originalModel = settingsDao.getValueOrDefault("ai_model", "qwen-vl-plus");
         originalDelay = settingsDao.getValueOrDefault("ai_request_delay", "1500");
         originalScanDirectory = settingsDao.getValueOrDefault("scan_directory", "");
+        String themeBackground = settingsDao.getValueOrDefault(ThemeUtil.THEME_BACKGROUND_PATH, "");
+        double themeOpacity = ThemeUtil.parseOpacity(
+                settingsDao.getValueOrDefault(ThemeUtil.THEME_BACKGROUND_OPACITY, ThemeUtil.DEFAULT_OPACITY));
 
         baseUrlField.setText(originalBaseUrl);
         apiKeyField.setText(originalApiKey);
         modelField.setText(originalModel);
         delayField.setText(originalDelay);
         scanDirField.setText(originalScanDirectory);
+        themeBackgroundField.setText(themeBackground);
+        themeOpacitySlider.setValue(themeOpacity);
+        updateThemeOpacityLabel(themeOpacity);
+        themeOpacitySlider.valueProperty().addListener((obs, oldVal, newVal) ->
+                updateThemeOpacityLabel(newVal.doubleValue()));
 
         // 幻灯片间隔 Spinner
         int currentInterval = 3;
@@ -160,6 +174,29 @@ public class SettingsController {
         }
     }
 
+    @FXML
+    private void onBrowseThemeBackground() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("选择主题背景图片");
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("图片文件", "*.jpg", "*.jpeg", "*.png", "*.gif", "*.bmp")
+        );
+
+        File chosen = chooser.showOpenDialog(themeBackgroundField.getScene().getWindow());
+        if (chosen != null) {
+            themeBackgroundField.setText(chosen.getAbsolutePath());
+        }
+    }
+
+    @FXML
+    private void onClearThemeBackground() {
+        themeBackgroundField.clear();
+    }
+
+    private void updateThemeOpacityLabel(double value) {
+        themeOpacityLabel.setText("%d%%".formatted((int) Math.round(value * 100)));
+    }
+
     /**
      * 重新打开首次向导。
      */
@@ -183,6 +220,7 @@ public class SettingsController {
         String model = modelField.getText().trim();
         String delay = delayField.getText().trim();
         String scanDirectory = scanDirField.getText().trim();
+        String themeBackground = themeBackgroundField.getText().trim();
 
         if (!validateAiConfig(baseUrl, apiKey, model, delay, false)) {
             return;
@@ -191,6 +229,13 @@ public class SettingsController {
             File scanDir = new File(scanDirectory);
             if (!scanDir.exists() || !scanDir.isDirectory()) {
                 AlertUtil.showWarning("保存失败", "扫描目录不存在或不是文件夹");
+                return;
+            }
+        }
+        if (!themeBackground.isBlank()) {
+            File themeFile = new File(themeBackground);
+            if (!themeFile.exists() || !themeFile.isFile()) {
+                AlertUtil.showWarning("保存失败", "主题背景图片不存在");
                 return;
             }
         }
@@ -203,6 +248,11 @@ public class SettingsController {
 
         // 扫描目录
         settingsDao.upsert("scan_directory", scanDirectory);
+
+        // 界面主题
+        settingsDao.upsert(ThemeUtil.THEME_BACKGROUND_PATH, themeBackground);
+        settingsDao.upsert(ThemeUtil.THEME_BACKGROUND_OPACITY,
+                String.valueOf(themeOpacitySlider.getValue()));
 
         // 幻灯片
         settingsDao.upsert("slideshow_interval", String.valueOf(intervalSpinner.getValue()));

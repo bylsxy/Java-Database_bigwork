@@ -14,6 +14,7 @@ import com.imagemanager.service.SearchService;
 import com.imagemanager.util.AlertUtil;
 import com.imagemanager.util.FileUtil;
 import com.imagemanager.util.ImageUtil;
+import com.imagemanager.util.ThemeUtil;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
@@ -82,6 +83,12 @@ public class MainController {
     private Button slideshowButton;
     @FXML
     private SplitPane mainSplitPane;
+    @FXML
+    private StackPane appRoot;
+    @FXML
+    private ImageView themeBackgroundImageView;
+    @FXML
+    private BorderPane mainContentPane;
 
     // v2.0 新增：搜索栏
     @FXML
@@ -152,7 +159,15 @@ public class MainController {
         // v2.0: 初始化搜索栏
         initSearchBar();
 
+        // 应用全局主题背景
+        applyTheme();
+
         logger.info("主界面初始化完成");
+    }
+
+    private void applyTheme() {
+        ThemeUtil.applyThemeBackground(appRoot, themeBackgroundImageView, settingsDao);
+        ThemeUtil.markThemedSurface(mainContentPane);
     }
 
     /**
@@ -1169,10 +1184,15 @@ public class MainController {
             settingsStage.setResizable(true);
             settingsStage.showAndWait();
 
-            if (controller.isSaved() && controller.isScanRequested()) {
-                String scanDirectory = controller.getSavedScanDirectory();
-                statusLabel.setText("设置已保存，开始扫描目录...");
-                startScanTask(scanDirectory);
+            if (controller.isSaved()) {
+                applyTheme();
+                if (controller.isScanRequested()) {
+                    String scanDirectory = controller.getSavedScanDirectory();
+                    statusLabel.setText("设置已保存，开始扫描目录...");
+                    startScanTask(scanDirectory);
+                } else {
+                    statusLabel.setText("设置已保存");
+                }
             }
         } catch (Exception e) {
             logger.error("打开设置页面失败", e);

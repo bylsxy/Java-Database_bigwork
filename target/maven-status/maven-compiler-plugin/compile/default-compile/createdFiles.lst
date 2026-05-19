@@ -39,6 +39,7 @@ com\imagemanager\util\FileUtil.class
 com\imagemanager\dao\DirectoryDaoImpl.class
 com\imagemanager\dao\TagDaoImpl.class
 com\imagemanager\controller\SlideshowController.class
+com\imagemanager\util\ThemeUtil.class
 com\imagemanager\dao\TagDao.class
 com\imagemanager\controller\MainController$2.class
 com\imagemanager\dao\ImageDao.class

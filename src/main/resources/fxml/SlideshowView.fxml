@@ -23,11 +23,15 @@
     └────────────────────────────────────────────────────┘
 -->
 
-<BorderPane xmlns="http://javafx.com/javafx/26"
-            xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.imagemanager.controller.SlideshowController"
-            prefWidth="1000" prefHeight="700"
-            styleClass="slideshow-root">
+<StackPane xmlns="http://javafx.com/javafx/26"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.imagemanager.controller.SlideshowController"
+           fx:id="slideshowRoot"
+           prefWidth="1000" prefHeight="700"
+           styleClass="slideshow-root">
+    <ImageView fx:id="themeBackgroundImageView" preserveRatio="false" smooth="true"
+               mouseTransparent="true"/>
+    <BorderPane fx:id="slideshowContentPane" styleClass="slideshow-content-pane">
 
     <!-- ==================== 中央：大图展示区 ==================== -->
     <center>
@@ -108,4 +112,5 @@
             </ScrollPane>
         </VBox>
     </bottom>
-</BorderPane>
+    </BorderPane>
+</StackPane>

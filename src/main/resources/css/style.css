@@ -16,6 +16,16 @@
     -fx-background-color: #F5F6F8;
 }
 
+.theme-content-pane,
+.viewer-content-pane,
+.slideshow-content-pane {
+    -fx-background-color: transparent;
+}
+
+.theme-surface {
+    -fx-background-color: transparent;
+}
+
 /* ==================== 顶部工具栏 ==================== */
 
 .top-toolbar {
@@ -43,7 +53,7 @@
 /* ==================== 左侧目录树 ==================== */
 
 .tree-container {
-    -fx-background-color: white;
+    -fx-background-color: rgba(255, 255, 255, 0.88);
     -fx-min-width: 200;
 }
 
@@ -79,7 +89,7 @@
 /* ==================== 右侧预览区 ==================== */
 
 .preview-container {
-    -fx-background-color: white;
+    -fx-background-color: rgba(255, 255, 255, 0.88);
 }
 
 .directory-info-bar {
@@ -101,13 +111,13 @@
 }
 
 .thumbnail-scroll {
-    -fx-background-color: white;
-    -fx-background: white;
+    -fx-background-color: transparent;
+    -fx-background: transparent;
     -fx-border-color: transparent;
 }
 
 .thumbnail-pane {
-    -fx-background-color: white;
+    -fx-background-color: transparent;
 }
 
 /* ==================== 缩略图卡片 ==================== */
@@ -205,7 +215,7 @@
 }
 
 .image-container {
-    -fx-background-color: #1A1A2E;
+    -fx-background-color: rgba(26, 26, 46, 0.84);
     -fx-alignment: center;
 }
 
@@ -261,6 +271,11 @@
     -fx-background-color: white;
 }
 
+.slideshow-inline-label {
+    -fx-text-fill: #E0E0E0;
+    -fx-font-size: 12px;
+}
+
 .play-button {
     -fx-background-color: #27AE60;
 }
@@ -314,7 +329,7 @@
 }
 
 .viewer-image-container {
-    -fx-background-color: #20242B;
+    -fx-background-color: rgba(32, 36, 43, 0.84);
     -fx-alignment: center;
 }
 
@@ -352,6 +367,11 @@
 .viewer-button:hover {
     -fx-background-color: #EAF3FC;
     -fx-border-color: #8DBBE8;
+}
+
+.viewer-inline-label {
+    -fx-text-fill: #34495E;
+    -fx-font-size: 12px;
 }
 
 .viewer-play-button {
