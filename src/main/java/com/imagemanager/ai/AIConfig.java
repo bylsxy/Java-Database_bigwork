@@ -9,17 +9,17 @@ import java.util.function.Supplier;
  * AI 服务配置 — 管理 OpenAI 兼容 API 的连接参数。
  * <p>
  * 从数据库 app_settings 表读取配置，支持动态切换模型和API端点。
- * 默认使用通义千问VL（qwen-vl-plus），兼容 OpenAI API 格式。
+ * 默认连接 CPA 代理节点，兼容 OpenAI API 格式。
  */
 public class AIConfig {
 
     private static final SettingsDao settingsDao = new SettingsDaoImpl();
 
     // 默认值
-    private static final String DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
-    private static final String DEFAULT_MODEL = "qwen-vl-plus";
-    private static final String DEFAULT_DELAY = "1500";
-    private static final String DEFAULT_MAX_RETRIES = "3";
+    public static final String DEFAULT_BASE_URL = "https://cpa.ystone.top/v1";
+    public static final String DEFAULT_MODEL = "";
+    public static final String DEFAULT_DELAY = "1500";
+    public static final String DEFAULT_MAX_RETRIES = "3";
     private static final ThreadLocal<RuntimeConfig> RUNTIME_CONFIG = new ThreadLocal<>();
 
     public record RuntimeConfig(String baseUrl, String apiKey, String model,
@@ -33,6 +33,10 @@ public class AIConfig {
         if (config != null && config.baseUrl() != null && !config.baseUrl().isBlank()) {
             return config.baseUrl();
         }
+        String envValue = firstEnv("DIMS_AI_BASE_URL", "CPA_BASE_URL", "OPENAI_BASE_URL");
+        if (!envValue.isBlank()) {
+            return envValue;
+        }
         return settingsDao.getValueOrDefault("ai_base_url", DEFAULT_BASE_URL);
     }
 
@@ -43,6 +47,10 @@ public class AIConfig {
         RuntimeConfig config = RUNTIME_CONFIG.get();
         if (config != null && config.apiKey() != null) {
             return config.apiKey();
+        }
+        String envValue = getEnvironmentApiKey();
+        if (!envValue.isBlank()) {
+            return envValue;
         }
         return settingsDao.getValueOrDefault("ai_api_key", "");
     }
@@ -55,7 +63,18 @@ public class AIConfig {
         if (config != null && config.model() != null && !config.model().isBlank()) {
             return config.model();
         }
-        return settingsDao.getValueOrDefault("ai_model", DEFAULT_MODEL);
+        String envValue = firstEnv("DIMS_AI_MODEL", "CPA_MODEL", "OPENAI_MODEL");
+        if (!envValue.isBlank()) {
+            return envValue;
+        }
+        String savedModel = settingsDao.getValueOrDefault("ai_model", DEFAULT_MODEL);
+        if (!savedModel.isBlank()) {
+            return savedModel;
+        }
+        if (isConfigured()) {
+            return AIModelClient.firstAvailableModel(getBaseUrl(), getApiKey()).orElse(DEFAULT_MODEL);
+        }
+        return DEFAULT_MODEL;
     }
 
     /**
@@ -105,6 +124,10 @@ public class AIConfig {
         settingsDao.upsert("ai_model", model);
     }
 
+    public static String getEnvironmentApiKey() {
+        return firstEnv("DIMS_AI_API_KEY", "CPA_API_KEY", "HAJIMI", "hajimi", "OPENAI_API_KEY");
+    }
+
     public static <T> T withTemporaryConfig(RuntimeConfig config, Supplier<T> action) {
         RuntimeConfig previous = RUNTIME_CONFIG.get();
         RUNTIME_CONFIG.set(config);
@@ -117,5 +140,15 @@ public class AIConfig {
                 RUNTIME_CONFIG.set(previous);
             }
         }
+    }
+
+    private static String firstEnv(String... names) {
+        for (String name : names) {
+            String value = System.getenv(name);
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return "";
     }
 }

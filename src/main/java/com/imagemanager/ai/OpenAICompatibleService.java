@@ -16,7 +16,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
- * OpenAI 兼容 API 实现 — 支持通义千问VL、GPT-4o、百度文心等。
+ * OpenAI 兼容 API 实现 — 支持 CPA 代理节点及其他 OpenAI-compatible 服务。
  * <p>
  * 通过标准的 OpenAI Chat Completions API 格式进行图像识别（图生文）
  * 和自然语言转SQL（文生文）。
@@ -97,6 +97,10 @@ public class OpenAICompatibleService implements AIService {
             logger.warn("AI API 未配置，跳过图像分析");
             return Optional.empty();
         }
+        if (AIConfig.getModel().isBlank()) {
+            logger.warn("AI 模型未选择，跳过图像分析");
+            return Optional.empty();
+        }
 
         try {
             // 1. 将图片转为 Base64
@@ -131,6 +135,10 @@ public class OpenAICompatibleService implements AIService {
             logger.warn("AI API 未配置，无法进行NL→SQL转换");
             return Optional.empty();
         }
+        if (AIConfig.getModel().isBlank()) {
+            logger.warn("AI 模型未选择，无法进行NL→SQL转换");
+            return Optional.empty();
+        }
 
         try {
             String requestBody = buildTextRequest(NL_TO_SQL_PROMPT, naturalLanguageQuery);
@@ -159,6 +167,9 @@ public class OpenAICompatibleService implements AIService {
     public String testConnection(File testImageFile) {
         if (!AIConfig.isConfigured()) {
             return "失败：API Key 未配置";
+        }
+        if (AIConfig.getModel().isBlank()) {
+            return "失败：请先从模型下拉列表中选择一个模型";
         }
 
         try {

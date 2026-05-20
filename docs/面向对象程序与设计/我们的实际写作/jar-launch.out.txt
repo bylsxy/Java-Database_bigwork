@@ -1,0 +1,9 @@
+17:49:21.900 [JavaFX Application Thread] INFO  com.imagemanager.App - 正在初始化数据库连接...
+17:49:21.918 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Starting...
+17:49:22.213 [JavaFX Application Thread] INFO  com.zaxxer.hikari.pool.HikariPool - DIMS-HikariPool - Added connection org.postgresql.jdbc.PgConnection@18a57c9
+17:49:22.216 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Start completed.
+17:49:22.217 [JavaFX Application Thread] INFO  c.i.dao.DatabaseConnection - 数据库连接池初始化成功 [URL=jdbc:postgresql://localhost:5432/image_manager] [池大小=10]
+17:49:22.219 [JavaFX Application Thread] INFO  com.imagemanager.App - 数据库连接初始化成功
+17:49:23.004 [JavaFX Application Thread] INFO  c.i.controller.MainController - 初始化主界面...
+17:49:23.046 [JavaFX Application Thread] INFO  c.i.controller.MainController - 主界面初始化完成
+17:49:23.809 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序启动成功

@@ -1,6 +1,7 @@
 package com.imagemanager.controller;
 
 import com.imagemanager.ai.AIConfig;
+import com.imagemanager.ai.AIModelClient;
 import com.imagemanager.ai.AIService;
 import com.imagemanager.ai.OpenAICompatibleService;
 import com.imagemanager.dao.SettingsDao;
@@ -33,7 +34,9 @@ public class SettingsController {
     // AI配置
     @FXML private TextField baseUrlField;
     @FXML private PasswordField apiKeyField;
-    @FXML private TextField modelField;
+    @FXML private ComboBox<String> modelComboBox;
+    @FXML private Button refreshModelsButton;
+    @FXML private Label modelStatusLabel;
     @FXML private TextField delayField;
 
     // 测试区域
@@ -63,6 +66,8 @@ public class SettingsController {
     private String originalModel;
     private String originalDelay;
     private String originalScanDirectory;
+    private String storedApiKey = "";
+    private String environmentApiKey = "";
     private boolean saved = false;
     private boolean scanRequested = false;
     private String savedScanDirectory = "";
@@ -70,11 +75,12 @@ public class SettingsController {
     @FXML
     public void initialize() {
         // 加载当前配置
-        originalBaseUrl = settingsDao.getValueOrDefault("ai_base_url",
-                "https://dashscope.aliyuncs.com/compatible-mode/v1");
-        originalApiKey = settingsDao.getValueOrDefault("ai_api_key", "");
-        originalModel = settingsDao.getValueOrDefault("ai_model", "qwen-vl-plus");
-        originalDelay = settingsDao.getValueOrDefault("ai_request_delay", "1500");
+        originalBaseUrl = settingsDao.getValueOrDefault("ai_base_url", AIConfig.DEFAULT_BASE_URL);
+        storedApiKey = settingsDao.getValueOrDefault("ai_api_key", "");
+        environmentApiKey = AIConfig.getEnvironmentApiKey();
+        originalApiKey = storedApiKey.isBlank() ? environmentApiKey : storedApiKey;
+        originalModel = settingsDao.getValueOrDefault("ai_model", AIConfig.DEFAULT_MODEL);
+        originalDelay = settingsDao.getValueOrDefault("ai_request_delay", AIConfig.DEFAULT_DELAY);
         originalScanDirectory = settingsDao.getValueOrDefault("scan_directory", "");
         String themeBackground = settingsDao.getValueOrDefault(ThemeUtil.THEME_BACKGROUND_PATH, "");
         double themeOpacity = ThemeUtil.parseOpacity(
@@ -82,7 +88,12 @@ public class SettingsController {
 
         baseUrlField.setText(originalBaseUrl);
         apiKeyField.setText(originalApiKey);
-        modelField.setText(originalModel);
+        modelComboBox.setItems(FXCollections.observableArrayList());
+        modelComboBox.setMaxWidth(Double.MAX_VALUE);
+        if (!originalModel.isBlank()) {
+            modelComboBox.getItems().add(originalModel);
+            modelComboBox.getSelectionModel().select(originalModel);
+        }
         delayField.setText(originalDelay);
         scanDirField.setText(originalScanDirectory);
         themeBackgroundField.setText(themeBackground);
@@ -103,6 +114,18 @@ public class SettingsController {
         String order = settingsDao.getValueOrDefault("slideshow_order", "SEQUENTIAL");
         orderComboBox.getSelectionModel().select("RANDOM".equals(order) ? 1 : 0);
 
+        baseUrlField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (!isFocused) {
+                loadModelsAsync(false);
+            }
+        });
+        apiKeyField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (!isFocused) {
+                loadModelsAsync(false);
+            }
+        });
+        loadModelsAsync(false);
+
         logger.info("设置页面初始化完成");
     }
 
@@ -110,11 +133,77 @@ public class SettingsController {
      * 实时测试 API 连接。
      */
     @FXML
+    private void onRefreshModels() {
+        loadModelsAsync(true);
+    }
+
+    private void loadModelsAsync(boolean showWarningOnMissingKey) {
+        String baseUrl = baseUrlField.getText() == null ? "" : baseUrlField.getText().trim();
+        String apiKey = apiKeyField.getText() == null ? "" : apiKeyField.getText().trim();
+        String selectedBefore = getSelectedModel();
+
+        if (baseUrl.isBlank() || apiKey.isBlank()) {
+            modelStatusLabel.setText("填写 Base URL，并从环境变量或输入框提供 API Key 后自动获取模型列表");
+            if (showWarningOnMissingKey) {
+                AlertUtil.showWarning("无法获取模型列表", "请先确认 Base URL 和 API Key 已配置");
+            }
+            return;
+        }
+        if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+            modelStatusLabel.setText("Base URL 格式不正确，无法获取模型列表");
+            return;
+        }
+
+        refreshModelsButton.setDisable(true);
+        modelComboBox.setDisable(true);
+        modelStatusLabel.setText("正在从 CPA 代理节点获取模型列表...");
+
+        Thread modelThread = new Thread(() -> {
+            try {
+                var models = AIModelClient.fetchModelIds(baseUrl, apiKey);
+                Platform.runLater(() -> applyModelList(models, selectedBefore));
+            } catch (Exception e) {
+                logger.warn("获取模型列表失败: {}", e.getMessage());
+                Platform.runLater(() -> {
+                    refreshModelsButton.setDisable(false);
+                    modelComboBox.setDisable(false);
+                    if (modelComboBox.getItems().isEmpty() && !selectedBefore.isBlank()) {
+                        modelComboBox.setItems(FXCollections.observableArrayList(selectedBefore));
+                        modelComboBox.getSelectionModel().select(selectedBefore);
+                    }
+                    modelStatusLabel.setText("获取模型列表失败：" + e.getMessage());
+                });
+            }
+        });
+        modelThread.setDaemon(true);
+        modelThread.setName("AI-Model-List");
+        modelThread.start();
+    }
+
+    private void applyModelList(java.util.List<String> models, String selectedBefore) {
+        modelComboBox.setItems(FXCollections.observableArrayList(models));
+        String target = !selectedBefore.isBlank() ? selectedBefore : originalModel;
+        if (!target.isBlank() && models.contains(target)) {
+            modelComboBox.getSelectionModel().select(target);
+        } else if (!models.isEmpty()) {
+            modelComboBox.getSelectionModel().selectFirst();
+        }
+        refreshModelsButton.setDisable(false);
+        modelComboBox.setDisable(false);
+        modelStatusLabel.setText("已获取 " + models.size() + " 个模型，请从下拉列表选择");
+    }
+
+    private String getSelectedModel() {
+        String model = modelComboBox.getSelectionModel().getSelectedItem();
+        return model == null ? "" : model.trim();
+    }
+
+    @FXML
     private void onTestAPI() {
         // 使用当前输入测试连接，但不写入正式配置。
         String baseUrl = baseUrlField.getText().trim();
         String apiKey = apiKeyField.getText().trim();
-        String model = modelField.getText().trim();
+        String model = getSelectedModel();
         String delay = delayField.getText().trim();
 
         if (!validateAiConfig(baseUrl, apiKey, model, delay, true)) {

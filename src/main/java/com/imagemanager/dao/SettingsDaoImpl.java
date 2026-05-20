@@ -108,9 +108,9 @@ public class SettingsDaoImpl implements SettingsDao {
             String defaultsSql = """
                     INSERT INTO app_settings (key, value) VALUES
                         ('scan_directory', ''),
-                        ('ai_base_url', 'https://dashscope.aliyuncs.com/compatible-mode/v1'),
+                        ('ai_base_url', 'https://cpa.ystone.top/v1'),
                         ('ai_api_key', ''),
-                        ('ai_model', 'qwen-vl-plus'),
+                        ('ai_model', ''),
                         ('show_welcome', 'true'),
                         ('thumbnail_storage', 'database'),
                         ('slideshow_interval', '3'),
@@ -126,6 +126,18 @@ public class SettingsDaoImpl implements SettingsDao {
                  Statement stmt = conn.createStatement()) {
                 stmt.execute(createSql);
                 stmt.execute(defaultsSql);
+                stmt.executeUpdate("""
+                        UPDATE app_settings
+                        SET value = 'https://cpa.ystone.top/v1', updated_at = NOW()
+                        WHERE key = 'ai_base_url'
+                          AND value = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+                        """);
+                stmt.executeUpdate("""
+                        UPDATE app_settings
+                        SET value = '', updated_at = NOW()
+                        WHERE key = 'ai_model'
+                          AND value = 'qwen-vl-plus'
+                        """);
                 schemaReady = true;
             } catch (SQLException e) {
                 logger.error("初始化设置表失败", e);

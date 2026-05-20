@@ -65,6 +65,14 @@ CREATE TABLE IF NOT EXISTS images (
     CONSTRAINT uq_images_dir_name UNIQUE (file_name, directory_id)
 );
 
+-- 兼容已运行过 v1.x 脚本的数据库：CREATE TABLE IF NOT EXISTS 不会自动补齐新增字段。
+ALTER TABLE images ADD COLUMN IF NOT EXISTS file_hash VARCHAR(64);
+ALTER TABLE images ADD COLUMN IF NOT EXISTS ai_processed BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE images ADD COLUMN IF NOT EXISTS last_ai_scan TIMESTAMP;
+ALTER TABLE images ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT NOW();
+ALTER TABLE images ADD COLUMN IF NOT EXISTS modified_at TIMESTAMP NOT NULL DEFAULT NOW();
+ALTER TABLE images ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+
 COMMENT ON TABLE images IS '图像文件表 — 存储图片元数据和缩略图(bytea)，支持逻辑删除和AI标签';
 COMMENT ON COLUMN images.thumbnail IS '缩略图二进制数据，使用 bytea 类型存储，首次加载目录时生成';
 COMMENT ON COLUMN images.is_deleted IS '逻辑删除标记，TRUE 表示已删除但记录保留用于审计';
@@ -321,6 +329,12 @@ CREATE INDEX IF NOT EXISTS idx_ai_desc_trgm ON ai_analysis_results USING GIN (de
 -- ============================================================
 -- 7. 视图
 -- ============================================================
+
+-- 兼容旧版视图结构升级：CREATE OR REPLACE VIEW 不能改变既有列名和列顺序。
+DROP VIEW IF EXISTS v_tag_stats;
+DROP VIEW IF EXISTS v_image_search;
+DROP VIEW IF EXISTS v_directory_stats;
+DROP VIEW IF EXISTS v_active_images;
 
 -- 活跃图片视图：过滤掉逻辑删除的记录，关联目录信息
 CREATE OR REPLACE VIEW v_active_images AS

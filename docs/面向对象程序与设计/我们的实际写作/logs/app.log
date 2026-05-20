@@ -1,0 +1,101 @@
+2026-05-21 00:15:58.365 [JavaFX Application Thread] INFO  com.imagemanager.App - 正在初始化数据库连接...
+2026-05-21 00:15:58.379 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Starting...
+2026-05-21 00:15:58.671 [JavaFX Application Thread] INFO  com.zaxxer.hikari.pool.HikariPool - DIMS-HikariPool - Added connection org.postgresql.jdbc.PgConnection@61ff671e
+2026-05-21 00:15:58.672 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Start completed.
+2026-05-21 00:15:58.672 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池初始化成功 [URL=jdbc:postgresql://localhost:5432/image_manager] [池大小=10]
+2026-05-21 00:15:58.673 [JavaFX Application Thread] INFO  com.imagemanager.App - 数据库连接初始化成功
+2026-05-21 00:15:59.342 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 初始化主界面...
+2026-05-21 00:15:59.380 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 主界面初始化完成
+2026-05-21 00:15:59.985 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序启动成功
+2026-05-21 00:16:33.556 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:16:38.518 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:16:38.918 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:16:39.097 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:16:39.501 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:16:39.689 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:16:39.894 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:16:40.882 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:16:41.070 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:16:42.071 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:16:43.351 [JavaFX Application Thread] INFO  com.imagemanager.App - 用户取消了首次启动向导
+2026-05-21 00:16:45.628 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\
+2026-05-21 00:16:45.637 [virtual-67] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\
+2026-05-21 00:16:45.661 [virtual-67] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 2 下的图片: 共 0 张
+2026-05-21 00:16:45.662 [virtual-67] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 2 下的图片: 共 0 张
+2026-05-21 00:16:51.989 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: C:\
+2026-05-21 00:16:51.991 [virtual-74] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: C:\
+2026-05-21 00:16:51.994 [virtual-74] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 1 下的图片: 共 0 张
+2026-05-21 00:16:51.995 [virtual-74] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 1 下的图片: 共 0 张
+2026-05-21 00:16:52.730 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\
+2026-05-21 00:16:52.731 [virtual-75] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\
+2026-05-21 00:16:52.738 [virtual-75] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 2 下的图片: 共 0 张
+2026-05-21 00:16:52.739 [virtual-75] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 2 下的图片: 共 0 张
+2026-05-21 00:16:53.172 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: C:\
+2026-05-21 00:16:53.172 [virtual-76] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: C:\
+2026-05-21 00:16:53.178 [virtual-76] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 1 下的图片: 共 0 张
+2026-05-21 00:16:53.179 [virtual-76] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 1 下的图片: 共 0 张
+2026-05-21 00:16:54.694 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\
+2026-05-21 00:16:54.695 [virtual-77] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\
+2026-05-21 00:16:54.698 [virtual-77] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 2 下的图片: 共 0 张
+2026-05-21 00:16:54.699 [virtual-77] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 2 下的图片: 共 0 张
+2026-05-21 00:16:56.965 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\AAAWorkSpace
+2026-05-21 00:16:56.966 [virtual-78] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\AAAWorkSpace
+2026-05-21 00:16:56.974 [virtual-78] DEBUG com.imagemanager.dao.DirectoryDaoImpl - 创建目录记录: id=19, path=D:\AAAWorkSpace
+2026-05-21 00:16:56.975 [virtual-78] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 19 下的图片: 共 0 张
+2026-05-21 00:16:56.976 [virtual-78] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 19 下的图片: 共 0 张
+2026-05-21 00:16:58.631 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\AAAWorkSpace\.vscode
+2026-05-21 00:16:58.633 [virtual-79] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\AAAWorkSpace\.vscode
+2026-05-21 00:16:58.640 [virtual-79] DEBUG com.imagemanager.dao.DirectoryDaoImpl - 创建目录记录: id=20, path=D:\AAAWorkSpace\.vscode
+2026-05-21 00:16:58.642 [virtual-79] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 20 下的图片: 共 0 张
+2026-05-21 00:16:58.643 [virtual-79] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 20 下的图片: 共 0 张
+2026-05-21 00:17:00.722 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\AAAWorkSpace\C project
+2026-05-21 00:17:00.722 [virtual-80] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\AAAWorkSpace\C project
+2026-05-21 00:17:00.727 [virtual-80] DEBUG com.imagemanager.dao.DirectoryDaoImpl - 创建目录记录: id=21, path=D:\AAAWorkSpace\C project
+2026-05-21 00:17:00.728 [virtual-80] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 21 下的图片: 共 0 张
+2026-05-21 00:17:00.728 [virtual-80] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 21 下的图片: 共 0 张
+2026-05-21 00:17:02.746 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\AAAWorkSpace\C project\18104 练习使用多case解题
+2026-05-21 00:17:02.747 [virtual-81] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\AAAWorkSpace\C project\18104 练习使用多case解题
+2026-05-21 00:17:02.753 [virtual-81] DEBUG com.imagemanager.dao.DirectoryDaoImpl - 创建目录记录: id=22, path=D:\AAAWorkSpace\C project\18104 练习使用多case解题
+2026-05-21 00:17:02.754 [virtual-81] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 22 下的图片: 共 0 张
+2026-05-21 00:17:02.755 [virtual-81] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 22 下的图片: 共 0 张
+2026-05-21 00:17:03.980 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\AAAWorkSpace\C project
+2026-05-21 00:17:03.981 [virtual-82] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\AAAWorkSpace\C project
+2026-05-21 00:17:03.984 [virtual-82] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 21 下的图片: 共 0 张
+2026-05-21 00:17:03.984 [virtual-82] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 21 下的图片: 共 0 张
+2026-05-21 00:17:04.613 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: D:\AAAWorkSpace
+2026-05-21 00:17:04.614 [virtual-83] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: D:\AAAWorkSpace
+2026-05-21 00:17:04.617 [virtual-83] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 19 下的图片: 共 0 张
+2026-05-21 00:17:04.619 [virtual-83] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 19 下的图片: 共 0 张
+2026-05-21 00:17:05.076 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 选中目录: C:\
+2026-05-21 00:17:05.077 [virtual-84] INFO  com.imagemanager.service.ImageServiceImpl - 扫描目录: C:\
+2026-05-21 00:17:05.080 [virtual-84] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 1 下的图片: 共 0 张
+2026-05-21 00:17:05.081 [virtual-84] DEBUG com.imagemanager.dao.ImageDaoImpl - 查询目录 1 下的图片: 共 0 张
+2026-05-21 00:17:09.802 [JavaFX Application Thread] INFO  com.imagemanager.controller.SettingsController - 设置页面初始化完成
+2026-05-21 00:19:51.626 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序关闭中，释放资源...
+2026-05-21 00:19:51.626 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown initiated...
+2026-05-21 00:19:51.630 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown completed.
+2026-05-21 00:19:51.630 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池已关闭
+2026-05-21 00:19:51.631 [JavaFX Application Thread] INFO  com.imagemanager.App - 资源释放完毕
+2026-05-21 00:19:57.609 [JavaFX Application Thread] INFO  com.imagemanager.App - 正在初始化数据库连接...
+2026-05-21 00:19:57.623 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Starting...
+2026-05-21 00:19:57.877 [JavaFX Application Thread] INFO  com.zaxxer.hikari.pool.HikariPool - DIMS-HikariPool - Added connection org.postgresql.jdbc.PgConnection@52e1d92a
+2026-05-21 00:19:57.879 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Start completed.
+2026-05-21 00:19:57.880 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池初始化成功 [URL=jdbc:postgresql://localhost:5432/image_manager] [池大小=10]
+2026-05-21 00:19:57.880 [JavaFX Application Thread] INFO  com.imagemanager.App - 数据库连接初始化成功
+2026-05-21 00:19:58.664 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 初始化主界面...
+2026-05-21 00:19:58.706 [JavaFX Application Thread] INFO  com.imagemanager.controller.MainController - 主界面初始化完成
+2026-05-21 00:19:59.273 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序启动成功
+2026-05-21 00:20:03.378 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:20:03.925 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:20:04.179 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:20:04.344 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:20:04.498 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:20:04.652 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:21:12.691 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:21:12.819 [JavaFX Application Thread] INFO  c.imagemanager.controller.WelcomeDialogController - 用户请求打开设置页面
+2026-05-21 00:23:08.608 [JavaFX Application Thread] INFO  com.imagemanager.App - 用户取消了首次启动向导
+2026-05-21 00:23:09.501 [JavaFX Application Thread] INFO  com.imagemanager.App - 应用程序关闭中，释放资源...
+2026-05-21 00:23:09.501 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown initiated...
+2026-05-21 00:23:09.505 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - DIMS-HikariPool - Shutdown completed.
+2026-05-21 00:23:09.505 [JavaFX Application Thread] INFO  com.imagemanager.dao.DatabaseConnection - 数据库连接池已关闭
+2026-05-21 00:23:09.505 [JavaFX Application Thread] INFO  com.imagemanager.App - 资源释放完毕
