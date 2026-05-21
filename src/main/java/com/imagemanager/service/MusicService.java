@@ -6,6 +6,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -13,7 +18,7 @@ import java.util.Map;
 /**
  * 音乐播放服务 — 管理幻灯片背景音乐的播放、暂停、切换。
  * <p>
- * 支持内置固定目录下的三首音乐（轻松钢琴、自然之声、柔和吉他），
+ * 支持项目资源内置的三首音乐（轻松钢琴、自然之声、柔和吉他），
  * 以及用户自定义选择的本地音乐文件。
  * 所有音乐均为单曲循环模式。
  */
@@ -21,33 +26,18 @@ public class MusicService {
 
     private static final Logger logger = LoggerFactory.getLogger(MusicService.class);
 
-    /** 固定音乐文件夹路径（用户主目录下的 DIMS_Music） */
-    public static final String MUSIC_DIR = System.getProperty("user.home") + "/DIMS_Music";
+    private static final String BUILTIN_MUSIC_RESOURCE_DIR = "/music/";
+    private static final Path BUILTIN_MUSIC_CACHE_DIR = Path.of(
+            System.getProperty("java.io.tmpdir"),
+            "DIMS_Builtin_Music"
+    );
 
     /** 内置音乐名称与文件名的映射 */
     private static final Map<String, String> BUILTIN_MUSIC_MAP = Map.of(
-            "轻松钢琴", "轻松钢琴.mp3",
-            "自然之声", "自然之声.mp3",
-            "柔和吉他", "柔和吉他.mp3"
+            "轻松钢琴", "relax_piano.mp3",
+            "自然之声", "nature_sounds.mp3",
+            "柔和吉他", "gentle_guitar.mp3"
     );
-
-    static {
-        // 确保音乐目录存在
-        File musicDir = new File(MUSIC_DIR);
-        if (!musicDir.exists()) {
-            boolean created = musicDir.mkdirs();
-            if (created) {
-                logger.info("创建音乐目录成功: {}", MUSIC_DIR);
-                logger.info("请将以下三个音乐文件放入该目录以便使用内置音乐：");
-                BUILTIN_MUSIC_MAP.forEach((name, fileName) ->
-                        logger.info("  - {} -> {}", name, fileName));
-            } else {
-                logger.warn("无法创建音乐目录: {}", MUSIC_DIR);
-            }
-        } else {
-            logger.debug("音乐目录已存在: {}", MUSIC_DIR);
-        }
-    }
 
     private MediaPlayer currentPlayer;
     private String currentMusicIdentifier; // 内置名称或自定义文件路径
@@ -71,21 +61,8 @@ public class MusicService {
         // 停止当前播放，确保不会多个声音重叠
         stop();
 
-        String filePath;
-        if (BUILTIN_MUSIC_MAP.containsKey(musicNameOrPath)) {
-            String fileName = BUILTIN_MUSIC_MAP.get(musicNameOrPath);
-            filePath = MUSIC_DIR + File.separator + fileName;
-        } else {
-            // 直接作为自定义文件路径处理
-            filePath = musicNameOrPath;
-        }
-
-        File musicFile = new File(filePath);
-        if (!musicFile.exists()) {
-            logger.warn("音乐文件不存在: {}", filePath);
-            if (BUILTIN_MUSIC_MAP.containsKey(musicNameOrPath)) {
-                logger.warn("请将 {} 放入目录: {}", BUILTIN_MUSIC_MAP.get(musicNameOrPath), MUSIC_DIR);
-            }
+        File musicFile = resolveMusicFile(musicNameOrPath);
+        if (musicFile == null) {
             return false;
         }
 
@@ -129,6 +106,38 @@ public class MusicService {
             playRequested = false;
             paused = false;
             return false;
+        }
+    }
+
+    private File resolveMusicFile(String musicNameOrPath) {
+        if (BUILTIN_MUSIC_MAP.containsKey(musicNameOrPath)) {
+            return extractBuiltinMusic(BUILTIN_MUSIC_MAP.get(musicNameOrPath));
+        }
+
+        File musicFile = new File(musicNameOrPath);
+        if (!musicFile.exists()) {
+            logger.warn("音乐文件不存在: {}", musicNameOrPath);
+            return null;
+        }
+        return musicFile;
+    }
+
+    private File extractBuiltinMusic(String fileName) {
+        String resourcePath = BUILTIN_MUSIC_RESOURCE_DIR + fileName;
+        Path targetPath = BUILTIN_MUSIC_CACHE_DIR.resolve(fileName);
+
+        try (InputStream input = MusicService.class.getResourceAsStream(resourcePath)) {
+            if (input == null) {
+                logger.warn("内置音乐资源不存在: {}", resourcePath);
+                return null;
+            }
+
+            Files.createDirectories(BUILTIN_MUSIC_CACHE_DIR);
+            Files.copy(input, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            return targetPath.toFile();
+        } catch (IOException e) {
+            logger.error("释放内置音乐失败: {}", resourcePath, e);
+            return null;
         }
     }
 
