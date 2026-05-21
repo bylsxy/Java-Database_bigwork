@@ -20,6 +20,9 @@ public class AIConfig {
     public static final String DEFAULT_MODEL = "";
     public static final String DEFAULT_DELAY = "1500";
     public static final String DEFAULT_MAX_RETRIES = "3";
+    public static final String DEFAULT_BATCH_LIMIT = "100";
+    public static final int MIN_BATCH_LIMIT = 1;
+    public static final int MAX_BATCH_LIMIT = 500;
     private static final ThreadLocal<RuntimeConfig> RUNTIME_CONFIG = new ThreadLocal<>();
 
     public record RuntimeConfig(String baseUrl, String apiKey, String model,
@@ -56,7 +59,7 @@ public class AIConfig {
     }
 
     /**
-     * 获取模型名称（如 qwen-vl-plus, gpt-4o-mini 等）。
+     * 获取模型名称。未保存时会尝试从兼容 /models 接口取第一个可用模型。
      */
     public static String getModel() {
         RuntimeConfig config = RUNTIME_CONFIG.get();
@@ -82,11 +85,14 @@ public class AIConfig {
      */
     public static long getRequestDelay() {
         try {
+            long delay;
             RuntimeConfig config = RUNTIME_CONFIG.get();
             if (config != null && config.requestDelay() != null && !config.requestDelay().isBlank()) {
-                return Long.parseLong(config.requestDelay());
+                delay = Long.parseLong(config.requestDelay());
+            } else {
+                delay = Long.parseLong(settingsDao.getValueOrDefault("ai_request_delay", DEFAULT_DELAY));
             }
-            return Long.parseLong(settingsDao.getValueOrDefault("ai_request_delay", DEFAULT_DELAY));
+            return Math.max(0, Math.min(delay, 60000));
         } catch (NumberFormatException e) {
             return Long.parseLong(DEFAULT_DELAY);
         }
@@ -97,13 +103,28 @@ public class AIConfig {
      */
     public static int getMaxRetries() {
         try {
+            int retries;
             RuntimeConfig config = RUNTIME_CONFIG.get();
             if (config != null && config.maxRetries() != null && !config.maxRetries().isBlank()) {
-                return Integer.parseInt(config.maxRetries());
+                retries = Integer.parseInt(config.maxRetries());
+            } else {
+                retries = Integer.parseInt(settingsDao.getValueOrDefault("ai_max_retries", DEFAULT_MAX_RETRIES));
             }
-            return Integer.parseInt(settingsDao.getValueOrDefault("ai_max_retries", DEFAULT_MAX_RETRIES));
+            return Math.max(1, Math.min(retries, 10));
         } catch (NumberFormatException e) {
             return Integer.parseInt(DEFAULT_MAX_RETRIES);
+        }
+    }
+
+    /**
+     * 获取单次 AI 识别批处理上限。界面展示时统一写作 N(max)。
+     */
+    public static int getBatchLimit() {
+        try {
+            int limit = Integer.parseInt(settingsDao.getValueOrDefault("ai_batch_limit", DEFAULT_BATCH_LIMIT));
+            return Math.max(MIN_BATCH_LIMIT, Math.min(limit, MAX_BATCH_LIMIT));
+        } catch (NumberFormatException e) {
+            return Integer.parseInt(DEFAULT_BATCH_LIMIT);
         }
     }
 
@@ -125,7 +146,7 @@ public class AIConfig {
     }
 
     public static String getEnvironmentApiKey() {
-        return firstEnv("DIMS_AI_API_KEY", "CPA_API_KEY", "HAJIMI", "hajimi", "OPENAI_API_KEY");
+        return firstEnv("DIMS_AI_API_KEY", "CPA_API_KEY", "HAJIMI", "OPENAI_API_KEY");
     }
 
     public static <T> T withTemporaryConfig(RuntimeConfig config, Supplier<T> action) {

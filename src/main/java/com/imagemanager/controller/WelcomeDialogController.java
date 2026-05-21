@@ -1,17 +1,23 @@
 package com.imagemanager.controller;
 
+import com.imagemanager.ai.AIConfig;
 import com.imagemanager.dao.SettingsDao;
 import com.imagemanager.dao.SettingsDaoImpl;
 import com.imagemanager.scanner.DirectoryScanner;
+import javafx.application.Platform;
+import javafx.geometry.Rectangle2D;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.function.Consumer;
 
 /**
  * 首次启动向导控制器 — 管理目录选择、预估展示和"下次不展示"功能。
@@ -23,6 +29,7 @@ public class WelcomeDialogController {
 
     @FXML private TextField directoryField;
     @FXML private Button browseButton;
+    @FXML private ScrollPane contentScrollPane;
     @FXML private VBox estimateBox;
     @FXML private Label estimateLabel;
     @FXML private Label warningLabel;
@@ -30,17 +37,12 @@ public class WelcomeDialogController {
     @FXML private Hyperlink settingsLink;
 
     private String selectedDirectory = "";
+    private Consumer<Window> openSettingsHandler;
+    private long estimateRequestId = 0;
 
     @FXML
     public void initialize() {
-        // 设置默认目录为 Windows %USERPROFILE%\Pictures
-        String defaultPictures = System.getProperty("user.home") + File.separator + "Pictures";
-        File defaultDir = new File(defaultPictures);
-        if (defaultDir.exists()) {
-            directoryField.setText(defaultPictures);
-            selectedDirectory = defaultPictures;
-            updateEstimate(defaultDir);
-        }
+        prefillInitialDirectory();
 
         // 监听文本框变化
         directoryField.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -52,6 +54,34 @@ public class WelcomeDialogController {
                 }
             }
         });
+    }
+
+    /**
+     * 优先使用用户已保存的扫描目录；没有可用目录时再回退到系统 Pictures。
+     */
+    private void prefillInitialDirectory() {
+        String savedDirectory = settingsDao.getValueOrDefault("scan_directory", "").trim();
+        File initialDir = resolveExistingDirectory(savedDirectory);
+
+        if (initialDir == null) {
+            String defaultPictures = System.getProperty("user.home") + File.separator + "Pictures";
+            initialDir = resolveExistingDirectory(defaultPictures);
+        }
+
+        if (initialDir != null) {
+            selectedDirectory = initialDir.getAbsolutePath();
+            directoryField.setText(selectedDirectory);
+            updateEstimate(initialDir);
+        }
+    }
+
+    private File resolveExistingDirectory(String path) {
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+
+        File dir = new File(path);
+        return dir.exists() && dir.isDirectory() ? dir : null;
     }
 
     @FXML
@@ -79,42 +109,109 @@ public class WelcomeDialogController {
 
     @FXML
     private void onOpenSettings() {
-        // 会在 App.java 中处理，这里仅记录
         logger.info("用户请求打开设置页面");
+        if (openSettingsHandler != null) {
+            openSettingsHandler.accept(settingsLink.getScene().getWindow());
+        } else {
+            logger.warn("未设置打开设置页面的处理器");
+        }
+    }
+
+    public void setOpenSettingsHandler(Consumer<Window> openSettingsHandler) {
+        this.openSettingsHandler = openSettingsHandler;
     }
 
     /**
      * 预估目录中的图片数量并更新UI。
      */
     private void updateEstimate(File dir) {
+        long requestId = ++estimateRequestId;
         estimateBox.setVisible(true);
         estimateBox.setManaged(true);
+        warningLabel.setVisible(false);
+        warningLabel.setManaged(false);
 
         // 在后台线程快速预估
-        new Thread(() -> {
+        Thread estimateThread = new Thread(() -> {
             DirectoryScanner scanner = new DirectoryScanner();
             int count = scanner.estimateImageCount(dir);
 
-            javafx.application.Platform.runLater(() -> {
+            Platform.runLater(() -> {
+                if (requestId != estimateRequestId) {
+                    return;
+                }
                 estimateLabel.setText(String.format(
-                        "📊 预估结果：在 \"%s\" 中发现约 %d 张图片",
+                        "预估结果：在 \"%s\" 中发现约 %d 张图片",
                         dir.getName(), count));
 
-                if (count > 500) {
+                int batchLimit = AIConfig.getBatchLimit();
+                if (count > batchLimit) {
                     warningLabel.setVisible(true);
                     warningLabel.setManaged(true);
                     warningLabel.setText(String.format(
-                            "⚠️ 警告：该目录包含 %d 张图片，AI处理可能消耗大量tokens！建议选择一个更小的目录进行测试。", count));
-                } else if (count > 200) {
+                            "警告：该目录包含约 %d 张图片，AI识别每批最多处理 %d(max) 张。建议先用较小目录测试，或在设置页调低上限，也可随时用主界面的停止按钮中断。",
+                            count, batchLimit));
+                } else if (count > 50) {
                     warningLabel.setVisible(true);
                     warningLabel.setManaged(true);
-                    warningLabel.setText("⚠️ 提示：图片较多，AI处理可能需要较长时间。");
+                    warningLabel.setText("提示：图片数量较多，AI识别可能需要较长时间。");
                 } else {
                     warningLabel.setVisible(false);
                     warningLabel.setManaged(false);
                 }
+
+                fitDialogWithinScreen();
             });
-        }).start();
+        }, "welcome-directory-estimate");
+        estimateThread.setDaemon(true);
+        estimateThread.start();
+        Platform.runLater(this::fitDialogWithinScreen);
+    }
+
+    /**
+     * 目录预估结果会动态展开内容，展开后把窗口限制在当前屏幕内。
+     */
+    private void fitDialogWithinScreen() {
+        if (directoryField == null || directoryField.getScene() == null) {
+            return;
+        }
+
+        Window window = directoryField.getScene().getWindow();
+        if (!(window instanceof Stage stage)) {
+            return;
+        }
+
+        Rectangle2D bounds = Screen.getScreensForRectangle(
+                        stage.getX(), stage.getY(),
+                        Math.max(1, stage.getWidth()), Math.max(1, stage.getHeight()))
+                .stream()
+                .findFirst()
+                .orElse(Screen.getPrimary())
+                .getVisualBounds();
+
+        double margin = 40;
+        double maxHeight = Math.max(360, bounds.getHeight() - margin);
+        double maxWidth = Math.max(560, bounds.getWidth() - margin);
+
+        if (contentScrollPane != null) {
+            double availableContentHeight = Math.max(180, maxHeight - 170);
+            contentScrollPane.setMaxHeight(availableContentHeight);
+        }
+
+        stage.sizeToScene();
+        if (stage.getHeight() > maxHeight) {
+            stage.setHeight(maxHeight);
+        }
+        if (stage.getWidth() > maxWidth) {
+            stage.setWidth(maxWidth);
+        }
+
+        double x = Math.min(Math.max(stage.getX(), bounds.getMinX() + 20),
+                bounds.getMaxX() - stage.getWidth() - 20);
+        double y = Math.min(Math.max(stage.getY(), bounds.getMinY() + 20),
+                bounds.getMaxY() - stage.getHeight() - 20);
+        stage.setX(Math.max(bounds.getMinX(), x));
+        stage.setY(Math.max(bounds.getMinY(), y));
     }
 
     /**

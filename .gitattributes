@@ -1,0 +1,22 @@
+* text=auto
+
+*.java text eol=lf
+*.xml text eol=lf
+*.fxml text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.sql text eol=lf
+*.properties text eol=lf
+*.py text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.jar binary
+*.JAR binary
+*.zip binary
+*.ZIP binary

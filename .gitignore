@@ -1,0 +1,25 @@
+# Maven / Java build output
+target/
+*.class
+
+# Runtime logs
+logs/
+*.log
+
+# Local environment and secrets
+.env
+.env.*
+*.local
+
+# IDE metadata
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini

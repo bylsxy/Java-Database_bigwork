@@ -5,7 +5,7 @@
 <?import javafx.scene.image.*?>
 <?import javafx.scene.layout.*?>
 
-<StackPane xmlns="http://javafx.com/javafx/26"
+<StackPane xmlns="http://javafx.com/javafx/21"
            xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.imagemanager.controller.MainController"
            fx:id="appRoot"
@@ -16,47 +16,54 @@
     <BorderPane fx:id="mainContentPane" styleClass="theme-content-pane">
 
     <top>
-        <VBox>
-            <ToolBar styleClass="top-toolbar">
-                <Label text="图片库" styleClass="toolbar-icon"/>
-                <Label fx:id="pathLabel" text="我的图片" styleClass="path-label"/>
-                <Pane HBox.hgrow="ALWAYS"/>
+        <VBox styleClass="app-header">
+            <HBox styleClass="top-toolbar" alignment="CENTER_LEFT" spacing="16">
+                <VBox styleClass="brand-block" minWidth="250" prefWidth="330">
+                    <Label text="数字图像集成管理系统" styleClass="app-title"/>
+                    <Label fx:id="pathLabel" text="我的图片" styleClass="path-label"
+                           textOverrun="CENTER_ELLIPSIS" maxWidth="320"/>
+                </VBox>
 
-                <ComboBox fx:id="searchModeCombo" prefWidth="110"
-                          promptText="搜索模式" styleClass="search-mode-combo"/>
-                <TextField fx:id="searchField" prefWidth="260"
-                           promptText="搜索图片、标签或 AI 描述..."
-                           styleClass="search-field"/>
-                <Button fx:id="searchButton" text="搜索" onAction="#onSearch"
-                        styleClass="search-button"/>
-
-                <Separator orientation="VERTICAL" prefHeight="24"/>
+                <HBox styleClass="search-cluster" alignment="CENTER_LEFT" spacing="8"
+                      HBox.hgrow="ALWAYS">
+                    <ComboBox fx:id="searchModeCombo" minWidth="108" prefWidth="118"
+                              promptText="搜索模式" styleClass="search-mode-combo"/>
+                    <TextField fx:id="searchField" minWidth="220" prefWidth="420" maxWidth="620"
+                               promptText="搜索文件名、标签、元数据或 AI 描述..."
+                               styleClass="search-field" HBox.hgrow="ALWAYS"/>
+                    <Button fx:id="searchButton" text="搜索" onAction="#onSearch"
+                            minWidth="78" prefWidth="78"
+                            styleClass="search-button"/>
+                </HBox>
 
                 <Button fx:id="settingsButton" text="设置" onAction="#onOpenSettings"
+                        minWidth="78" prefWidth="78"
                         styleClass="settings-button"/>
-            </ToolBar>
+            </HBox>
         </VBox>
     </top>
 
     <center>
-        <SplitPane fx:id="mainSplitPane" dividerPositions="0.25" styleClass="main-split">
-            <VBox styleClass="tree-container">
-                <Label text="我的图片" styleClass="tree-header"/>
+        <SplitPane fx:id="mainSplitPane" dividerPositions="0.23" styleClass="main-split">
+            <VBox styleClass="tree-container" minWidth="230" prefWidth="270">
+                <Label text="目录树" styleClass="tree-header"/>
                 <TreeView fx:id="directoryTree" VBox.vgrow="ALWAYS" styleClass="directory-tree"/>
             </VBox>
 
             <VBox styleClass="preview-container">
-                <HBox styleClass="directory-info-bar" alignment="CENTER_LEFT" spacing="10">
-                    <padding><Insets top="5" right="10" bottom="5" left="10"/></padding>
-                    <Label fx:id="directoryNameLabel" text="" styleClass="directory-name"/>
+                <HBox styleClass="directory-info-bar" alignment="CENTER_LEFT" spacing="12">
+                    <padding><Insets top="12" right="18" bottom="10" left="18"/></padding>
+                    <VBox HBox.hgrow="ALWAYS" spacing="2">
+                        <Label fx:id="directoryNameLabel" text="" styleClass="directory-name"/>
+                    </VBox>
                     <Label fx:id="imageCountLabel" text="" styleClass="image-count"/>
                 </HBox>
 
                 <ScrollPane fx:id="thumbnailScroll" fitToWidth="true" VBox.vgrow="ALWAYS"
                             styleClass="thumbnail-scroll" pannable="true">
-                    <FlowPane fx:id="thumbnailPane" hgap="15" vgap="15"
+                    <FlowPane fx:id="thumbnailPane" hgap="18" vgap="18"
                               styleClass="thumbnail-pane" alignment="TOP_LEFT">
-                        <padding><Insets topRightBottomLeft="15"/></padding>
+                        <padding><Insets topRightBottomLeft="20"/></padding>
                     </FlowPane>
                 </ScrollPane>
             </VBox>
@@ -71,14 +78,20 @@
             <Pane HBox.hgrow="ALWAYS"/>
 
             <Label fx:id="scanProgressLabel" text="" styleClass="scan-progress-label"
+                   minWidth="240" prefWidth="560" maxWidth="560"
+                   textOverrun="CENTER_ELLIPSIS"
                    visible="false" managed="false"/>
             <ProgressBar fx:id="scanProgressBar" prefWidth="180" prefHeight="14"
                          styleClass="scan-progress-bar" visible="false" managed="false"/>
+            <Button fx:id="stopScanButton" text="停止扫描" onAction="#onStopScan"
+                    styleClass="scan-stop-button" visible="false" managed="false"/>
+            <Button fx:id="cleanupAiButton" text="清理 AI 标签" onAction="#onCleanupAiData"
+                    styleClass="scan-cleanup-button"/>
 
             <Separator orientation="VERTICAL" prefHeight="20"/>
             <Label fx:id="selectionLabel" text="" styleClass="selection-text"/>
             <Separator orientation="VERTICAL" prefHeight="20"/>
-            <Button fx:id="slideshowButton" text="播放" onAction="#onSlideshow"
+            <Button fx:id="slideshowButton" text="幻灯片" onAction="#onSlideshow"
                     styleClass="slideshow-button" disable="true"/>
         </HBox>
     </bottom>

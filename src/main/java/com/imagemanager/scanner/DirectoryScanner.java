@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 /**
  * 目录扫描器 — 深度遍历指定目录，收集所有受支持格式的图片文件。
@@ -49,6 +51,10 @@ public class DirectoryScanner {
      * @return 所有找到的图片文件列表
      */
     public List<ScannedImage> scan(File rootDir) {
+        return scan(rootDir, () -> false);
+    }
+
+    public List<ScannedImage> scan(File rootDir, BooleanSupplier shouldCancel) {
         List<ScannedImage> images = new ArrayList<>();
 
         if (rootDir == null || !rootDir.exists() || !rootDir.isDirectory()) {
@@ -62,6 +68,10 @@ public class DirectoryScanner {
             Files.walkFileTree(rootDir.toPath(), new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    if (shouldCancel.getAsBoolean()) {
+                        return FileVisitResult.TERMINATE;
+                    }
+
                     String fileName = file.getFileName().toString();
                     String ext = getExtension(fileName);
 
@@ -93,6 +103,10 @@ public class DirectoryScanner {
 
                 @Override
                 public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                    if (shouldCancel.getAsBoolean()) {
+                        return FileVisitResult.TERMINATE;
+                    }
+
                     // 跳过系统隐藏目录和回收站
                     String dirName = dir.getFileName() != null ? dir.getFileName().toString() : "";
                     if (dirName.startsWith(".") || dirName.equals("$RECYCLE.BIN")
@@ -153,8 +167,14 @@ public class DirectoryScanner {
      */
     public static String computeSHA256(Path file) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] bytes = Files.readAllBytes(file);
-        byte[] hash = digest.digest(bytes);
+        byte[] buffer = new byte[8192];
+        try (InputStream input = Files.newInputStream(file)) {
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+        }
+        byte[] hash = digest.digest();
         return HexFormat.of().formatHex(hash);
     }
 

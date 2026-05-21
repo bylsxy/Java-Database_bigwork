@@ -10,7 +10,7 @@
     输出：预览重命名结果
 -->
 
-<VBox xmlns="http://javafx.com/javafx/26"
+<VBox xmlns="http://javafx.com/javafx/21"
       xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.imagemanager.controller.RenameDialogController"
       spacing="15" prefWidth="450"

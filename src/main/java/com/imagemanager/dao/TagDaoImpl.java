@@ -15,6 +15,7 @@ import java.util.*;
 public class TagDaoImpl implements TagDao {
 
     private static final Logger logger = LoggerFactory.getLogger(TagDaoImpl.class);
+    private static final int SEARCH_RESULT_LIMIT = 200;
     private static volatile boolean searchSchemaReady = false;
 
     // ==================== 标签分类 ====================
@@ -356,10 +357,12 @@ public class TagDaoImpl implements TagDao {
 
     private List<Integer> searchImagesByKeywordInternal(String keyword, Integer rootDirectoryId) {
         List<Integer> ids = new ArrayList<>();
-        List<String> terms = buildSearchTerms(keyword);
-        if (terms.isEmpty()) {
+        List<List<String>> termGroups = buildSearchTermGroups(keyword);
+        if (termGroups.isEmpty()) {
             return ids;
         }
+        String phrase = keyword.trim().toLowerCase(Locale.ROOT);
+        String compactPhrase = compactSearchText(keyword);
 
         StringBuilder sql = new StringBuilder();
         if (rootDirectoryId != null) {
@@ -376,17 +379,85 @@ public class TagDaoImpl implements TagDao {
         }
 
         sql.append("""
+                tag_summary AS (
+                    SELECT
+                        it.image_id,
+                        STRING_AGG(DISTINCT t.name, ' ') AS tag_names,
+                        STRING_AGG(DISTINCT CONCAT_WS(' ', tc.name, tc.display_name), ' ') AS tag_categories
+                    FROM image_tags it
+                    JOIN tags t ON it.tag_id = t.id
+                    LEFT JOIN tag_categories tc ON t.category_id = tc.id
+                    GROUP BY it.image_id
+                ),
                 searchable AS (
                     SELECT
                         i.id,
-                        LOWER(CONCAT_WS(' ', i.file_name, i.file_path, ar.description,
-                            STRING_AGG(COALESCE(t.name, ''), ' '))) AS search_text,
-                        LOWER(REPLACE(REPLACE(REPLACE(REPLACE(CONCAT_WS('', i.file_name, i.file_path,
-                            ar.description, STRING_AGG(COALESCE(t.name, ''), '')), ' ', ''), '_', ''), '-', ''), '.', '')) AS compact_text
+                        LOWER(COALESCE(i.file_name, '')) AS file_name_text,
+                        LOWER(CONCAT_WS(' ',
+                            d.dir_name,
+                            d.dir_path,
+                            i.file_path,
+                            i.format,
+                            i.width::text,
+                            i.height::text,
+                            CASE WHEN i.width > 0 AND i.height > 0 THEN i.width::text || '×' || i.height::text END,
+                            CASE WHEN i.width > 0 AND i.height > 0 THEN i.width::text || 'x' || i.height::text END,
+                            CASE WHEN i.width > 0 AND i.height > 0 THEN i.width::text || i.height::text END,
+                            i.file_size::text,
+                            ROUND((i.file_size::numeric / 1024), 1)::text || ' KB',
+                            ROUND((i.file_size::numeric / 1048576), 2)::text || ' MB',
+                            TO_CHAR(i.created_at, 'YYYY-MM-DD HH24:MI:SS'),
+                            TO_CHAR(i.modified_at, 'YYYY-MM-DD HH24:MI:SS'),
+                            i.file_hash
+                        )) AS metadata_text,
+                        LOWER(CONCAT_WS(' ', ts.tag_names, ts.tag_categories)) AS tag_text,
+                        LOWER(CONCAT_WS(' ', ar.description, ar.raw_response, ar.people_count::text, ar.model_used)) AS ai_text,
+                        LOWER(CONCAT_WS(' ',
+                            i.file_name,
+                            i.file_path,
+                            d.dir_name,
+                            d.dir_path,
+                            i.format,
+                            i.width::text,
+                            i.height::text,
+                            CASE WHEN i.width > 0 AND i.height > 0 THEN i.width::text || '×' || i.height::text END,
+                            CASE WHEN i.width > 0 AND i.height > 0 THEN i.width::text || 'x' || i.height::text END,
+                            CASE WHEN i.width > 0 AND i.height > 0 THEN i.width::text || i.height::text END,
+                            i.file_size::text,
+                            ROUND((i.file_size::numeric / 1024), 1)::text || ' KB',
+                            ROUND((i.file_size::numeric / 1048576), 2)::text || ' MB',
+                            TO_CHAR(i.created_at, 'YYYY-MM-DD HH24:MI:SS'),
+                            TO_CHAR(i.modified_at, 'YYYY-MM-DD HH24:MI:SS'),
+                            i.file_hash,
+                            ts.tag_names,
+                            ts.tag_categories,
+                            ar.description,
+                            ar.raw_response,
+                            ar.people_count::text,
+                            ar.model_used
+                        )) AS search_text,
+                        LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(CONCAT_WS('',
+                            i.file_name,
+                            i.file_path,
+                            d.dir_name,
+                            d.dir_path,
+                            i.format,
+                            i.width::text,
+                            i.height::text,
+                            CASE WHEN i.width > 0 AND i.height > 0 THEN i.width::text || i.height::text END,
+                            i.file_size::text,
+                            i.file_hash,
+                            ts.tag_names,
+                            ts.tag_categories,
+                            ar.description,
+                            ar.raw_response,
+                            ar.people_count::text,
+                            ar.model_used
+                        ), ' ', ''), '_', ''), '-', ''), '.', ''), '×', ''), '/', ''), ':', '')) AS compact_text
                     FROM images i
+                    JOIN directories d ON i.directory_id = d.id
                     LEFT JOIN ai_analysis_results ar ON i.id = ar.image_id
-                    LEFT JOIN image_tags it ON i.id = it.image_id
-                    LEFT JOIN tags t ON it.tag_id = t.id
+                    LEFT JOIN tag_summary ts ON i.id = ts.image_id
                     WHERE i.is_deleted = FALSE
                 """);
 
@@ -395,24 +466,55 @@ public class TagDaoImpl implements TagDao {
         }
 
         sql.append("""
-                    GROUP BY i.id, i.file_name, i.file_path, ar.description
                 )
                 SELECT id
                 FROM searchable
                 WHERE 1 = 1
                 """);
 
-        for (int i = 0; i < terms.size(); i++) {
-            sql.append("""
-                      AND (
-                           search_text LIKE ?
-                        OR compact_text LIKE ?
-                        OR compact_text LIKE ?
-                      )
+        for (List<String> group : termGroups) {
+            sql.append("  AND (\n");
+            for (int i = 0; i < group.size(); i++) {
+                if (i > 0) {
+                    sql.append("       OR ");
+                } else {
+                    sql.append("       ");
+                }
+                sql.append("""
+                    (
+                           search_text LIKE ? ESCAPE '\\'
+                        OR compact_text LIKE ? ESCAPE '\\'
+                        OR compact_text LIKE ? ESCAPE '\\'
+                    )
                     """);
+            }
+            sql.append("      )\n");
         }
 
-        sql.append("ORDER BY id LIMIT 500");
+        sql.append("""
+                ORDER BY (
+                      CASE WHEN file_name_text LIKE ? ESCAPE '\\' THEN 120 ELSE 0 END
+                    + CASE WHEN tag_text LIKE ? ESCAPE '\\' THEN 90 ELSE 0 END
+                    + CASE WHEN ai_text LIKE ? ESCAPE '\\' THEN 70 ELSE 0 END
+                    + CASE WHEN metadata_text LIKE ? ESCAPE '\\' THEN 50 ELSE 0 END
+                    + CASE WHEN search_text LIKE ? ESCAPE '\\' THEN 25 ELSE 0 END
+                    + CASE WHEN compact_text LIKE ? ESCAPE '\\' THEN 18 ELSE 0 END
+                """);
+
+        for (List<String> group : termGroups) {
+            for (String ignored : group) {
+                sql.append("""
+                        + CASE WHEN file_name_text LIKE ? ESCAPE '\\' THEN 60 ELSE 0 END
+                        + CASE WHEN tag_text LIKE ? ESCAPE '\\' THEN 50 ELSE 0 END
+                        + CASE WHEN ai_text LIKE ? ESCAPE '\\' THEN 40 ELSE 0 END
+                        + CASE WHEN metadata_text LIKE ? ESCAPE '\\' THEN 30 ELSE 0 END
+                        + CASE WHEN search_text LIKE ? ESCAPE '\\' THEN 15 ELSE 0 END
+                        + CASE WHEN compact_text LIKE ? ESCAPE '\\' THEN 10 ELSE 0 END
+                        """);
+            }
+        }
+
+        sql.append(") DESC, file_name_text, id LIMIT ").append(SEARCH_RESULT_LIMIT);
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql.toString())) {
@@ -420,11 +522,35 @@ public class TagDaoImpl implements TagDao {
             if (rootDirectoryId != null) {
                 ps.setInt(paramIndex++, rootDirectoryId);
             }
-            for (String term : terms) {
-                String compactTerm = compactSearchText(term);
-                ps.setString(paramIndex++, "%" + term.toLowerCase(Locale.ROOT) + "%");
-                ps.setString(paramIndex++, "%" + compactTerm + "%");
-                ps.setString(paramIndex++, "%" + wildcardBetweenChars(compactTerm) + "%");
+            for (List<String> group : termGroups) {
+                for (String term : group) {
+                    String compactTerm = compactSearchText(term);
+                    ps.setString(paramIndex++, likePattern(term.toLowerCase(Locale.ROOT)));
+                    ps.setString(paramIndex++, likePattern(compactTerm));
+                    ps.setString(paramIndex++, wildcardLikePattern(compactTerm));
+                }
+            }
+
+            String phrasePattern = likePattern(phrase);
+            String compactPhrasePattern = likePattern(compactPhrase);
+            ps.setString(paramIndex++, phrasePattern);
+            ps.setString(paramIndex++, phrasePattern);
+            ps.setString(paramIndex++, phrasePattern);
+            ps.setString(paramIndex++, phrasePattern);
+            ps.setString(paramIndex++, phrasePattern);
+            ps.setString(paramIndex++, compactPhrasePattern);
+
+            for (List<String> group : termGroups) {
+                for (String term : group) {
+                    String termPattern = likePattern(term.toLowerCase(Locale.ROOT));
+                    String compactTermPattern = likePattern(compactSearchText(term));
+                    ps.setString(paramIndex++, termPattern);
+                    ps.setString(paramIndex++, termPattern);
+                    ps.setString(paramIndex++, termPattern);
+                    ps.setString(paramIndex++, termPattern);
+                    ps.setString(paramIndex++, termPattern);
+                    ps.setString(paramIndex++, compactTermPattern);
+                }
             }
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -437,31 +563,80 @@ public class TagDaoImpl implements TagDao {
         return ids;
     }
 
-    private List<String> buildSearchTerms(String keyword) {
+    private List<List<String>> buildSearchTermGroups(String keyword) {
         if (keyword == null || keyword.isBlank()) {
             return List.of();
         }
         String normalized = keyword.trim().toLowerCase(Locale.ROOT);
         String[] split = normalized.split("[\\s,，;；]+");
-        List<String> terms = new ArrayList<>();
+        List<List<String>> groups = new ArrayList<>();
         for (String term : split) {
             if (!term.isBlank()) {
-                terms.add(term);
+                groups.add(expandSynonyms(term));
             }
         }
-        return terms;
+        return groups;
+    }
+
+    private List<String> expandSynonyms(String term) {
+        LinkedHashSet<String> terms = new LinkedHashSet<>();
+        terms.add(term);
+
+        Map<String, List<String>> synonymGroups = Map.ofEntries(
+                Map.entry("海边", List.of("海滩", "沙滩", "海岸", "海景", "海洋")),
+                Map.entry("海滩", List.of("海边", "沙滩", "海岸", "海景", "海洋")),
+                Map.entry("风景", List.of("景色", "自然", "户外", "景观")),
+                Map.entry("人物", List.of("人像", "人", "男生", "女生", "男人", "女人", "合影")),
+                Map.entry("人像", List.of("人物", "人", "肖像", "自拍")),
+                Map.entry("合影", List.of("人物", "多人", "集体照", "全家福")),
+                Map.entry("汽车", List.of("车辆", "车", "轿车", "跑车")),
+                Map.entry("车辆", List.of("汽车", "车", "交通工具")),
+                Map.entry("猫", List.of("猫咪", "小猫", "宠物")),
+                Map.entry("狗", List.of("狗狗", "小狗", "宠物")),
+                Map.entry("夜晚", List.of("夜景", "晚上", "黑夜")),
+                Map.entry("夜景", List.of("夜晚", "晚上", "黑夜")),
+                Map.entry("建筑", List.of("楼房", "房子", "城市", "室内")),
+                Map.entry("截图", List.of("屏幕截图", "截屏", "桌面")),
+                Map.entry("游戏", List.of("电竞", "界面", "截图")),
+                Map.entry("文字", List.of("文本", "字幕", "标语", "屏幕文字")),
+                Map.entry("美食", List.of("食物", "餐饮", "饭菜", "甜点")),
+                Map.entry("蓝色", List.of("蓝", "主色调蓝")),
+                Map.entry("红色", List.of("红", "主色调红")),
+                Map.entry("绿色", List.of("绿", "主色调绿"))
+        );
+
+        terms.addAll(synonymGroups.getOrDefault(term, List.of()));
+        return new ArrayList<>(terms);
     }
 
     private String compactSearchText(String text) {
         return text == null ? "" : text.toLowerCase(Locale.ROOT)
-                .replaceAll("[\\s_\\-.]+", "");
+                .replaceAll("[\\s_\\-.×/:]+", "");
     }
 
-    private String wildcardBetweenChars(String text) {
+    private String likePattern(String text) {
+        return "%" + escapeLike(text == null ? "" : text) + "%";
+    }
+
+    private String wildcardLikePattern(String text) {
         if (text == null || text.length() < 2) {
-            return text == null ? "" : text;
+            return likePattern(text);
         }
-        return String.join("%", text.split(""));
+        StringBuilder pattern = new StringBuilder("%");
+        for (int i = 0; i < text.length(); i++) {
+            if (i > 0) {
+                pattern.append('%');
+            }
+            pattern.append(escapeLike(String.valueOf(text.charAt(i))));
+        }
+        pattern.append('%');
+        return pattern.toString();
+    }
+
+    private String escapeLike(String text) {
+        return text.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 
     @Override
@@ -477,9 +652,7 @@ public class TagDaoImpl implements TagDao {
         String[] forbidden = {"INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "TRUNCATE", "CREATE", "GRANT", "REVOKE"};
         for (String word : forbidden) {
             // 检查是否作为独立关键词出现（前后有空格或在开头/结尾）
-            if (trimmed.matches(".*\\b" + word + "\\b.*") && !word.equals("CREATE")) {
-                // CREATE 可能出现在子查询中，额外检查
-                if (word.equals("DELETE") && trimmed.contains("IS_DELETED")) continue;
+            if (trimmed.matches(".*\\b" + word + "\\b.*")) {
                 logger.warn("拒绝执行包含 {} 的语句: {}", word, sql);
                 throw new SecurityException("SQL语句包含不允许的关键词: " + word);
             }
@@ -491,6 +664,7 @@ public class TagDaoImpl implements TagDao {
             conn.setReadOnly(true);
             try (Statement stmt = conn.createStatement()) {
                 stmt.setQueryTimeout(5); // 5秒超时
+                stmt.setMaxRows(1000);
                 try (ResultSet rs = stmt.executeQuery(sql)) {
                     while (rs.next()) {
                         ids.add(rs.getInt("id"));
@@ -501,6 +675,7 @@ public class TagDaoImpl implements TagDao {
             }
         } catch (SQLException e) {
             logger.error("执行搜索SQL失败: {}", sql, e);
+            throw new RuntimeException("执行AI生成SQL失败: " + e.getMessage(), e);
         }
         return ids;
     }
@@ -602,6 +777,9 @@ public class TagDaoImpl implements TagDao {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_image_tags_image ON image_tags (image_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags (tag_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_ai_results_image ON ai_analysis_results (image_id)");
+                // PostgreSQL 的 CREATE OR REPLACE VIEW 不能改变既有列名或插入新列。
+                // 该视图不保存数据，直接重建可以兼容旧版 file_hash-only 结构。
+                stmt.execute("DROP VIEW IF EXISTS v_image_search");
                 stmt.execute("""
                         CREATE OR REPLACE VIEW v_image_search AS
                         SELECT
@@ -620,7 +798,9 @@ public class TagDaoImpl implements TagDao {
                             d.dir_name,
                             d.dir_path AS directory_path,
                             ar.description AS ai_description,
+                            ar.raw_response AS ai_raw_response,
                             ar.people_count,
+                            ar.model_used,
                             STRING_AGG(DISTINCT t.name, ', ' ORDER BY t.name) AS all_tags
                         FROM images i
                         JOIN directories d ON i.directory_id = d.id
@@ -631,7 +811,8 @@ public class TagDaoImpl implements TagDao {
                         GROUP BY i.id, i.file_name, i.file_path, i.directory_id,
                                  i.file_size, i.width, i.height, i.format, i.thumbnail,
                                  i.file_hash, i.created_at, i.modified_at, d.dir_name,
-                                 d.dir_path, ar.description, ar.people_count
+                                 d.dir_path, ar.description, ar.raw_response,
+                                 ar.people_count, ar.model_used
                         """);
 
                 searchSchemaReady = true;

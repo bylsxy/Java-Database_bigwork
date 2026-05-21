@@ -5,8 +5,8 @@ import java.time.LocalDateTime;
 /**
  * 图片文件实体 — 对应数据库 images 表的一条记录。
  * <p>
- * 使用 Java 26 的 record 类型，天生不可变、自动生成 equals/hashCode/toString。
- * Record 的 compact constructor 用于参数校验（JEP 513 Flexible Constructor Bodies 思想）。
+ * 使用 Java record 类型，天生不可变、自动生成 equals/hashCode/toString。
+ * Record 的 compact constructor 用于参数校验，避免脏数据进入系统。
  *
  * @param id          数据库自增主键，新建时为 0
  * @param fileName    文件名（含扩展名），如 "photo.jpg"

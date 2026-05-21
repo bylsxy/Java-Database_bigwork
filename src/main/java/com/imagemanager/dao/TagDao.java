@@ -73,7 +73,7 @@ public interface TagDao {
     // ==================== 搜索 ====================
 
     /**
-     * 按关键词搜索图片（匹配标签、AI描述、文件名）。
+     * 按关键词搜索图片（匹配文件名、元数据、标签和 AI 描述）。
      * 返回匹配的图片ID列表。
      */
     List<Integer> searchImagesByKeyword(String keyword);

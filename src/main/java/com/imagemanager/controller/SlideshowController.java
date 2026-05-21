@@ -10,6 +10,7 @@ import com.imagemanager.util.ThemeUtil;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.Scene;
@@ -21,6 +22,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -118,6 +120,9 @@ public class SlideshowController {
     /** 避免程序主动修改 ComboBox 选中项时重复触发选择事件。 */
     private boolean updatingMusicSelection = false;
 
+    /** 图片展示区尺寸绑定只需要初始化一次。 */
+    private boolean imageViewportConfigured = false;
+
     // ==================== 初始化 ====================
 
     /**
@@ -160,9 +165,7 @@ public class SlideshowController {
         );
         autoPlayTimeline.setCycleCount(Timeline.INDEFINITE);
 
-        // 绑定 ImageView 尺寸到容器
-        mainImageView.fitWidthProperty().bind(imageContainer.widthProperty().subtract(20));
-        mainImageView.fitHeightProperty().bind(imageContainer.heightProperty().subtract(20));
+        configureImageViewport();
         ThemeUtil.applyThemeBackground(slideshowRoot, themeBackgroundImageView, settingsDao);
         ThemeUtil.markThemedSurface(slideshowContentPane);
 
@@ -172,6 +175,39 @@ public class SlideshowController {
         // 显示初始图片
         showImage(currentIndex);
         registerKeyboardShortcuts();
+    }
+
+    private void configureImageViewport() {
+        if (imageViewportConfigured) {
+            return;
+        }
+
+        mainImageView.setPreserveRatio(true);
+        mainImageView.fitWidthProperty().bind(Bindings.max(1, imageContainer.widthProperty().subtract(20)));
+        mainImageView.fitHeightProperty().bind(Bindings.max(1, imageContainer.heightProperty().subtract(20)));
+
+        Rectangle clip = new Rectangle();
+        clip.widthProperty().bind(imageContainer.widthProperty());
+        clip.heightProperty().bind(imageContainer.heightProperty());
+        imageContainer.setClip(clip);
+
+        imageViewportConfigured = true;
+    }
+
+    /**
+     * Stage 首次显示后再强制布局一次，避免 ImageView 用初始化前的错误尺寸绘制原图。
+     */
+    public void refreshLayoutAfterShow() {
+        Platform.runLater(() -> {
+            if (slideshowRoot == null || imageContainer == null) {
+                return;
+            }
+            slideshowRoot.applyCss();
+            slideshowRoot.layout();
+            imageContainer.applyCss();
+            imageContainer.layout();
+            applyZoom();
+        });
     }
 
     private void applyPlaybackOrder() {

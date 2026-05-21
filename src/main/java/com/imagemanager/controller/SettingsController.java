@@ -15,6 +15,7 @@ import javafx.scene.control.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +39,7 @@ public class SettingsController {
     @FXML private Button refreshModelsButton;
     @FXML private Label modelStatusLabel;
     @FXML private TextField delayField;
+    @FXML private Spinner<Integer> batchLimitSpinner;
 
     // 测试区域
     @FXML private Button testButton;
@@ -65,6 +67,7 @@ public class SettingsController {
     private String originalApiKey;
     private String originalModel;
     private String originalDelay;
+    private String originalBatchLimit;
     private String originalScanDirectory;
     private String storedApiKey = "";
     private String environmentApiKey = "";
@@ -81,6 +84,7 @@ public class SettingsController {
         originalApiKey = storedApiKey.isBlank() ? environmentApiKey : storedApiKey;
         originalModel = settingsDao.getValueOrDefault("ai_model", AIConfig.DEFAULT_MODEL);
         originalDelay = settingsDao.getValueOrDefault("ai_request_delay", AIConfig.DEFAULT_DELAY);
+        originalBatchLimit = String.valueOf(AIConfig.getBatchLimit());
         originalScanDirectory = settingsDao.getValueOrDefault("scan_directory", "");
         String themeBackground = settingsDao.getValueOrDefault(ThemeUtil.THEME_BACKGROUND_PATH, "");
         double themeOpacity = ThemeUtil.parseOpacity(
@@ -95,6 +99,27 @@ public class SettingsController {
             modelComboBox.getSelectionModel().select(originalModel);
         }
         delayField.setText(originalDelay);
+        batchLimitSpinner.setEditable(true);
+        var batchLimitFactory = new SpinnerValueFactory.IntegerSpinnerValueFactory(
+                AIConfig.MIN_BATCH_LIMIT, AIConfig.MAX_BATCH_LIMIT, Integer.parseInt(originalBatchLimit));
+        batchLimitFactory.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(Integer value) {
+                return value == null ? "" : value + "(max)";
+            }
+
+            @Override
+            public Integer fromString(String value) {
+                try {
+                    return parseBatchLimitText(value);
+                } catch (NumberFormatException e) {
+                    return batchLimitSpinner.getValue() == null
+                            ? Integer.parseInt(AIConfig.DEFAULT_BATCH_LIMIT)
+                            : batchLimitSpinner.getValue();
+                }
+            }
+        });
+        batchLimitSpinner.setValueFactory(batchLimitFactory);
         scanDirField.setText(originalScanDirectory);
         themeBackgroundField.setText(themeBackground);
         themeOpacitySlider.setValue(themeOpacity);
@@ -205,6 +230,10 @@ public class SettingsController {
         String apiKey = apiKeyField.getText().trim();
         String model = getSelectedModel();
         String delay = delayField.getText().trim();
+        int batchLimit = getBatchLimitOrWarn();
+        if (batchLimit < 0) {
+            return;
+        }
 
         if (!validateAiConfig(baseUrl, apiKey, model, delay, true)) {
             return;
@@ -304,13 +333,26 @@ public class SettingsController {
      */
     @FXML
     private void onSave() {
+        saveSettingsAndClose(false);
+    }
+
+    @FXML
+    private void onScanCurrentDirectory() {
+        saveSettingsAndClose(true);
+    }
+
+    private void saveSettingsAndClose(boolean forceScan) {
         String baseUrl = baseUrlField.getText().trim();
         String apiKey = apiKeyField.getText().trim();
-        String model = modelField.getText().trim();
+        String model = getSelectedModel();
         String delay = delayField.getText().trim();
+        int batchLimit = getBatchLimitOrWarn();
         String scanDirectory = scanDirField.getText().trim();
         String themeBackground = themeBackgroundField.getText().trim();
 
+        if (batchLimit < 0) {
+            return;
+        }
         if (!validateAiConfig(baseUrl, apiKey, model, delay, false)) {
             return;
         }
@@ -331,9 +373,10 @@ public class SettingsController {
 
         // AI配置
         settingsDao.upsert("ai_base_url", baseUrl);
-        settingsDao.upsert("ai_api_key", apiKey);
+        settingsDao.upsert("ai_api_key", apiKeyToStore(apiKey));
         settingsDao.upsert("ai_model", model);
         settingsDao.upsert("ai_request_delay", delay);
+        settingsDao.upsert("ai_batch_limit", String.valueOf(batchLimit));
 
         // 扫描目录
         settingsDao.upsert("scan_directory", scanDirectory);
@@ -351,11 +394,12 @@ public class SettingsController {
         boolean aiChanged = !baseUrl.equals(originalBaseUrl)
                 || !apiKey.equals(originalApiKey)
                 || !model.equals(originalModel)
-                || !delay.equals(originalDelay);
+                || !delay.equals(originalDelay)
+                || !String.valueOf(batchLimit).equals(originalBatchLimit);
         boolean scanDirChanged = !scanDirectory.equals(originalScanDirectory);
         saved = true;
         savedScanDirectory = scanDirectory;
-        scanRequested = !scanDirectory.isBlank() && (scanDirChanged || aiChanged);
+        scanRequested = !scanDirectory.isBlank() && (forceScan || scanDirChanged || aiChanged);
 
         logger.info("设置已保存");
 
@@ -382,6 +426,43 @@ public class SettingsController {
         return savedScanDirectory;
     }
 
+    private String apiKeyToStore(String apiKey) {
+        if (storedApiKey.isBlank()
+                && !environmentApiKey.isBlank()
+                && environmentApiKey.equals(apiKey)) {
+            return "";
+        }
+        return apiKey;
+    }
+
+    private int getBatchLimitOrWarn() {
+        String text = batchLimitSpinner.isEditable()
+                ? batchLimitSpinner.getEditor().getText().trim()
+                : String.valueOf(batchLimitSpinner.getValue());
+        try {
+            int limit = parseBatchLimitText(text);
+            if (limit < AIConfig.MIN_BATCH_LIMIT || limit > AIConfig.MAX_BATCH_LIMIT) {
+                AlertUtil.showWarning("配置无效",
+                        "单批上限(max)需要在 " + AIConfig.MIN_BATCH_LIMIT
+                                + " 到 " + AIConfig.MAX_BATCH_LIMIT + " 张之间");
+                return -1;
+            }
+            batchLimitSpinner.getValueFactory().setValue(limit);
+            return limit;
+        } catch (NumberFormatException e) {
+            AlertUtil.showWarning("配置无效", "单批上限(max)必须是数字");
+            return -1;
+        }
+    }
+
+    private int parseBatchLimitText(String text) {
+        String normalized = (text == null ? "" : text)
+                .replace("(max)", "")
+                .replace("（max）", "")
+                .trim();
+        return Integer.parseInt(normalized);
+    }
+
     private boolean validateAiConfig(String baseUrl, String apiKey, String model,
                                      String delay, boolean requireApiKey) {
         if (baseUrl.isBlank()) {
@@ -393,11 +474,11 @@ public class SettingsController {
             return false;
         }
         if (requireApiKey && apiKey.isBlank()) {
-            AlertUtil.showWarning("配置不完整", "请先填写 API Key");
+            AlertUtil.showWarning("配置不完整", "请先填写 API Key，或在系统环境变量中配置密钥");
             return false;
         }
         if (!apiKey.isBlank() && model.isBlank()) {
-            AlertUtil.showWarning("配置不完整", "填写 API Key 后也需要填写模型名称");
+            AlertUtil.showWarning("配置不完整", "请先刷新模型列表，并在下拉菜单中选择模型");
             return false;
         }
         try {

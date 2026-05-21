@@ -12,16 +12,18 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * 搜索服务 — 提供关键词搜索和AI智能搜索两种模式。
  * <p>
- * 关键词搜索：直接匹配文件名、标签名称、AI描述。
+ * 关键词搜索：匹配文件名、目录、格式、分辨率、大小、日期、标签和 AI 描述。
  * AI智能搜索：将自然语言转换为SQL，执行查询。
  */
 public class SearchService {
 
     private static final Logger logger = LoggerFactory.getLogger(SearchService.class);
+    private static final int MAX_DISPLAY_RESULTS = 200;
 
     private final TagDao tagDao;
     private final ImageDao imageDao;
@@ -65,30 +67,39 @@ public class SearchService {
     }
 
     public SearchResult search(String query, SearchMode mode, String directoryPath) {
+        return search(query, mode, directoryPath, null);
+    }
+
+    public SearchResult search(String query, SearchMode mode, String directoryPath, Consumer<String> progressReporter) {
         if (query == null || query.isBlank()) {
             return new SearchResult(List.of(), "", 0, "请输入搜索内容");
         }
 
+        report(progressReporter, "正在确认当前搜索目录...");
         Optional<Integer> directoryId = resolveDirectoryId(directoryPath);
         if (directoryPath != null && !directoryPath.isBlank() && directoryId.isEmpty()) {
             return new SearchResult(List.of(), query, 0, "当前目录尚未入库，请先加载该文件夹");
         }
 
         return switch (mode) {
-            case KEYWORD -> searchByKeyword(query, directoryId);
-            case AI_SQL -> searchByAI(query, directoryId);
+            case KEYWORD -> searchByKeyword(query, directoryId, progressReporter);
+            case AI_SQL -> searchByAI(query, directoryId, progressReporter);
         };
     }
 
     /**
      * 关键词直接搜索。
      */
-    private SearchResult searchByKeyword(String keyword, Optional<Integer> directoryId) {
+    private SearchResult searchByKeyword(String keyword, Optional<Integer> directoryId,
+                                         Consumer<String> progressReporter) {
         logger.info("关键词搜索: {}", keyword);
         try {
+            report(progressReporter, "关键词搜索：正在匹配文件名、目录、格式、分辨率、大小、日期、标签和 AI 描述...");
             List<Integer> imageIds = directoryId.isPresent()
                     ? tagDao.searchImagesByKeyword(keyword, directoryId.get())
                     : tagDao.searchImagesByKeyword(keyword);
+            boolean capped = imageIds.size() >= MAX_DISPLAY_RESULTS;
+            report(progressReporter, "关键词搜索：命中 " + imageIds.size() + " 张，正在加载缩略图和元数据...");
             List<ImageFile> images = loadImagesByIds(imageIds);
 
             // 记录搜索历史
@@ -96,7 +107,8 @@ public class SearchService {
 
             String msg = images.isEmpty()
                     ? "当前文件夹及子文件夹未找到匹配 \"" + keyword + "\" 的图片"
-                    : "当前文件夹及子文件夹找到 " + images.size() + " 张匹配的图片";
+                    : "当前文件夹及子文件夹找到 " + images.size() + " 张匹配的图片"
+                    + (capped ? "（已显示前 " + MAX_DISPLAY_RESULTS + " 张）" : "");
 
             return new SearchResult(images, keyword, images.size(), msg);
         } catch (Exception e) {
@@ -108,12 +120,15 @@ public class SearchService {
     /**
      * AI自然语言转SQL搜索。
      */
-    private SearchResult searchByAI(String naturalLanguageQuery, Optional<Integer> directoryId) {
+    private SearchResult searchByAI(String naturalLanguageQuery, Optional<Integer> directoryId,
+                                    Consumer<String> progressReporter) {
         logger.info("AI智能搜索: {}", naturalLanguageQuery);
         try {
             // 1. 调用AI将自然语言转为SQL
+            report(progressReporter, "AI搜索：正在发送请求，等待模型生成 SQL...");
             Optional<String> sqlOpt = aiService.naturalLanguageToSQL(naturalLanguageQuery);
             if (sqlOpt.isEmpty()) {
+                report(progressReporter, "AI搜索：模型未返回可执行 SQL");
                 return new SearchResult(List.of(), naturalLanguageQuery, 0,
                         "AI无法生成查询语句，请检查API配置或尝试其他表达方式");
             }
@@ -122,7 +137,9 @@ public class SearchService {
             logger.info("AI生成SQL: {}", sql);
 
             // 2. 执行SQL
+            report(progressReporter, "AI搜索：已收到模型返回，正在执行数据库查询...");
             List<Integer> imageIds = tagDao.executeSearchSQL(sql);
+            report(progressReporter, "AI搜索：数据库返回 " + imageIds.size() + " 条候选结果，正在加载缩略图和元数据...");
             List<ImageFile> images = loadImagesByIds(imageIds);
             if (directoryId.isPresent()) {
                 Set<Integer> allowedDirectoryIds = descendantDirectoryIds(directoryId.get());
@@ -130,13 +147,20 @@ public class SearchService {
                         .filter(image -> allowedDirectoryIds.contains(image.directoryId()))
                         .toList();
             }
+            boolean capped = images.size() > MAX_DISPLAY_RESULTS;
+            if (capped) {
+                images = images.subList(0, MAX_DISPLAY_RESULTS);
+            }
+            report(progressReporter, "AI搜索：当前目录内命中 " + images.size() + " 张，正在刷新界面...");
 
             // 3. 记录搜索历史
             recordSearchHistory(naturalLanguageQuery, "AI_SQL", sql, images.size());
 
             String msg = images.isEmpty()
                     ? "当前文件夹及子文件夹 AI 搜索未找到匹配结果\n生成的SQL: " + sql
-                    : "当前文件夹及子文件夹 AI 搜索找到 " + images.size() + " 张匹配的图片\nSQL: " + sql;
+                    : "当前文件夹及子文件夹 AI 搜索找到 " + images.size() + " 张匹配的图片"
+                    + (capped ? "（已显示前 " + MAX_DISPLAY_RESULTS + " 张）" : "")
+                    + "\nSQL: " + sql;
 
             return new SearchResult(images, sql, images.size(), msg);
         } catch (SecurityException e) {
@@ -193,6 +217,12 @@ public class SearchService {
             ps.executeUpdate();
         } catch (Exception e) {
             logger.warn("记录搜索历史失败", e);
+        }
+    }
+
+    private void report(Consumer<String> progressReporter, String message) {
+        if (progressReporter != null) {
+            progressReporter.accept(message);
         }
     }
 }

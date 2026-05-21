@@ -80,7 +80,7 @@ COMMENT ON COLUMN images.file_hash IS 'SHA-256文件哈希，用于唯一标识�
 COMMENT ON COLUMN images.ai_processed IS 'AI识别状态标记，FALSE表示尚未进行AI分析';
 
 -- 操作日志表：记录对图片的所有操作
--- 通过触发器自动写入，无需应用层手动 INSERT
+-- 图片新增/重命名/删除由触发器写入；复制/粘贴等交互操作由应用层补充写入
 CREATE TABLE IF NOT EXISTS operation_logs (
     id              SERIAL       PRIMARY KEY,
     image_id        INTEGER      REFERENCES images(id) ON DELETE SET NULL,  -- 图片被物理删除后保留日志
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS operation_logs (
     operated_at     TIMESTAMP    NOT NULL DEFAULT NOW()                      -- 操作时间
 );
 
-COMMENT ON TABLE operation_logs IS '操作日志表 — 自动记录图片的增删改操作，由触发器维护';
+COMMENT ON TABLE operation_logs IS '操作日志表 — 记录图片增删改、复制粘贴和标签变更操作，由触发器与应用层共同维护';
 COMMENT ON COLUMN operation_logs.image_id IS '关联图片ID，图片物理删除后此字段变为 NULL（ON DELETE SET NULL）';
 
 -- ============================================================
@@ -176,15 +176,16 @@ COMMENT ON TABLE app_settings IS '应用设置表 — 键值对存储，包括AI
 -- 预插入默认设置
 INSERT INTO app_settings (key, value) VALUES
     ('scan_directory',     ''),                                   -- 用户首次启动时选择
-    ('ai_base_url',        'https://dashscope.aliyuncs.com/compatible-mode/v1'),  -- 默认通义千问
+    ('ai_base_url',        'https://cpa.ystone.top/v1'),          -- 默认 CPA 代理节点
     ('ai_api_key',         ''),                                   -- 用户自行填写
-    ('ai_model',           'qwen-vl-plus'),                       -- 默认模型
+    ('ai_model',           ''),                                   -- 模型由 /models 接口获取后选择
     ('show_welcome',       'true'),                               -- 是否显示首次启动向导
     ('thumbnail_storage',  'database'),                            -- database / none
     ('slideshow_interval', '3'),                                   -- 幻灯片播放间隔（秒）
     ('slideshow_order',    'SEQUENTIAL'),                          -- SEQUENTIAL / RANDOM
     ('slideshow_music',    'none'),                                -- none / music_1 / music_2 / music_3
     ('ai_request_delay',   '1500'),                                -- AI请求间隔（毫秒），防限流
+    ('ai_batch_limit',     '100'),                                 -- 单次AI识别批处理上限，界面显示为 N(max)
     ('ai_max_retries',     '3')                                    -- AI请求最大重试次数
 ON CONFLICT (key) DO NOTHING;
 
@@ -385,13 +386,16 @@ SELECT
     i.width,
     i.height,
     i.format,
+    i.thumbnail,
     i.file_hash,
     i.created_at,
     i.modified_at,
     d.dir_name,
     d.dir_path AS directory_path,
     ar.description AS ai_description,
+    ar.raw_response AS ai_raw_response,
     ar.people_count,
+    ar.model_used,
     STRING_AGG(DISTINCT t.name, ', ' ORDER BY t.name) AS all_tags
 FROM images i
 JOIN directories d ON i.directory_id = d.id
@@ -400,9 +404,9 @@ LEFT JOIN image_tags it ON i.id = it.image_id
 LEFT JOIN tags t ON it.tag_id = t.id
 WHERE i.is_deleted = FALSE
 GROUP BY i.id, i.file_name, i.file_path, i.directory_id,
-         i.file_size, i.width, i.height, i.format, i.file_hash,
+         i.file_size, i.width, i.height, i.format, i.thumbnail, i.file_hash,
          i.created_at, i.modified_at, d.dir_name, d.dir_path,
-         ar.description, ar.people_count;
+         ar.description, ar.raw_response, ar.people_count, ar.model_used;
 
 COMMENT ON VIEW v_image_search IS '全文搜索视图 — 聚合图片元数据、AI描述和所有标签，支持关键词/NL2SQL搜索';
 

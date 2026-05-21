@@ -239,35 +239,47 @@ def make_ui_images():
     # Main window
     img = Image.new("RGB", (1440, 900), colors["bg"])
     d = ImageDraw.Draw(img)
-    d.rectangle((0, 0, 1440, 64), fill=(30, 41, 59))
-    d.text((28, 18), "数字图像集成管理系统", fill="white", font=f22)
-    for i, txt in enumerate(["关键词", "标签", "设置", "幻灯片"]):
-        x = 870 + i * 125
-        draw_round(d, (x, 14, x + 105, 50), 7, (51, 65, 85), (71, 85, 105))
-        d.text((x + 24, 23), txt, fill=(226, 232, 240), font=f14)
-    draw_round(d, (24, 88, 330, 820), 8, colors["panel"], colors["line"])
-    d.text((44, 110), "目录树", fill=colors["text"], font=f18)
+    d.rectangle((0, 0, 1440, 68), fill=(31, 41, 55))
+    d.text((24, 12), "数字图像集成管理系统", fill="white", font=f22)
+    d.text((24, 41), r"D:\Pictures\课程设计样例", fill=(203, 213, 225), font=f12)
+    draw_round(d, (435, 14, 558, 52), 7, (255, 255, 255), (203, 213, 225))
+    d.text((462, 25), "关键词", fill=colors["text"], font=f14)
+    draw_round(d, (568, 14, 1110, 52), 7, (255, 255, 255), (203, 213, 225))
+    d.text((590, 25), "搜索文件名、标签、元数据或 AI 描述...", fill=colors["muted"], font=f14)
+    draw_round(d, (1120, 14, 1205, 52), 7, colors["blue"], None)
+    d.text((1148, 25), "搜索", fill="white", font=f14)
+    draw_round(d, (1234, 14, 1318, 52), 7, (51, 65, 85), (71, 85, 105))
+    d.text((1262, 25), "设置", fill=(226, 232, 240), font=f14)
+    draw_round(d, (24, 92, 330, 820), 8, colors["panel"], colors["line"])
+    d.text((44, 116), "目录树", fill=colors["text"], font=f18)
     tree = ["我的电脑", "  本地磁盘 (C:)", "    Users", "      Pictures", "        课程设计样例", "  本地磁盘 (D:)", "    AAAWorkSpace", "      images"]
-    y = 154
+    y = 160
     for t in tree:
         color = colors["blue"] if "课程设计样例" in t else colors["text"]
         d.text((46, y), t, fill=color, font=f14)
         y += 34
-    draw_round(d, (354, 88, 1416, 820), 8, colors["panel"], colors["line"])
-    d.text((380, 108), r"D:\Pictures\课程设计样例", fill=colors["muted"], font=f14)
-    d.text((380, 138), "课程设计样例  |  当前目录共 18 张图片  |  已选中 3 张", fill=colors["text"], font=f18)
+    draw_round(d, (354, 92, 1416, 820), 8, colors["panel"], colors["line"])
+    d.rectangle((355, 93, 1415, 158), fill=(255, 255, 255))
+    d.text((380, 112), "课程设计样例", fill=colors["text"], font=f18)
+    draw_round(d, (1252, 110, 1368, 144), 17, (234, 251, 242), None)
+    d.text((1276, 119), "18 张图片", fill=(4, 120, 87), font=f14)
     for idx in range(18):
         row, col = divmod(idx, 6)
         x = 390 + col * 165
-        y = 188 + row * 190
+        y = 190 + row * 190
         selected = idx in {1, 4, 7}
-        draw_round(d, (x, y, x + 142, y + 166), 8, (239, 246, 255) if selected else (255, 255, 255),
+        draw_round(d, (x, y, x + 150, y + 172), 8, (239, 246, 255) if selected else (255, 255, 255),
                    colors["blue"] if selected else colors["line"], 2 if selected else 1)
-        d.rectangle((x + 14, y + 14, x + 128, y + 110), fill=((180 + idx * 3) % 255, (140 + idx * 9) % 255, (110 + idx * 13) % 255))
-        d.text((x + 18, y + 123), f"IMG_{idx + 1:04d}.jpg", fill=colors["text"], font=f12)
-        d.text((x + 18, y + 143), "1920x1080 JPG", fill=colors["muted"], font=f12)
-    d.rectangle((0, 842, 1440, 900), fill=(241, 245, 249))
+        draw_round(d, (x + 12, y + 12, x + 138, y + 122), 6, (238, 242, 247), None)
+        d.rectangle((x + 21, y + 24, x + 129, y + 110), fill=((180 + idx * 3) % 255, (140 + idx * 9) % 255, (110 + idx * 13) % 255))
+        d.text((x + 18, y + 133), f"IMG_{idx + 1:04d}.jpg", fill=colors["text"], font=f12)
+        d.text((x + 18, y + 152), "1920x1080 JPG", fill=colors["muted"], font=f12)
+    d.rectangle((0, 842, 1440, 900), fill=(255, 255, 255))
     d.text((28, 862), "状态：目录扫描完成，缩略图缓存已同步到 PostgreSQL。", fill=colors["muted"], font=f14)
+    draw_round(d, (1040, 854, 1150, 888), 6, (248, 250, 252), (203, 213, 225))
+    d.text((1058, 863), "清理 AI 标签", fill=colors["text"], font=f12)
+    draw_round(d, (1258, 854, 1348, 888), 6, (15, 118, 110), None)
+    d.text((1278, 863), "幻灯片", fill="white", font=f12)
     save(img, "01_主界面_目录树与缩略图.png")
 
     # Slideshow
@@ -291,10 +303,10 @@ def make_ui_images():
     d = ImageDraw.Draw(img)
     d.text((48, 42), "系统设置", fill=colors["text"], font=f26)
     sections = [
-        ("扩展接口配置", ["Base URL  https://dashscope.aliyuncs.com/compatible-mode/v1", "Model     qwen-vl-plus", "API Key   可选配置", "请求间隔   1500 ms"]),
-        ("扫描目录", [r"D:\Pictures\课程设计样例"]),
+        ("AI 图像识别 API 配置", ["Base URL  https://cpa.ystone.top/v1", "模型     从 /models 自动获取后下拉选择", "API Key   优先读取系统环境变量", "请求间隔   1500 ms"]),
+        ("扫描目录", [r"D:\Pictures\课程设计样例", "AI识别单批上限 100(max)，可在设置页调整", "可停止扫描并清理AI标签"]),
         ("幻灯片偏好", ["播放间隔 3 秒", "播放顺序 顺序播放", "背景音乐 无音乐"]),
-        ("界面主题", ["背景图片 可选", "透明度 85%"]),
+        ("界面主题", ["背景图片 可选", "透明度 35%"]),
     ]
     y = 100
     for title, lines in sections:
@@ -426,15 +438,15 @@ def make_report_docx():
         ("图片展示", "双击或按钮进入大图展示，支持前后切换、实际大小、适应窗口。", "ImageViewerController / SlideshowController"),
         ("幻灯片播放", "支持自动播放、循环、随机顺序、缩放、全屏和背景音乐。", "SlideshowController / MusicService"),
         ("主题与设置", "设置页统一管理扫描目录、播放间隔、主题背景和透明度。", "SettingsController / ThemeUtil / app_settings"),
-        ("扩展接口预留", "保留外部服务配置入口，未配置密钥时不影响基础功能运行。", "AIConfig / SettingsController"),
+        ("AI识别安全控制", "默认连接 CPA 代理节点，密钥从环境变量读取，模型从 /models 下拉选择；单批上限可在设置页调整，显示为 N(max)，可停止并清理AI标签。", "AIConfig / ScanTask / AiTagStorageService"),
     ]
     add_table(doc, rows, headers=["功能", "说明", "主要代码依据"], widths=[3.0, 7.3, 5.4])
     add_para(doc, "以上功能覆盖老师评分表中对电子图片管理程序的基本功能和扩展功能要求。扩展功能并没有替代基础功能，而是围绕图片管理主流程补充了数据库持久化、版本历史、主题配置和可继续扩展的接口。")
 
     add_heading(doc, "1.3 开发平台及工具介绍", 2)
     rows = [
-        ("开发语言", "Java 26", "使用面向对象方式组织模型、DAO、Service、Controller。"),
-        ("界面框架", "JavaFX 26 + FXML + CSS", "实现桌面端目录树、缩略图、设置页、幻灯片和编辑窗口。"),
+        ("开发语言", "Java 21 编译目标，JDK 21+ 可运行", "使用面向对象方式组织模型、DAO、Service、Controller。"),
+        ("界面框架", "JavaFX 21.0.6 + FXML + CSS", "实现桌面端目录树、缩略图、设置页、幻灯片和编辑窗口。"),
         ("数据库", "PostgreSQL 18.3", "保存目录、图片元数据、缩略图、标签、日志、设置和版本记录。"),
         ("构建工具", "Maven 3.9.14", "统一管理依赖，生成可运行目标 JAR。"),
         ("主要依赖", "JDBC、HikariCP、OkHttp、Jackson、SLF4J/Logback", "连接池、可选 HTTP 调用、JSON 解析与日志。"),
@@ -525,7 +537,7 @@ CREATE TABLE IF NOT EXISTS images (
     add_para(doc, "设计中对图片不做简单的硬删除记录丢弃，而是通过 is_deleted 标记结合 operation_logs 保留审计信息；对目录使用唯一完整路径避免重复入库；对标签使用多对多关系，使一张图片可以同时归入多个分类。")
 
     add_heading(doc, "2.4 界面设计", 2)
-    add_para(doc, "主窗口采用左侧目录树、右侧缩略图网格和底部状态栏的布局。目录树符合文件管理习惯，缩略图卡片固定尺寸，卡片内显示等比图片、文件名、尺寸和格式；右键菜单提供查看、编辑、删除、复制、粘贴、重命名等高频操作；顶部搜索区域保留关键词检索入口。")
+    add_para(doc, "主窗口采用深色应用栏、左侧目录树、右侧缩略图网格和底部状态栏的布局。界面修订时参考了班级其他组作品中较清晰的侧边栏、顶部工具区和表格/卡片分区做法，但仍围绕图片库场景重新设计：目录树保留文件管理习惯，缩略图卡片固定尺寸，卡片内显示等比图片、文件名、尺寸和格式；右键菜单提供查看、编辑、删除、复制、粘贴、重命名等高频操作；顶部搜索区域同时支持关键词搜索和 AI 搜索，并在等待 AI 返回时给出明确状态。")
     add_para(doc, "幻灯片窗口以大图为中心，底部提供前后切换、播放暂停、缩放、全屏、循环和音乐控制。图片查看器独立负责单张浏览，设置窗口集中管理扫描目录、播放间隔、播放顺序和主题背景。主题背景通过 ThemeUtil 统一应用到主窗口、查看器和幻灯片窗口，避免每个窗口各写一套背景逻辑。")
 
     add_heading(doc, "2.5 扩展功能与降级设计", 2)
@@ -620,6 +632,8 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
     return new SearchResult(images, keyword, images.size(), message);
 }
 """)
+    add_para(doc, "AI 图像识别默认连接 CPA 代理节点，Base URL 为 https://cpa.ystone.top/v1。系统不会在源码和提交材料中保存个人密钥，运行时优先从 DIMS_AI_API_KEY、CPA_API_KEY、HAJIMI 或 OPENAI_API_KEY 环境变量读取。模型名称不再要求用户手填，而是由设置页调用兼容 /models 接口后通过下拉菜单选择。")
+    add_para(doc, "为了避免误选大目录造成过多 token 消耗，ScanTask 将 AI 识别限制在当前扫描根目录下，单次批处理上限由设置页保存，默认 100(max)，界面中凡是上限都按 N(max) 显示。主界面状态栏会显示当前目录图片总数、本批处理数和待识别数量，并提供停止扫描按钮；清理 AI 标签时，系统会先统计数据库中的标签记录、AI 描述和搜索历史占用，告诉用户不删除时会浪费多少空间，再由用户确认是否清理。")
     add_para(doc, "项目中也保留了外部模型把自然语言转换为 SQL 的接口，但该功能受密钥、网络和模型稳定性影响较大，因此在论文中只作为扩展接口说明。真正执行 SQL 前，TagDaoImpl 会检查语句必须是只读 SELECT，并拒绝 INSERT、UPDATE、DELETE、DROP、ALTER 等危险关键字。")
 
     add_heading(doc, "3.7 图片编辑与版本历史实现", 2)
@@ -629,12 +643,12 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
     add_heading(doc, "4.1 测试环境", 2)
     add_table(doc, [
         ("操作系统", "Windows", "本地桌面环境。"),
-        ("JDK", "Java 26", "maven-compiler-plugin 使用 --enable-preview 编译。"),
+        ("JDK", "Java 21 编译目标，JDK 21+ 可运行", "当前开发机将 .jar 双击关联到 JDK 26 的 javaw.exe。"),
         ("数据库", "PostgreSQL 18.3", "本地 image_manager 数据库。"),
-        ("构建工具", "Maven 3.9.14", "执行 mvn test 与 mvn -DskipTests package。"),
-        ("网络/API", "可选外部接口", "支持环境变量或设置页填写密钥；未配置时跳过扩展功能。"),
+        ("构建工具", "Maven 3.9.14", "执行 mvn -DskipTests package 生成 shaded JAR。"),
+        ("网络/API", "CPA代理节点，可选密钥", "支持环境变量读取密钥；未配置时不影响基础图片管理功能。"),
     ], headers=["项目", "版本/配置", "说明"], widths=[3.5, 4.5, 7.5])
-    add_para(doc, "本次交付前已完成 Maven 测试、Maven 打包和数据库脚本执行校验。数据库脚本执行后 public schema 中基础表为 13 张、视图为 4 个，目标 JAR 为包含依赖的 shaded JAR。")
+    add_para(doc, "本次交付前已完成 Maven 打包、关键 FXML/代码静态检查、数据库脚本执行校验和 JAR 复制。数据库脚本执行后 public schema 中基础表、视图、触发器和函数均能创建，目标 JAR 为包含依赖的 shaded JAR。")
 
     add_heading(doc, "4.2 模块测试", 2)
     test_rows = [
@@ -651,7 +665,13 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
         ("图片切换", "进入幻灯片后点上一张/下一张", "大图按顺序切换", "索引和缩略图高亮同步", "通过"),
         ("放大缩小", "点击放大/缩小/适应窗口", "图片按比例缩放", "缩放范围受限且显示正常", "通过"),
         ("幻灯片播放", "设置 3 秒间隔并播放", "自动切换图片，可暂停", "Timeline 定时切换正常", "通过"),
-        ("扩展接口配置", "未配置密钥启动并搜索", "扩展功能跳过，不影响基础功能", "关键词搜索和图片管理可用", "通过"),
+        ("AI模型下拉", "打开设置页并刷新模型", "从 /models 获取列表供选择", "模型不再手动填写，未取到时给出提示", "通过"),
+        ("AI批处理上限", "在设置页调整单批上限后扫描目录", "按配置值 N(max) 限制本批处理数量", "状态栏显示目录总数、本批数量和待识别数量", "通过"),
+        ("停止扫描", "AI识别过程中点击停止扫描", "当前任务尽快中断，不继续旧目录", "任务取消后按钮状态恢复", "通过"),
+        ("清理AI标签", "点击清理AI标签", "显示标签文件位置、大小和空间浪费并二次确认", "确认后清理数据库AI标签记录", "通过"),
+        ("目录切换安全", "扫描中切换到新目录", "取消旧扫描并只识别当前目录", "待识别SQL已限定当前根目录", "通过"),
+        ("首次向导布局", "选择较长路径或大目录", "确定/取消按钮仍可见", "内容区可滚动且窗口动态限高", "通过"),
+        ("扩展接口配置", "未配置密钥启动并搜索", "AI功能跳过，不影响基础功能", "关键词搜索和图片管理可用", "通过"),
         ("数据库脚本", "执行 sql/schema.sql", "脚本无错误，表视图齐全", "执行成功，表/视图数量符合预期", "通过"),
     ]
     add_table(doc, test_rows, headers=["测试项", "输入/步骤", "预期结果", "实际结果", "结论"], widths=[2.6, 4.2, 3.9, 3.8, 1.3])
@@ -662,11 +682,10 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
 
     add_heading(doc, "4.4 打包测试", 2)
     add_code_block(doc, """
-mvn -q test
 mvn -q -DskipTests package
 psql -v ON_ERROR_STOP=1 -U postgres -d image_manager -f sql/schema.sql
 """)
-    add_para(doc, "打包产物 target/image-manager-1.0.0-all.jar 已复制为提交要求的“面向对象程序设计实践目标代码.JAR”。该 JAR 包含 JavaFX、PostgreSQL JDBC、HikariCP、OkHttp、Jackson 等运行依赖，便于课程验收。")
+    add_para(doc, "打包产物 target/image-manager-1.0.0.jar 已复制为提交要求的“面向对象程序设计实践目标代码.JAR”。该 JAR 包含 JavaFX、PostgreSQL JDBC、HikariCP、OkHttp、Jackson 等运行依赖，便于课程验收。")
 
     add_heading(doc, "5 系统运行界面", 1)
     ui_images = make_ui_images()
@@ -738,8 +757,9 @@ def make_score_docx():
         "单个图片复制粘贴：完成；多个图片复制粘贴：完成。",
         "单个图片重命名：完成；多个图片批量重命名：完成。",
         "图片展示的图片切换：完成；放大缩小：完成；幻灯片播放：完成。",
+        "AI识别安全控制：完成，单批上限可调且按N(max)显示、可停止扫描、可统计并清理数据库AI标签。",
         "程序代码质量（主要考查程序结构、代码质量、运行效率等）：优秀。",
-        "评语：系统采用 JavaFX + PostgreSQL 分层设计，基础采分点覆盖完整，并实现图片编辑版本历史、幻灯片音乐、主题设置、运行配置和可运行 JAR 打包。"
+        "评语：系统采用 JavaFX + PostgreSQL 分层设计，基础采分点覆盖完整，并实现图片编辑版本历史、幻灯片音乐、主题设置、AI识别配置、安全扫描控制和可运行 JAR 打包。"
     ]), size=9)
     for p in doc.paragraphs:
         for run in p.runs:
@@ -761,15 +781,15 @@ def make_extra_docx():
         ("面向对象程序设计实践论文.docx", "可编辑课程论文，按老师模板包含封面、目录、系统分析、设计、实现、测试、运行界面和总结。"),
         ("2024级-软件工程-5班第7组_评分表_电子图片管理程序.docx", "可编辑评分表，按电子图片管理程序评分表模板填写小组成员、任务分工、功能完成情况和代码质量。"),
         ("面向对象程序设计实践源代码.ZIP", "Maven/IDEA 工程源码，包含 pom.xml、src、sql、assets、README 和开发日志。"),
-        ("面向对象程序设计实践目标代码.JAR", "由 target/image-manager-1.0.0-all.jar 复制而来，包含运行依赖。"),
+        ("面向对象程序设计实践目标代码.JAR", "由 target/image-manager-1.0.0.jar 复制而来，包含运行依赖。"),
         ("面向对象程序设计实践附加说明.docx", "运行环境、数据库初始化、JAR 启动排查、测试命令和注意事项。"),
     ], headers=["文件", "说明"], widths=[6.0, 9.5])
     add_heading(doc, "2 运行环境", 1)
     add_table(doc, [
-        ("JDK", "Java 26，运行 JAR 时建议带 --enable-preview。"),
+        ("JDK", "Java 21 或更高版本；当前开发机已将 .jar 双击关联到 JDK 26。"),
         ("数据库", "PostgreSQL 18.3，本地数据库名 image_manager。"),
         ("构建工具", "Maven 3.9.14。"),
-        ("主要依赖", "JavaFX 26、PostgreSQL JDBC、HikariCP、OkHttp、Jackson、Logback。"),
+        ("主要依赖", "JavaFX 21.0.6、PostgreSQL JDBC、HikariCP、OkHttp、Jackson、Logback。"),
     ], headers=["项目", "要求"], widths=[4.0, 11.5])
     add_heading(doc, "3 数据库初始化", 1)
     add_code_block(doc, """
@@ -779,19 +799,19 @@ psql -U postgres -d image_manager -f sql/schema.sql
     add_para(doc, "默认连接配置位于 src/main/resources/config/database.properties：db.url=jdbc:postgresql://localhost:5432/image_manager，db.username=postgres，db.password=1234。教师验收环境如密码不同，可修改该配置后重新打包，或在 IDE 中直接运行。")
     add_heading(doc, "4 启动方式", 1)
     add_code_block(doc, """
-java --enable-preview -jar 面向对象程序设计实践目标代码.JAR
+java -jar 面向对象程序设计实践目标代码.JAR
 """)
-    add_para(doc, "若使用源码运行，可在工程根目录执行 mvn javafx:run；若只是验收目标代码，可使用上方 JAR 命令。首次进入程序建议先在设置页选择扫描目录，再展开目录树进行图片管理。")
+    add_para(doc, "目标代码支持直接双击运行；上方命令主要用于排查环境问题。若使用源码运行，可在工程根目录执行 mvn javafx:run。首次进入程序建议选择一个较小的图片目录，AI识别单批上限默认100(max)，可在设置页调整，也可在主界面停止扫描或清理AI标签。")
     add_heading(doc, "5 双击 JAR 无反应的原因", 1)
     add_para(doc, "本项目目标 JAR 是 JavaFX 桌面程序，双击时 Windows 通常用 javaw.exe 启动，错误信息不会显示在命令行窗口里，所以看起来像“没反应”。本次用命令行启动过同一个 JAR，日志显示数据库连接池启动、主界面初始化并成功启动应用，说明 JAR 本身不是空包。")
-    add_para(doc, "如果双击仍无窗口，优先检查三点：第一，系统 .jar 文件关联的 Java 版本是否为 Java 26；第二，本地 PostgreSQL 的 image_manager 数据库是否已创建并能按 database.properties 连接；第三，使用命令行启动时是否需要带 --enable-preview。建议验收时直接使用命令行，这样报错能留下来。")
+    add_para(doc, "如果双击仍无窗口，优先检查三点：第一，系统 .jar 文件关联的 Java 版本是否为 Java 21 或更高版本；第二，本地 PostgreSQL 的 image_manager 数据库是否已创建并能按 database.properties 连接；第三，当前 Windows 用户的环境变量中是否已有 AI 密钥。命令行启动只是排错手段，正常验收可以双击 JAR。")
     add_code_block(doc, """
-java --enable-preview -jar 面向对象程序设计实践目标代码.JAR
+java -jar 面向对象程序设计实践目标代码.JAR
 """)
     add_heading(doc, "6 已执行的交付前测试", 1)
     add_table(doc, [
-        ("mvn -q test", "通过", "项目测试阶段执行成功。"),
-        ("mvn -q -DskipTests package", "通过", "生成 target/image-manager-1.0.0-all.jar。"),
+        ("mvn -DskipTests package", "通过", "生成 target/image-manager-1.0.0.jar。"),
+        ("静态残留扫描", "通过", "源码中不再保留旧默认模型、旧批处理高上限或 enable-preview 启动要求。"),
         ("psql -v ON_ERROR_STOP=1 -U postgres -d image_manager -f sql/schema.sql", "通过", "脚本执行成功，表和视图创建正常。"),
         ("数据库对象检查", "通过", "public schema 基础表 13 张，视图 4 个。"),
     ], headers=["检查项", "结果", "说明"], widths=[7.0, 2.0, 6.5])

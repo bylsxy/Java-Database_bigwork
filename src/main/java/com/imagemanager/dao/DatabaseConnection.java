@@ -60,9 +60,9 @@ public final class DatabaseConnection {
 
             // 配置 HikariCP
             var config = new HikariConfig();
-            config.setJdbcUrl(props.getProperty("db.url"));
-            config.setUsername(props.getProperty("db.username"));
-            config.setPassword(props.getProperty("db.password"));
+            config.setJdbcUrl(configValue(props, "db.url", "DIMS_DB_URL"));
+            config.setUsername(configValue(props, "db.username", "DIMS_DB_USERNAME"));
+            config.setPassword(configValue(props, "db.password", "DIMS_DB_PASSWORD"));
 
             // 连接池参数
             config.setMaximumPoolSize(
@@ -150,5 +150,13 @@ public final class DatabaseConnection {
             props.load(input);
         }
         return props;
+    }
+
+    private static String configValue(Properties props, String propertyName, String envName) {
+        String envValue = System.getenv(envName);
+        if (envValue != null && !envValue.isBlank()) {
+            return envValue.trim();
+        }
+        return props.getProperty(propertyName);
     }
 }

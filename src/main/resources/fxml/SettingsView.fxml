@@ -8,25 +8,26 @@
     设置页面 — AI API配置、扫描目录管理、显示偏好。
     包含实时测试功能：上传示例图片验证API连接和返回效果。
 -->
-<VBox xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1"
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.imagemanager.controller.SettingsController"
-      spacing="16" prefWidth="620" prefHeight="680">
+      spacing="16" prefWidth="680" prefHeight="720" styleClass="settings-root">
 
     <padding><Insets top="20" right="24" bottom="20" left="24"/></padding>
 
-    <Label text="系统设置" style="-fx-font-size: 22px; -fx-font-weight: bold;"/>
+    <Label text="系统设置" styleClass="settings-title"/>
     <Separator/>
 
-    <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent;">
+    <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="settings-scroll">
         <VBox spacing="20">
             <padding><Insets top="4" right="8" bottom="4" left="4"/></padding>
 
             <!-- ==================== AI API 配置 ==================== -->
-            <TitledPane text="AI 图像识别 API 配置" expanded="true" collapsible="true">
+            <TitledPane text="AI 图像识别 API 配置" expanded="true" collapsible="true"
+                        styleClass="settings-section">
                 <VBox spacing="12">
                     <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
 
-                    <Label text="填写 OpenAI 兼容格式的 API 信息（支持通义千问、百度文心、GPT-4o 等）"
+                    <Label text="默认连接 CPA 代理节点；模型列表会从接口自动获取，API Key 优先读取系统环境变量。"
                            wrapText="true" style="-fx-text-fill: #666; -fx-font-size: 12px;"/>
 
                     <GridPane hgap="12" vgap="10">
@@ -38,17 +39,25 @@
                         <Label text="Base URL:" GridPane.rowIndex="0" GridPane.columnIndex="0"
                                style="-fx-font-weight: bold;"/>
                         <TextField fx:id="baseUrlField" GridPane.rowIndex="0" GridPane.columnIndex="1"
-                                   promptText="https://dashscope.aliyuncs.com/compatible-mode/v1"/>
+                                   promptText="https://cpa.ystone.top/v1"/>
 
                         <Label text="API Key:" GridPane.rowIndex="1" GridPane.columnIndex="0"
                                style="-fx-font-weight: bold;"/>
                         <PasswordField fx:id="apiKeyField" GridPane.rowIndex="1" GridPane.columnIndex="1"
-                                       promptText="请输入您的 API Key"/>
+                                       promptText="优先从 DIMS_AI_API_KEY / CPA_API_KEY / HAJIMI 环境变量读取"/>
 
-                        <Label text="模型名称:" GridPane.rowIndex="2" GridPane.columnIndex="0"
+                        <Label text="模型:" GridPane.rowIndex="2" GridPane.columnIndex="0"
                                style="-fx-font-weight: bold;"/>
-                        <TextField fx:id="modelField" GridPane.rowIndex="2" GridPane.columnIndex="1"
-                                   promptText="qwen-vl-plus"/>
+                        <VBox spacing="4" GridPane.rowIndex="2" GridPane.columnIndex="1">
+                            <HBox spacing="8" alignment="CENTER_LEFT">
+                                <ComboBox fx:id="modelComboBox" HBox.hgrow="ALWAYS"
+                                          prefWidth="360" promptText="正在获取模型列表..."/>
+                                <Button fx:id="refreshModelsButton" text="刷新" onAction="#onRefreshModels"
+                                        styleClass="secondary-button"/>
+                            </HBox>
+                            <Label fx:id="modelStatusLabel" text="模型列表会自动从 /models 获取"
+                                   wrapText="true" style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+                        </VBox>
 
                         <Label text="请求间隔:" GridPane.rowIndex="3" GridPane.columnIndex="0"
                                style="-fx-font-weight: bold;"/>
@@ -56,6 +65,15 @@
                               GridPane.rowIndex="3" GridPane.columnIndex="1">
                             <TextField fx:id="delayField" prefWidth="80" promptText="1500"/>
                             <Label text="毫秒（防止API限流）" style="-fx-text-fill: #666;"/>
+                        </HBox>
+
+                        <Label text="单批上限(max):" GridPane.rowIndex="4" GridPane.columnIndex="0"
+                               style="-fx-font-weight: bold;"/>
+                        <HBox spacing="8" alignment="CENTER_LEFT"
+                              GridPane.rowIndex="4" GridPane.columnIndex="1">
+                            <Spinner fx:id="batchLimitSpinner" prefWidth="100"/>
+                            <Label text="张（达到该上限会暂停，之后可再次扫描继续）"
+                                   style="-fx-text-fill: #666;"/>
                         </HBox>
                     </GridPane>
 
@@ -68,7 +86,7 @@
 
                     <HBox spacing="10" alignment="CENTER_LEFT">
                         <Button fx:id="testButton" text="选择图片并测试" onAction="#onTestAPI"
-                                style="-fx-background-color: #1976d2; -fx-text-fill: white;"/>
+                                styleClass="primary-button"/>
                         <ProgressIndicator fx:id="testProgress" prefWidth="24" prefHeight="24"
                                            visible="false"/>
                         <Label fx:id="testStatusLabel" text="" style="-fx-text-fill: #666;"/>
@@ -81,7 +99,8 @@
             </TitledPane>
 
             <!-- ==================== 扫描目录设置 ==================== -->
-            <TitledPane text="扫描目录设置" expanded="true" collapsible="true">
+            <TitledPane text="扫描目录设置" expanded="true" collapsible="true"
+                        styleClass="settings-section">
                 <VBox spacing="10">
                     <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
 
@@ -89,13 +108,15 @@
                     <HBox spacing="10" alignment="CENTER_LEFT">
                         <TextField fx:id="scanDirField" HBox.hgrow="ALWAYS"
                                    promptText="选择图片扫描目录..." editable="true"/>
-                        <Button text="浏览..." onAction="#onBrowseScanDir"/>
+                        <Button text="浏览..." onAction="#onBrowseScanDir" styleClass="secondary-button"/>
                     </HBox>
 
                     <HBox spacing="10">
-                        <Button text="重新打开首次向导" onAction="#onReopenWelcome"
-                                style="-fx-background-color: #ff9800; -fx-text-fill: white;"/>
-                        <Label text="可重新选择目录并触发扫描"
+                        <Button text="扫描当前目录" onAction="#onScanCurrentDirectory"
+                                styleClass="primary-button"/>
+                        <Button text="下次启动显示向导" onAction="#onReopenWelcome"
+                                styleClass="warning-button"/>
+                        <Label text="AI识别单批上限按 N(max) 显示，可在上方调整"
                                style="-fx-text-fill: #666; -fx-font-size: 12px;"
                                alignment="CENTER_LEFT"/>
                     </HBox>
@@ -103,7 +124,8 @@
             </TitledPane>
 
             <!-- ==================== 界面主题设置 ==================== -->
-            <TitledPane text="界面主题设置" expanded="true" collapsible="true">
+            <TitledPane text="界面主题设置" expanded="true" collapsible="true"
+                        styleClass="settings-section">
                 <VBox spacing="10">
                     <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
 
@@ -114,8 +136,8 @@
                         <Label text="背景图片:" style="-fx-font-weight: bold;"/>
                         <TextField fx:id="themeBackgroundField" HBox.hgrow="ALWAYS"
                                    promptText="未设置主题背景" editable="false"/>
-                        <Button text="选择..." onAction="#onBrowseThemeBackground"/>
-                        <Button text="清除" onAction="#onClearThemeBackground"/>
+                        <Button text="选择..." onAction="#onBrowseThemeBackground" styleClass="secondary-button"/>
+                        <Button text="清除" onAction="#onClearThemeBackground" styleClass="secondary-button"/>
                     </HBox>
 
                     <HBox spacing="10" alignment="CENTER_LEFT">
@@ -128,7 +150,8 @@
             </TitledPane>
 
             <!-- ==================== 幻灯片设置 ==================== -->
-            <TitledPane text="幻灯片设置" expanded="false" collapsible="true">
+            <TitledPane text="幻灯片设置" expanded="false" collapsible="true"
+                        styleClass="settings-section">
                 <VBox spacing="10">
                     <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
 
@@ -152,8 +175,8 @@
     <!-- 底部按钮栏 -->
     <HBox spacing="12" alignment="CENTER_RIGHT">
         <Button fx:id="saveButton" text="保存设置" onAction="#onSave"
-                style="-fx-background-color: #4caf50; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 24;"/>
+                styleClass="success-button"/>
         <Button fx:id="cancelButton" text="取消" onAction="#onCancel"
-                style="-fx-padding: 8 24;"/>
+                styleClass="secondary-button"/>
     </HBox>
 </VBox>

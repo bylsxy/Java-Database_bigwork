@@ -8,6 +8,7 @@ import com.imagemanager.model.ImageFile;
 import com.imagemanager.model.Tag;
 import com.imagemanager.model.TagCategory;
 import com.imagemanager.scanner.ScanTask;
+import com.imagemanager.service.AiTagStorageService;
 import com.imagemanager.service.ImageService;
 import com.imagemanager.service.ImageServiceImpl;
 import com.imagemanager.service.SearchService;
@@ -33,6 +34,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +62,7 @@ import java.util.Set;
 public class MainController {
 
     private static final Logger logger = LoggerFactory.getLogger(MainController.class);
+    private static final String LOADING_TREE_ITEM_TEXT = "加载中...";
 
     // ==================== FXML 注入的 UI 组件 ====================
 
@@ -103,11 +106,16 @@ public class MainController {
     private Label scanProgressLabel;
     @FXML
     private ProgressBar scanProgressBar;
+    @FXML
+    private Button stopScanButton;
+    @FXML
+    private Button cleanupAiButton;
 
     // ==================== 业务服务 ====================
 
     private final ImageService imageService = new ImageServiceImpl();
     private final SearchService searchService = new SearchService();
+    private final AiTagStorageService aiTagStorageService = new AiTagStorageService();
     private final SettingsDao settingsDao = new SettingsDaoImpl();
     private final TagDao tagDao = new TagDaoImpl();
 
@@ -129,6 +137,11 @@ public class MainController {
     private double dragStartX, dragStartY;
     private boolean isDragging = false;
     private ScanTask activeScanTask;
+    private String activeScanDirectoryPath = "";
+    private String queuedScanDirectoryPath = "";
+    private long directoryLoadRequestId = 0;
+    private long searchRequestId = 0;
+    private boolean promptCleanupAfterStop = false;
 
     private record TagViewItem(Tag tag, String categoryLabel) {
         @Override
@@ -158,6 +171,7 @@ public class MainController {
 
         // v2.0: 初始化搜索栏
         initSearchBar();
+        setImageCountText("");
 
         // 应用全局主题背景
         applyTheme();
@@ -189,10 +203,32 @@ public class MainController {
     // ==================== 目录树 ====================
 
     /**
-     * 初始化目录树：以"我的电脑"为根，列出所有磁盘分区。
-     * 使用懒加载策略——只有用户展开目录时才加载子目录。
+     * 初始化目录树。若已配置扫描目录，则以扫描目录作为图片库根节点。
      */
     private void initDirectoryTree() {
+        // 监听选中变化
+        directoryTree.getSelectionModel().selectedItemProperty().addListener(
+                (observable, oldValue, newValue) -> {
+                    if (newValue != null && newValue.getValue() != null) {
+                        String path = getPathFromTreeItem(newValue);
+                        if (path != null) {
+                            onDirectorySelected(path);
+                        }
+                    }
+                });
+
+        String scanDirectory = settingsDao.getValueOrDefault("scan_directory", "");
+        if (!scanDirectory.isBlank() && new File(scanDirectory).isDirectory()) {
+            showScanDirectoryRoot(scanDirectory, true);
+        } else {
+            showComputerRoot();
+        }
+    }
+
+    /**
+     * 兜底显示整台电脑的磁盘根目录。
+     */
+    private void showComputerRoot() {
         TreeItem<String> rootItem = new TreeItem<>("我的电脑");
         rootItem.setExpanded(true);
 
@@ -210,35 +246,46 @@ public class MainController {
 
         directoryTree.setRoot(rootItem);
         directoryTree.setShowRoot(true);
+    }
 
-        // 监听选中变化
-        directoryTree.getSelectionModel().selectedItemProperty().addListener(
-                (observable, oldValue, newValue) -> {
-                    if (newValue != null && newValue.getValue() != null) {
-                        String path = getPathFromTreeItem(newValue);
-                        if (path != null) {
-                            onDirectorySelected(path);
-                        }
-                    }
-                });
+    /**
+     * 切换图片库根目录，让左侧树和右侧缩略图都跟随当前扫描目录。
+     */
+    private void showScanDirectoryRoot(String directoryPath, boolean selectRoot) {
+        File rootDir = new File(directoryPath);
+        if (!rootDir.isDirectory()) {
+            return;
+        }
+
+        String rootPath = normalizeDirectoryPath(rootDir);
+        String displayName = rootDir.getName().isBlank() ? rootPath : rootDir.getName();
+        TreeItem<String> rootItem = createLazyTreeItem(displayName, rootPath);
+        directoryTree.setRoot(rootItem);
+        directoryTree.setShowRoot(true);
+        rootItem.setExpanded(true);
+
+        if (selectRoot) {
+            directoryTree.getSelectionModel().select(rootItem);
+        }
     }
 
     /**
      * 创建一个懒加载的目录树节点。
-     * 初始时只放一个"虚拟子节点"让箭头可见，
-     * 用户展开时才真正加载子目录。
+     * 只有存在可见子目录时才放一个虚拟子节点让箭头可见，
+     * 用户展开时再真正加载子目录。
      */
     private TreeItem<String> createLazyTreeItem(String displayName, String path) {
         TreeItem<String> item = new TreeItem<>(displayName);
 
-        // 伪子节点 — 让展开箭头可见
-        TreeItem<String> placeholder = new TreeItem<>("加载中...");
-        item.getChildren().add(placeholder);
+        if (hasVisibleSubDirectory(path)) {
+            TreeItem<String> placeholder = new TreeItem<>(LOADING_TREE_ITEM_TEXT);
+            item.getChildren().add(placeholder);
+        }
 
         // 监听展开事件 — 替换为真实子目录
         item.expandedProperty().addListener((obs, wasExpanded, isNowExpanded) -> {
             if (isNowExpanded && item.getChildren().size() == 1
-                    && "加载中...".equals(item.getChildren().getFirst().getValue())) {
+                    && LOADING_TREE_ITEM_TEXT.equals(item.getChildren().getFirst().getValue())) {
                 loadSubDirectories(item, path);
             }
         });
@@ -251,6 +298,16 @@ public class MainController {
         item.setGraphic(label);
 
         return item;
+    }
+
+    private boolean hasVisibleSubDirectory(String directoryPath) {
+        File dir = new File(directoryPath);
+        if (!dir.exists() || !dir.isDirectory()) {
+            return false;
+        }
+
+        File[] subDirs = dir.listFiles(file -> file.isDirectory() && !file.isHidden());
+        return subDirs != null && subDirs.length > 0;
     }
 
     /**
@@ -290,14 +347,17 @@ public class MainController {
      */
     private void onDirectorySelected(String directoryPath) {
         logger.info("选中目录: {}", directoryPath);
+        long loadRequestId = ++directoryLoadRequestId;
+        searchRequestId++;
         currentDirectoryPath = directoryPath;
         selectedImages.clear();
         cardMap.clear();
 
         // 更新路径显示
-        pathLabel.setText("📁 " + directoryPath);
+        pathLabel.setText(directoryPath);
         File dir = new File(directoryPath);
         directoryNameLabel.setText(dir.getName().isEmpty() ? directoryPath : dir.getName());
+        setImageCountText("");
 
         // 在后台线程加载图片（避免阻塞 UI）
         Task<List<ImageFile>> loadTask = new Task<>() {
@@ -308,6 +368,9 @@ public class MainController {
         };
 
         loadTask.setOnSucceeded(event -> {
+            if (loadRequestId != directoryLoadRequestId || !directoryPath.equals(currentDirectoryPath)) {
+                return;
+            }
             currentImages = loadTask.getValue();
             displayThumbnails(currentImages);
             updateStatusBar();
@@ -315,6 +378,9 @@ public class MainController {
         });
 
         loadTask.setOnFailed(event -> {
+            if (loadRequestId != directoryLoadRequestId || !directoryPath.equals(currentDirectoryPath)) {
+                return;
+            }
             logger.error("加载图片失败", loadTask.getException());
             statusLabel.setText("加载失败: " + loadTask.getException().getMessage());
         });
@@ -333,7 +399,7 @@ public class MainController {
         thumbnailPane.getChildren().clear();
         cardMap.clear();
 
-        imageCountLabel.setText(images.size() + " 张图片");
+        setImageCountText(images.size() + " 张图片");
 
         for (var image : images) {
             VBox card = createThumbnailCard(image);
@@ -349,8 +415,8 @@ public class MainController {
     private VBox createThumbnailCard(ImageFile image) {
         // 缩略图图片
         ImageView imageView = new ImageView();
-        imageView.setFitWidth(120);
-        imageView.setFitHeight(90);
+        imageView.setFitWidth(132);
+        imageView.setFitHeight(98);
         imageView.setPreserveRatio(true);
         imageView.setSmooth(true);
 
@@ -378,18 +444,27 @@ public class MainController {
         // 图片容器（固定大小，居中显示）
         StackPane imageContainer = new StackPane(imageView);
         imageContainer.getStyleClass().add("thumbnail-image-container");
-        imageContainer.setPrefSize(130, 100);
+        imageContainer.setPrefSize(148, 112);
 
         // 文件名标签
         Label nameLabel = new Label(image.fileName());
         nameLabel.getStyleClass().add("thumbnail-name");
-        nameLabel.setMaxWidth(130);
+        nameLabel.setMaxWidth(148);
+        nameLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
+        nameLabel.setTooltip(new Tooltip(image.fileName()));
+
+        String formatText = image.format() == null ? "" : image.format().toUpperCase();
+        Label metaLabel = new Label(image.resolution() + "  " + formatText);
+        metaLabel.getStyleClass().add("thumbnail-meta");
+        metaLabel.setMaxWidth(148);
+        metaLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
 
         // 卡片容器
-        VBox card = new VBox(5, imageContainer, nameLabel);
+        VBox card = new VBox(6, imageContainer, nameLabel, metaLabel);
         card.setAlignment(Pos.CENTER);
         card.getStyleClass().add("thumbnail-card");
-        card.setPrefWidth(150);
+        card.setPrefWidth(172);
+        card.setMinWidth(172);
 
         // 单击选中
         card.setOnMouseClicked(event -> handleCardClick(image, card, event));
@@ -1094,6 +1169,7 @@ public class MainController {
                     getClass().getResource("/css/style.css").toExternalForm());
             slideshowStage.setScene(scene);
             slideshowStage.setOnCloseRequest(event -> controller.dispose());
+            slideshowStage.setOnShown(event -> controller.refreshLayoutAfterShow());
             slideshowStage.show();
 
         } catch (Exception e) {
@@ -1130,35 +1206,92 @@ public class MainController {
                 ? SearchService.SearchMode.AI_SQL
                 : SearchService.SearchMode.KEYWORD;
 
+        long requestId = ++searchRequestId;
+        String initialMessage = mode == SearchService.SearchMode.AI_SQL
+                ? "AI搜索：准备发送请求..."
+                : "关键词搜索：准备匹配...";
         logger.info("执行搜索: mode={}, query={}", mode, query);
-        statusLabel.setText("正在搜索...");
+        statusLabel.setText(initialMessage);
+        setSearchControlsRunning(true, mode);
 
         // 后台执行搜索
         Task<SearchService.SearchResult> searchTask = new Task<>() {
             @Override
             protected SearchService.SearchResult call() {
-                return searchService.search(query, mode, searchDirectoryPath);
+                updateMessage(initialMessage);
+                return searchService.search(query, mode, searchDirectoryPath, this::updateMessage);
             }
         };
+        searchTask.messageProperty().addListener((obs, oldValue, newValue) -> {
+            if (requestId == searchRequestId
+                    && searchDirectoryPath.equals(currentDirectoryPath)
+                    && newValue != null && !newValue.isBlank()) {
+                statusLabel.setText(newValue);
+            }
+        });
 
         searchTask.setOnSucceeded(event -> {
+            setSearchControlsRunning(false, mode);
+            if (requestId != searchRequestId || !searchDirectoryPath.equals(currentDirectoryPath)) {
+                return;
+            }
             SearchService.SearchResult result = searchTask.getValue();
             selectedImages.clear();
             currentImages = new ArrayList<>(result.images());
             displayThumbnails(currentImages);
             directoryNameLabel.setText("当前文件夹及子文件夹搜索: \"" + query + "\"");
-            imageCountLabel.setText(result.totalCount() + " 张图片");
+            setImageCountText(result.totalCount() + " 张图片");
             selectionLabel.setText("");
             statusLabel.setText(result.message());
             slideshowButton.setDisable(currentImages.isEmpty());
         });
 
         searchTask.setOnFailed(event -> {
+            setSearchControlsRunning(false, mode);
+            if (requestId != searchRequestId || !searchDirectoryPath.equals(currentDirectoryPath)) {
+                return;
+            }
             logger.error("搜索任务失败", searchTask.getException());
             statusLabel.setText("搜索失败: " + searchTask.getException().getMessage());
         });
 
+        searchTask.setOnCancelled(event -> {
+            setSearchControlsRunning(false, mode);
+            if (requestId != searchRequestId || !searchDirectoryPath.equals(currentDirectoryPath)) {
+                return;
+            }
+            statusLabel.setText("搜索已取消");
+        });
+
         Thread.startVirtualThread(searchTask);
+    }
+
+    private void setImageCountText(String text) {
+        if (imageCountLabel == null) {
+            return;
+        }
+        String safeText = text == null ? "" : text;
+        boolean hasText = !safeText.isBlank();
+        imageCountLabel.setText(safeText);
+        imageCountLabel.setVisible(hasText);
+        imageCountLabel.setManaged(hasText);
+    }
+
+    private void setSearchControlsRunning(boolean running, SearchService.SearchMode mode) {
+        if (searchButton != null) {
+            searchButton.setDisable(running);
+            if (running) {
+                searchButton.setText(mode == SearchService.SearchMode.AI_SQL ? "等待AI" : "搜索中");
+            } else {
+                searchButton.setText("搜索");
+            }
+        }
+        if (searchField != null) {
+            searchField.setDisable(running);
+        }
+        if (searchModeCombo != null) {
+            searchModeCombo.setDisable(running);
+        }
     }
 
     // ==================== 设置页面 (v2.0新增) ====================
@@ -1168,6 +1301,10 @@ public class MainController {
      */
     @FXML
     private void onOpenSettings() {
+        openSettingsWindow(thumbnailPane.getScene().getWindow());
+    }
+
+    public void openSettingsWindow(Window ownerWindow) {
         try {
             FXMLLoader loader = new FXMLLoader(
                     getClass().getResource("/fxml/SettingsView.fxml"));
@@ -1180,7 +1317,7 @@ public class MainController {
             scene.getStylesheets().add(
                     getClass().getResource("/css/style.css").toExternalForm());
             settingsStage.setScene(scene);
-            settingsStage.initOwner(thumbnailPane.getScene().getWindow());
+            settingsStage.initOwner(ownerWindow);
             settingsStage.setResizable(true);
             settingsStage.showAndWait();
 
@@ -1211,58 +1348,97 @@ public class MainController {
             logger.warn("扫描目录不存在: {}", directoryPath);
             return;
         }
+        String scanDirectoryPath = normalizeDirectoryPath(scanDir);
+        showScanDirectoryRoot(scanDirectoryPath, true);
+
         if (activeScanTask != null && activeScanTask.isRunning()) {
-            statusLabel.setText("已有扫描任务正在运行");
-            logger.info("扫描任务已在运行，忽略新的扫描请求: {}", directoryPath);
+            if (sameDirectoryPath(activeScanDirectoryPath, scanDirectoryPath)) {
+                statusLabel.setText("当前目录正在扫描中");
+                logger.info("扫描任务已在运行，当前目录不重复启动: {}", scanDirectoryPath);
+                return;
+            }
+
+            queuedScanDirectoryPath = scanDirectoryPath;
+            promptCleanupAfterStop = false;
+            statusLabel.setText("正在切换扫描目录，先停止旧任务...");
+            unbindScanProgress();
+            if (scanProgressLabel != null) {
+                scanProgressLabel.setVisible(true);
+                scanProgressLabel.setManaged(true);
+                scanProgressLabel.setText("正在切换扫描目录，先停止旧任务...");
+            }
+            if (stopScanButton != null) {
+                stopScanButton.setVisible(true);
+                stopScanButton.setManaged(true);
+                stopScanButton.setDisable(true);
+            }
+            logger.info("扫描任务正在运行，取消旧任务后切换到新目录: {}", scanDirectoryPath);
+            activeScanTask.cancel();
             return;
         }
 
         ScanTask scanTask = new ScanTask(scanDir);
         activeScanTask = scanTask;
+        activeScanDirectoryPath = scanDirectoryPath;
+        promptCleanupAfterStop = false;
 
         // 绑定进度到UI
         if (scanProgressLabel != null && scanProgressBar != null) {
+            unbindScanProgress();
             scanProgressLabel.setVisible(true);
             scanProgressLabel.setManaged(true);
             scanProgressBar.setVisible(true);
             scanProgressBar.setManaged(true);
+            if (stopScanButton != null) {
+                stopScanButton.setVisible(true);
+                stopScanButton.setManaged(true);
+                stopScanButton.setDisable(false);
+            }
 
             scanProgressLabel.textProperty().bind(scanTask.messageProperty());
             scanProgressBar.progressProperty().bind(scanTask.progressProperty());
 
             scanTask.setOnSucceeded(e -> {
-                scanProgressLabel.textProperty().unbind();
-                scanProgressBar.progressProperty().unbind();
+                unbindScanProgress();
                 scanProgressLabel.setText("扫描完成");
                 scanProgressBar.setProgress(1.0);
                 activeScanTask = null;
-                if (currentDirectoryPath != null && currentDirectoryPath.startsWith(scanDir.getAbsolutePath())) {
+                activeScanDirectoryPath = "";
+                if (startQueuedScanIfAny()) {
+                    return;
+                }
+                hideStopScanButton();
+                if (currentDirectoryPath != null && isInsideDirectory(currentDirectoryPath, scanDirectoryPath)) {
                     onDirectorySelected(currentDirectoryPath);
                 }
-                // 3秒后隐藏进度条
-                new Thread(() -> {
-                    try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
-                    Platform.runLater(() -> {
-                        scanProgressLabel.setVisible(false);
-                        scanProgressLabel.setManaged(false);
-                        scanProgressBar.setVisible(false);
-                        scanProgressBar.setManaged(false);
-                    });
-                }).start();
+                hideScanProgressLater();
             });
 
             scanTask.setOnFailed(e -> {
-                scanProgressLabel.textProperty().unbind();
+                unbindScanProgress();
                 scanProgressLabel.setText("扫描失败");
                 activeScanTask = null;
+                activeScanDirectoryPath = "";
+                if (startQueuedScanIfAny()) {
+                    return;
+                }
+                hideStopScanButton();
                 logger.error("扫描任务失败", scanTask.getException());
             });
 
             scanTask.setOnCancelled(e -> {
-                scanProgressLabel.textProperty().unbind();
-                scanProgressBar.progressProperty().unbind();
+                unbindScanProgress();
                 scanProgressLabel.setText("扫描已取消");
                 activeScanTask = null;
+                activeScanDirectoryPath = "";
+                if (startQueuedScanIfAny()) {
+                    return;
+                }
+                hideStopScanButton();
+                if (promptCleanupAfterStop) {
+                    promptCleanupAfterStop = false;
+                    Platform.runLater(this::onCleanupAiData);
+                }
             });
         }
 
@@ -1270,7 +1446,196 @@ public class MainController {
         scanThread.setDaemon(true);
         scanThread.setName("AI-Scan-Thread");
         scanThread.start();
-        logger.info("AI扫描任务已启动: {}", directoryPath);
+        logger.info("AI扫描任务已启动: {}", scanDirectoryPath);
+    }
+
+    private void unbindScanProgress() {
+        if (scanProgressLabel != null && scanProgressLabel.textProperty().isBound()) {
+            scanProgressLabel.textProperty().unbind();
+        }
+        if (scanProgressBar != null && scanProgressBar.progressProperty().isBound()) {
+            scanProgressBar.progressProperty().unbind();
+        }
+    }
+
+    private boolean startQueuedScanIfAny() {
+        if (queuedScanDirectoryPath == null || queuedScanDirectoryPath.isBlank()) {
+            return false;
+        }
+
+        String nextDirectory = queuedScanDirectoryPath;
+        queuedScanDirectoryPath = "";
+        statusLabel.setText("旧扫描已停止，开始扫描新目录...");
+        startScanTask(nextDirectory);
+        return true;
+    }
+
+    private void hideScanProgressLater() {
+        Thread hideThread = new Thread(() -> {
+            try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
+            Platform.runLater(() -> {
+                if (activeScanTask != null && activeScanTask.isRunning()) {
+                    return;
+                }
+                if (scanProgressLabel != null) {
+                    scanProgressLabel.setVisible(false);
+                    scanProgressLabel.setManaged(false);
+                }
+                if (scanProgressBar != null) {
+                    scanProgressBar.setVisible(false);
+                    scanProgressBar.setManaged(false);
+                }
+            });
+        }, "Scan-Progress-Hide");
+        hideThread.setDaemon(true);
+        hideThread.start();
+    }
+
+    private String normalizeDirectoryPath(File dir) {
+        try {
+            return dir.getCanonicalPath();
+        } catch (Exception e) {
+            return dir.getAbsolutePath();
+        }
+    }
+
+    private boolean sameDirectoryPath(String left, String right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return left.equalsIgnoreCase(right);
+    }
+
+    private boolean isInsideDirectory(String path, String directoryPath) {
+        if (path == null || directoryPath == null || directoryPath.isBlank()) {
+            return false;
+        }
+        String normalizedPath = normalizeDirectoryPath(new File(path));
+        String normalizedDirectory = normalizeDirectoryPath(new File(directoryPath));
+        if (normalizedPath.equalsIgnoreCase(normalizedDirectory)) {
+            return true;
+        }
+        String prefix = normalizedDirectory.endsWith(File.separator)
+                ? normalizedDirectory
+                : normalizedDirectory + File.separator;
+        return normalizedPath.regionMatches(true, 0, prefix, 0, prefix.length());
+    }
+
+    @FXML
+    private void onStopScan() {
+        if (activeScanTask == null || !activeScanTask.isRunning()) {
+            statusLabel.setText("当前没有正在运行的扫描任务");
+            return;
+        }
+
+        boolean viewCleanup = AlertUtil.showConfirmation(
+                "停止扫描",
+                "将停止继续扫描和后续AI识别。当前正在请求中的一张图片可能会先完成。\n\n停止后是否查看并清理已经写入数据库的AI标签？"
+        );
+        promptCleanupAfterStop = viewCleanup;
+        statusLabel.setText("正在停止扫描...");
+        unbindScanProgress();
+        if (scanProgressLabel != null) {
+            scanProgressLabel.setText("正在停止扫描...");
+        }
+        if (stopScanButton != null) {
+            stopScanButton.setDisable(true);
+        }
+        activeScanTask.cancel();
+
+        if (!viewCleanup) {
+            promptCleanupAfterStop = false;
+        }
+    }
+
+    @FXML
+    private void onCleanupAiData() {
+        if (activeScanTask != null && activeScanTask.isRunning()) {
+            boolean stopFirst = AlertUtil.showConfirmation(
+                    "清理AI标签",
+                    "扫描任务仍在运行。清理前需要先停止扫描，避免一边删除一边继续写入。\n\n是否先停止扫描，停止后打开清理窗口？"
+            );
+            if (stopFirst) {
+                promptCleanupAfterStop = true;
+                statusLabel.setText("正在停止扫描，稍后打开清理窗口...");
+                if (stopScanButton != null) {
+                    stopScanButton.setDisable(true);
+                }
+                activeScanTask.cancel();
+            }
+            return;
+        }
+
+        AiTagStorageService.StorageStats stats;
+        try {
+            stats = aiTagStorageService.loadStats();
+        } catch (Exception e) {
+            logger.error("读取AI标签存储信息失败", e);
+            AlertUtil.showError("读取失败", e.getMessage());
+            return;
+        }
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("AI标签存储与清理");
+        alert.setHeaderText("AI标签保存在 PostgreSQL 数据库中，不是图片旁边的独立文件。");
+        TextArea detailArea = new TextArea(stats.summaryText());
+        detailArea.setEditable(false);
+        detailArea.setWrapText(true);
+        detailArea.setPrefWidth(720);
+        detailArea.setPrefHeight(360);
+        alert.getDialogPane().setContent(detailArea);
+
+        ButtonType cleanupButtonType = new ButtonType("清理AI标签", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelButtonType = new ButtonType("取消", ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(cleanupButtonType, cancelButtonType);
+
+        if (alert.showAndWait().orElse(cancelButtonType) != cleanupButtonType) {
+            return;
+        }
+
+        Task<AiTagStorageService.CleanupResult> cleanupTask = new Task<>() {
+            @Override
+            protected AiTagStorageService.CleanupResult call() {
+                updateMessage("正在清理AI标签数据...");
+                return aiTagStorageService.cleanupAiTags();
+            }
+        };
+
+        cleanupAiButton.setDisable(true);
+        statusLabel.textProperty().bind(cleanupTask.messageProperty());
+
+        cleanupTask.setOnSucceeded(event -> {
+            statusLabel.textProperty().unbind();
+            cleanupAiButton.setDisable(false);
+            AiTagStorageService.CleanupResult result = cleanupTask.getValue();
+            statusLabel.setText("AI标签已清理");
+            AlertUtil.showInfo("清理完成", result.summaryText());
+            if (currentDirectoryPath != null) {
+                onDirectorySelected(currentDirectoryPath);
+            }
+        });
+
+        cleanupTask.setOnFailed(event -> {
+            statusLabel.textProperty().unbind();
+            cleanupAiButton.setDisable(false);
+            Throwable error = cleanupTask.getException();
+            logger.error("AI标签清理失败", error);
+            statusLabel.setText("AI标签清理失败");
+            AlertUtil.showError("清理失败", error == null ? "未知错误" : error.getMessage());
+        });
+
+        Thread cleanupThread = new Thread(cleanupTask);
+        cleanupThread.setDaemon(true);
+        cleanupThread.setName("AI-Tag-Cleanup");
+        cleanupThread.start();
+    }
+
+    private void hideStopScanButton() {
+        if (stopScanButton != null) {
+            stopScanButton.setVisible(false);
+            stopScanButton.setManaged(false);
+            stopScanButton.setDisable(false);
+        }
     }
 
     // ==================== 状态栏 ====================

@@ -66,21 +66,23 @@ public class OpenAICompatibleService implements AIService {
             你是一个SQL生成器。给定以下PostgreSQL数据库schema，根据用户的自然语言查询生成一条SELECT SQL语句。
             
             可用的表和字段：
-            - images: id, file_name, file_path, directory_id, file_size, width, height, format, ai_processed, is_deleted
+            - images: id, file_name, file_path, directory_id, file_size, width, height, format, file_hash, ai_processed, created_at, modified_at, is_deleted
             - tags: id, category_id, name
             - image_tags: image_id, tag_id, confidence
-            - ai_analysis_results: image_id, description, people_count, model_used
-            - tag_categories: id, name (可选值: scene, object, person, celebrity, color, emotion, action, text_content, animal, food, location, count_people)
+            - ai_analysis_results: image_id, description, raw_response, people_count, model_used
+            - tag_categories: id, name, display_name (可选值: scene, object, person, celebrity, color, emotion, action, text_content, animal, food, location, count_people)
             - directories: id, dir_name, dir_path
-            - v_image_search: (视图) id, file_name, file_path, directory_id, file_size, width, height, format, dir_name, directory_path, ai_description, people_count, all_tags
+            - v_image_search: (视图，已过滤删除图片) id, file_name, file_path, directory_id, file_size, width, height, format, thumbnail, file_hash, created_at, modified_at, dir_name, directory_path, ai_description, ai_raw_response, people_count, model_used, all_tags
             
             规则：
             1. 只生成 SELECT 语句
-            2. 查询结果必须包含 images.id 字段（用 AS id 别名）
-            3. 必须过滤 is_deleted = FALSE
-            4. 尽量使用 v_image_search 视图简化查询
-            5. 只返回SQL语句，不要包含任何解释文字
-            6. 标签匹配使用 ILIKE 进行模糊匹配
+            2. 查询结果第一列必须是图片 id，并命名为 id，例如 SELECT id FROM v_image_search ...
+            3. 优先使用 v_image_search 视图；如果直接查 images 表，必须添加 images.is_deleted = FALSE
+            4. 文件名、路径、目录、格式、分辨率、大小、日期、AI描述、人数、标签都可以参与条件
+            5. 文本匹配使用 ILIKE 和通配符，例如 all_tags ILIKE '%天空%'
+            6. 分辨率可用 width / height 条件，文件大小用 file_size 字节条件
+            7. 用户口语词需要映射到可能的标签同义词，例如“海边/海滩/沙滩”“人物/人像/合影”“汽车/车辆/车”“夜晚/夜景”
+            8. 只返回SQL语句，不要包含解释文字或 markdown
             """;
 
     public OpenAICompatibleService() {

@@ -1,7 +1,7 @@
 /* ============================================================
  * 数字图像集成管理系统 — 全局样式表
  * 
- * 设计参考: 美图看看 2.7.8（浅色主题, 蓝色选中高亮）
+ * 设计参考: 桌面图片库工具（深色应用栏 + 浅色工作台 + 稳定缩略图卡片）
  * ============================================================ */
 
 /* ==================== 全局基础 ==================== */
@@ -9,11 +9,11 @@
 .root {
     -fx-font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
     -fx-font-size: 13px;
-    -fx-background-color: #F5F6F8;
+    -fx-background-color: #F6F8FB;
 }
 
 .root-pane {
-    -fx-background-color: #F5F6F8;
+    -fx-background-color: #F6F8FB;
 }
 
 .theme-content-pane,
@@ -28,42 +28,117 @@
 
 /* ==================== 顶部工具栏 ==================== */
 
+.app-header {
+    -fx-background-color: #1F2937;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.22), 10, 0, 0, 2);
+}
+
 .top-toolbar {
-    -fx-background-color: linear-gradient(to bottom, #4BA3E3, #3A8FD4);
-    -fx-padding: 6 12 6 12;
-    -fx-min-height: 40;
+    -fx-background-color: #1F2937;
+    -fx-padding: 12 22 12 24;
+    -fx-min-height: 64;
 }
 
-.toolbar-icon {
-    -fx-font-size: 18px;
-    -fx-text-fill: white;
-}
-
-.path-label {
-    -fx-text-fill: white;
-    -fx-font-size: 14px;
-    -fx-font-weight: bold;
+.brand-block {
+    -fx-spacing: 2;
+    -fx-alignment: center-left;
 }
 
 .app-title {
-    -fx-text-fill: rgba(255, 255, 255, 0.85);
+    -fx-text-fill: white;
+    -fx-font-size: 19px;
+    -fx-font-weight: bold;
+}
+
+.path-label {
+    -fx-text-fill: #CBD5E1;
+    -fx-font-size: 12px;
+}
+
+.search-cluster {
+    -fx-background-color: rgba(15, 23, 42, 0.36);
+    -fx-background-radius: 8;
+    -fx-padding: 6;
+}
+
+.search-mode-combo {
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 6;
+    -fx-border-color: #CBD5E1;
+    -fx-border-radius: 6;
+    -fx-min-height: 34;
+}
+
+.search-mode-combo .list-cell {
+    -fx-text-fill: #1F2937;
+}
+
+.search-field {
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 6;
+    -fx-border-color: #CBD5E1;
+    -fx-border-radius: 6;
+    -fx-text-fill: #111827;
+    -fx-prompt-text-fill: #8A98AA;
+    -fx-min-height: 34;
+    -fx-padding: 6 10 6 10;
+}
+
+.search-field:focused {
+    -fx-border-color: #2563EB;
+    -fx-effect: dropshadow(gaussian, rgba(37, 99, 235, 0.24), 8, 0, 0, 0);
+}
+
+.search-button,
+.settings-button {
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-font-weight: bold;
     -fx-font-size: 13px;
+    -fx-min-height: 34;
+    -fx-padding: 6 14 6 14;
+    -fx-cursor: hand;
+}
+
+.search-button {
+    -fx-background-color: #2563EB;
+    -fx-text-fill: white;
+}
+
+.search-button:hover {
+    -fx-background-color: #1D4ED8;
+}
+
+.search-button:disabled {
+    -fx-background-color: #94A3B8;
+    -fx-opacity: 1;
+}
+
+.settings-button {
+    -fx-background-color: #334155;
+    -fx-border-color: #475569;
+    -fx-text-fill: #E2E8F0;
+}
+
+.settings-button:hover {
+    -fx-background-color: #475569;
 }
 
 /* ==================== 左侧目录树 ==================== */
 
 .tree-container {
-    -fx-background-color: rgba(255, 255, 255, 0.88);
-    -fx-min-width: 200;
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: transparent #E2E8F0 transparent transparent;
+    -fx-border-width: 0 1 0 0;
 }
 
 .tree-header {
-    -fx-font-size: 14px;
+    -fx-font-size: 15px;
     -fx-font-weight: bold;
-    -fx-padding: 8 10 8 10;
-    -fx-text-fill: #333;
-    -fx-background-color: #EFF3F7;
-    -fx-border-color: transparent transparent #DDE2E8 transparent;
+    -fx-padding: 16 16 12 18;
+    -fx-text-fill: #1F2937;
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: transparent transparent #EEF2F7 transparent;
     -fx-border-width: 0 0 1 0;
 }
 
@@ -73,41 +148,71 @@
 }
 
 .directory-tree .tree-cell {
-    -fx-padding: 4 8 4 8;
+    -fx-padding: 7 12 7 14;
     -fx-background-color: transparent;
+    -fx-text-fill: #334155;
+    -fx-mark-color: #334155;
+    -fx-font-size: 13px;
+}
+
+.directory-tree .tree-cell .label {
+    -fx-text-fill: #334155;
+}
+
+.directory-tree .tree-cell .tree-disclosure-node .arrow {
+    -fx-background-color: #334155;
 }
 
 .directory-tree .tree-cell:selected {
-    -fx-background-color: #D4E8FA;
-    -fx-text-fill: #1a5276;
+    -fx-background-color: #EAF2FF;
+    -fx-text-fill: #1D4ED8;
+    -fx-mark-color: #1D4ED8;
+    -fx-font-weight: bold;
+}
+
+.directory-tree .tree-cell:selected .label {
+    -fx-text-fill: #1D4ED8;
+}
+
+.directory-tree .tree-cell:selected .tree-disclosure-node .arrow {
+    -fx-background-color: #1D4ED8;
 }
 
 .directory-tree .tree-cell:hover:filled {
-    -fx-background-color: #EBF4FD;
+    -fx-background-color: #F1F5F9;
 }
 
 /* ==================== 右侧预览区 ==================== */
 
 .preview-container {
-    -fx-background-color: rgba(255, 255, 255, 0.88);
+    -fx-background-color: #F6F8FB;
 }
 
 .directory-info-bar {
-    -fx-background-color: #EFF3F7;
-    -fx-border-color: transparent transparent #DDE2E8 transparent;
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: transparent transparent #E2E8F0 transparent;
     -fx-border-width: 0 0 1 0;
-    -fx-min-height: 35;
+    -fx-min-height: 66;
 }
 
 .directory-name {
-    -fx-font-size: 15px;
+    -fx-font-size: 17px;
     -fx-font-weight: bold;
-    -fx-text-fill: #2C3E50;
+    -fx-text-fill: #172033;
+}
+
+.directory-hint {
+    -fx-text-fill: #64748B;
+    -fx-font-size: 12px;
 }
 
 .image-count {
-    -fx-text-fill: #27AE60;
+    -fx-background-color: #EAFBF2;
+    -fx-background-radius: 999;
+    -fx-padding: 5 12 5 12;
+    -fx-text-fill: #047857;
     -fx-font-size: 13px;
+    -fx-font-weight: bold;
 }
 
 .thumbnail-scroll {
@@ -117,95 +222,225 @@
 }
 
 .thumbnail-pane {
-    -fx-background-color: transparent;
+    -fx-background-color: #F6F8FB;
 }
 
 /* ==================== 缩略图卡片 ==================== */
 
 .thumbnail-card {
-    -fx-background-color: #FAFBFC;
-    -fx-border-color: #E5E8EC;
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #D8E0EA;
     -fx-border-width: 1;
-    -fx-border-radius: 4;
-    -fx-background-radius: 4;
-    -fx-padding: 8;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 10;
     -fx-cursor: hand;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 4, 0, 0, 1);
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.06), 8, 0, 0, 2);
 }
 
 .thumbnail-card:hover {
-    -fx-border-color: #A0C4E8;
-    -fx-background-color: #F0F6FC;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.12), 6, 0, 0, 2);
+    -fx-border-color: #93B4E8;
+    -fx-background-color: #FBFDFF;
+    -fx-effect: dropshadow(gaussian, rgba(37, 99, 235, 0.14), 12, 0, 0, 3);
 }
 
 .thumbnail-card.selected {
-    -fx-border-color: #3498DB;
+    -fx-border-color: #2563EB;
     -fx-border-width: 2;
-    -fx-background-color: #DBEAFE;
-    -fx-effect: dropshadow(gaussian, rgba(52,152,219,0.3), 8, 0, 0, 2);
+    -fx-background-color: #EFF6FF;
+    -fx-effect: dropshadow(gaussian, rgba(37, 99, 235, 0.24), 12, 0, 0, 3);
 }
 
 .thumbnail-image-container {
     -fx-alignment: center;
-    -fx-min-width: 130;
-    -fx-min-height: 100;
-    -fx-max-width: 130;
-    -fx-max-height: 100;
+    -fx-background-color: #EEF2F7;
+    -fx-background-radius: 6;
+    -fx-min-width: 148;
+    -fx-min-height: 112;
+    -fx-max-width: 148;
+    -fx-max-height: 112;
 }
 
 .thumbnail-name {
-    -fx-font-size: 11px;
-    -fx-text-fill: #555;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1F2937;
     -fx-alignment: center;
-    -fx-max-width: 130;
+    -fx-max-width: 148;
+    -fx-text-overrun: ellipsis;
+}
+
+.thumbnail-meta {
+    -fx-font-size: 11px;
+    -fx-text-fill: #64748B;
+    -fx-alignment: center;
+    -fx-max-width: 148;
     -fx-text-overrun: ellipsis;
 }
 
 /* ==================== 底部状态栏 ==================== */
 
 .status-bar {
-    -fx-background-color: #EEF1F5;
-    -fx-border-color: #DDE2E8 transparent transparent transparent;
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #E2E8F0 transparent transparent transparent;
     -fx-border-width: 1 0 0 0;
-    -fx-min-height: 35;
+    -fx-min-height: 42;
 }
 
 .status-text {
-    -fx-text-fill: #666;
+    -fx-text-fill: #475569;
     -fx-font-size: 12px;
 }
 
 .selection-text {
-    -fx-text-fill: #3498DB;
+    -fx-text-fill: #2563EB;
     -fx-font-size: 12px;
     -fx-font-weight: bold;
 }
 
 .slideshow-button {
-    -fx-background-color: #E74C3C;
+    -fx-background-color: #0F766E;
     -fx-text-fill: white;
     -fx-font-size: 12px;
     -fx-font-weight: bold;
-    -fx-background-radius: 15;
-    -fx-padding: 5 15 5 15;
+    -fx-background-radius: 6;
+    -fx-padding: 6 16 6 16;
     -fx-cursor: hand;
 }
 
 .slideshow-button:hover {
-    -fx-background-color: #C0392B;
+    -fx-background-color: #115E59;
 }
 
 .slideshow-button:disabled {
-    -fx-background-color: #BDC3C7;
-    -fx-opacity: 0.7;
+    -fx-background-color: #CBD5E1;
+    -fx-opacity: 1;
+}
+
+.scan-stop-button {
+    -fx-background-color: #DC2626;
+    -fx-text-fill: white;
+    -fx-font-size: 12px;
+    -fx-background-radius: 6;
+    -fx-padding: 6 12 6 12;
+    -fx-cursor: hand;
+}
+
+.scan-stop-button:hover {
+    -fx-background-color: #B91C1C;
+}
+
+.scan-cleanup-button {
+    -fx-background-color: #F8FAFC;
+    -fx-border-color: #CBD5E1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-text-fill: #334155;
+    -fx-font-size: 12px;
+    -fx-padding: 6 12 6 12;
+    -fx-cursor: hand;
+}
+
+.scan-cleanup-button:hover {
+    -fx-background-color: #EEF2F7;
+    -fx-border-color: #94A3B8;
 }
 
 /* ==================== 分割面板 ==================== */
 
 .main-split > .split-pane-divider {
-    -fx-background-color: #DDE2E8;
+    -fx-background-color: #E2E8F0;
     -fx-padding: 0 1 0 1;
+}
+
+/* ==================== 设置页 ==================== */
+
+.settings-root {
+    -fx-background-color: #F6F8FB;
+}
+
+.settings-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #172033;
+}
+
+.settings-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-border-color: transparent;
+}
+
+.settings-section {
+    -fx-text-fill: #1F2937;
+}
+
+.settings-section > .title {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #DDE6F0;
+    -fx-border-radius: 8 8 0 0;
+    -fx-background-radius: 8 8 0 0;
+    -fx-padding: 10 12 10 12;
+}
+
+.settings-section > .content {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #DDE6F0;
+    -fx-border-radius: 0 0 8 8;
+    -fx-background-radius: 0 0 8 8;
+}
+
+.primary-button,
+.secondary-button,
+.success-button,
+.warning-button {
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-font-size: 13px;
+    -fx-padding: 7 16 7 16;
+    -fx-cursor: hand;
+    -fx-min-height: 34;
+}
+
+.primary-button {
+    -fx-background-color: #2563EB;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.primary-button:hover {
+    -fx-background-color: #1D4ED8;
+}
+
+.secondary-button {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #CBD5E1;
+    -fx-text-fill: #334155;
+}
+
+.secondary-button:hover {
+    -fx-background-color: #F1F5F9;
+    -fx-border-color: #94A3B8;
+}
+
+.success-button {
+    -fx-background-color: #16A34A;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.success-button:hover {
+    -fx-background-color: #15803D;
+}
+
+.warning-button {
+    -fx-background-color: #F59E0B;
+    -fx-text-fill: #111827;
+    -fx-font-weight: bold;
+}
+
+.warning-button:hover {
+    -fx-background-color: #D97706;
 }
 
 /* ==================== 幻灯片播放界面 ==================== */
@@ -235,16 +470,17 @@
 
 .control-bar {
     -fx-background-color: #16213E;
-    -fx-min-height: 45;
+    -fx-min-height: 42;
 }
 
 .control-button {
     -fx-background-color: #2C3E50;
     -fx-text-fill: white;
-    -fx-font-size: 14px;
+    -fx-font-size: 12px;
+    -fx-padding: 4 7 4 7;
     -fx-background-radius: 5;
     -fx-cursor: hand;
-    -fx-min-height: 32;
+    -fx-min-height: 30;
 }
 
 .control-button:hover {
@@ -257,7 +493,17 @@
 
 .slideshow-check {
     -fx-text-fill: #E0E0E0;
+    -fx-font-size: 12px;
+    -fx-padding: 3 2 3 2;
     -fx-cursor: hand;
+}
+
+.music-combo {
+    -fx-font-size: 12px;
+}
+
+.music-combo .list-cell {
+    -fx-font-size: 12px;
 }
 
 .slideshow-check .box {

@@ -12,8 +12,8 @@
 
 ## 技术栈
 
-- **语言**: Java 26 (OpenJDK Temurin LTS)
-- **GUI**: JavaFX 26
+- **语言**: Java 21 编译目标（JDK 21+ 可运行，当前机器可用 JDK 26 运行）
+- **GUI**: JavaFX 21.0.6
 - **数据库**: PostgreSQL 18.3
 - **构建**: Maven 3.9.14
 - **连接池**: HikariCP 6.2.1
@@ -21,9 +21,9 @@
 
 ## 环境准备
 
-### 1. 安装 Java 26
+### 1. 安装 Java
 
-下载 [Eclipse Temurin JDK 26](https://adoptium.net/)，确保 `java -version` 显示 26.x。
+建议安装 Eclipse Temurin JDK 21 或更高版本。本项目按 Java 21 编译，当前机器已将 `.jar` 双击关联到 JDK 26 的 `javaw.exe`。
 
 ### 2. 安装 PostgreSQL 18
 
@@ -63,7 +63,16 @@ mvn javafx:run
 
 # 打包 JAR
 mvn package
+
+# 双击使用的课程提交 JAR
+docs/面向对象程序与设计/我们的实际写作/面向对象程序设计实践目标代码.JAR
 ```
+
+## 版本管理说明
+
+- `target/` 为 Maven 构建产物，不进入 Git；需要时执行 `mvn package` 重新生成。
+- `logs/` 为本机运行日志，不进入 Git；日志格式由 `src/main/resources/logback.xml` 控制。
+- 数据库和 AI 配置支持环境变量覆盖，避免把个人密钥写入源码。
 
 ## 项目结构
 
@@ -103,3 +112,5 @@ mvn package
 - ✅ 数据库持久化（bytea 缩略图、B-Tree 索引、递归 CTE 目录树）
 - ✅ 触发器自动日志（INSERT/UPDATE/DELETE 操作自动记录）
 - ✅ 存储过程报表（按月统计、目录空间分析）
+- ✅ AI 识别配置（默认 CPA 代理节点，密钥优先读取环境变量，模型从 `/models` 下拉选择）
+- ✅ AI 扫描安全控制（单批上限可在设置页调整，界面统一显示为 N(max)，可停止扫描并清理数据库中的 AI 标签）

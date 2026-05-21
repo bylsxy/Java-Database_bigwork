@@ -3,16 +3,17 @@ package com.imagemanager;
 import com.imagemanager.controller.MainController;
 import com.imagemanager.controller.WelcomeDialogController;
 import com.imagemanager.dao.DatabaseConnection;
-import com.imagemanager.dao.SettingsDao;
-import com.imagemanager.dao.SettingsDaoImpl;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,12 +85,8 @@ public class App extends Application {
     private void showWelcomeDialogIfNeeded(Stage owner, MainController mainController) {
         try {
             if (!WelcomeDialogController.shouldShowWelcome()) {
-                // 不需要显示向导，但如果已有配置的扫描目录，自动启动扫描
-                SettingsDao settingsDao = new SettingsDaoImpl();
-                String scanDir = settingsDao.getValueOrDefault("scan_directory", "");
-                if (!scanDir.isBlank()) {
-                    mainController.startScanTask(scanDir);
-                }
+                // 已配置扫描目录时，MainController 会显示该目录根节点。
+                // 不在每次启动时自动调用 AI 扫描，避免用户只是打开软件也产生 token 消耗。
                 return;
             }
 
@@ -105,6 +102,9 @@ public class App extends Application {
             dialog.setTitle("欢迎 — 数字图像集成管理系统");
             dialog.setDialogPane(dialogPane);
             dialog.initOwner(owner);
+            dialog.setResizable(true);
+            dialog.setOnShown(event -> fitDialogWithinScreen(dialog, owner));
+            welcomeController.setOpenSettingsHandler(mainController::openSettingsWindow);
 
             // 显示并等待用户响应
             Optional<ButtonType> result = dialog.showAndWait();
@@ -125,6 +125,42 @@ public class App extends Application {
             logger.error("显示首次启动向导失败", e);
             // 向导失败不影响主程序运行
         }
+    }
+
+    /**
+     * 保证首次向导显示时不超过当前屏幕，底部按钮栏始终可见。
+     */
+    private void fitDialogWithinScreen(Dialog<?> dialog, Stage owner) {
+        Window window = dialog.getDialogPane().getScene().getWindow();
+        if (!(window instanceof Stage dialogStage)) {
+            return;
+        }
+
+        Rectangle2D bounds = Screen.getScreensForRectangle(
+                        owner.getX(), owner.getY(),
+                        Math.max(1, owner.getWidth()), Math.max(1, owner.getHeight()))
+                .stream()
+                .findFirst()
+                .orElse(Screen.getPrimary())
+                .getVisualBounds();
+
+        double margin = 40;
+        double maxHeight = Math.max(360, bounds.getHeight() - margin);
+        double maxWidth = Math.max(560, bounds.getWidth() - margin);
+
+        dialog.getDialogPane().setMaxHeight(maxHeight);
+        dialog.getDialogPane().setMaxWidth(maxWidth);
+        dialogStage.sizeToScene();
+
+        if (dialogStage.getHeight() > maxHeight) {
+            dialogStage.setHeight(maxHeight);
+        }
+        if (dialogStage.getWidth() > maxWidth) {
+            dialogStage.setWidth(maxWidth);
+        }
+
+        dialogStage.setX(bounds.getMinX() + (bounds.getWidth() - dialogStage.getWidth()) / 2);
+        dialogStage.setY(bounds.getMinY() + (bounds.getHeight() - dialogStage.getHeight()) / 2);
     }
 
     /**

@@ -30,7 +30,6 @@ import java.util.Optional;
 public class ScanTask extends Task<Void> {
 
     private static final Logger logger = LoggerFactory.getLogger(ScanTask.class);
-
     private final File rootDirectory;
     private final ImageDao imageDao;
     private final DirectoryDao directoryDao;
@@ -56,9 +55,12 @@ public class ScanTask extends Task<Void> {
 
         // ==================== Phase 1: 文件系统扫描 & 入库 ====================
         DirectoryScanner scanner = new DirectoryScanner();
-        List<DirectoryScanner.ScannedImage> scannedImages = scanner.scan(rootDirectory);
+        List<DirectoryScanner.ScannedImage> scannedImages = scanner.scan(rootDirectory, this::isCancelled);
 
-        if (isCancelled()) return null;
+        if (isCancelled()) {
+            updateMessage("扫描已取消");
+            return null;
+        }
 
         int totalImages = scannedImages.size();
         logger.info("Phase 1: 发现 {} 张图片，开始入库...", totalImages);
@@ -105,16 +107,22 @@ public class ScanTask extends Task<Void> {
             return null;
         }
 
-        // 获取所有未AI处理的图片
-        List<ImageFile> pendingImages = getPendingAIImages();
+        // 只处理本次扫描根目录下的图片，避免切换目录后继续消费旧目录。
+        int batchLimit = AIConfig.getBatchLimit();
+        int pendingTotal = countPendingAIImages();
+        List<ImageFile> pendingImages = getPendingAIImages(batchLimit);
         int pendingCount = pendingImages.size();
-        logger.info("Phase 2: {} 张图片待AI处理", pendingCount);
+        logger.info("Phase 2: 当前目录共 {} 张图片，待AI处理 {} 张，本批 {} 张，批量上限 {}",
+                totalImages, pendingTotal, pendingCount, batchLimit);
 
         if (pendingCount == 0) {
-            updateMessage("所有图片已完成AI识别。扫描完成。");
+            updateMessage("本目录共 " + totalImages + " 张图片，所有图片已完成AI识别。扫描完成。");
             updateProgress(1, 1);
             return null;
         }
+
+        updateMessage("本目录共 " + totalImages + " 张图片，待AI识别 " + pendingTotal
+                + " 张；本次最多处理 " + batchLimit + "(max) 张。");
 
         long requestDelay = AIConfig.getRequestDelay();
         int successCount = 0;
@@ -127,8 +135,9 @@ public class ScanTask extends Task<Void> {
             }
 
             ImageFile img = pendingImages.get(i);
-            String progressText = String.format("正在AI识别: %s  [%d/%d  %.1f%%]",
-                    img.filePath(), (i + 1), pendingCount,
+            String progressText = String.format(
+                    "正在AI识别: %s  [%d/%d(max)，本批%d张，目录总数%d张，待识别%d张，%.1f%%]",
+                    img.fileName(), (i + 1), batchLimit, pendingCount, totalImages, pendingTotal,
                     (i + 1.0) / pendingCount * 100);
             updateMessage(progressText);
             updateProgress(totalImages + i, totalImages + (long) pendingCount);
@@ -188,7 +197,7 @@ public class ScanTask extends Task<Void> {
 
                 // 限流保护：请求间隔
                 if (i < pendingCount - 1) {
-                    Thread.sleep(requestDelay);
+                    sleepWithCancellation(requestDelay);
                 }
 
             } catch (InterruptedException e) {
@@ -202,7 +211,11 @@ public class ScanTask extends Task<Void> {
             }
         }
 
-        updateMessage("扫描完成！成功 " + successCount + " 张，失败 " + failedCount + " 张。");
+        String limitNotice = pendingTotal > batchLimit
+                ? " 本次达到 " + batchLimit + "(max)，剩余图片可再次扫描继续处理。"
+                : "";
+        updateMessage("扫描完成！本目录共 " + totalImages + " 张图片，本批成功 "
+                + successCount + " 张，失败 " + failedCount + " 张。" + limitNotice);
         updateProgress(1, 1);
         logger.info("扫描任务全部完成");
         return null;
@@ -217,35 +230,94 @@ public class ScanTask extends Task<Void> {
     }
 
     /**
-     * 获取所有待AI处理的图片。
+     * 统计本次扫描根目录下所有待AI处理的图片。
      */
-    private List<ImageFile> getPendingAIImages() {
-        // 通过SQL直接查询 ai_processed = FALSE 的图片
-        List<ImageFile> allImages = new ArrayList<>();
-        String sql = "SELECT * FROM images WHERE ai_processed = FALSE AND is_deleted = FALSE ORDER BY id LIMIT 500";
+    private int countPendingAIImages() {
+        String sql = """
+                SELECT COUNT(*)
+                FROM images
+                WHERE ai_processed = FALSE
+                  AND is_deleted = FALSE
+                  AND (LOWER(file_path) = LOWER(?) OR POSITION(LOWER(?) IN LOWER(file_path)) = 1)
+                """;
         try (var conn = DatabaseConnection.getConnection();
-             var ps = conn.prepareStatement(sql);
-             var rs = ps.executeQuery()) {
-            while (rs.next()) {
-                allImages.add(new ImageFile(
-                        rs.getInt("id"),
-                        rs.getString("file_name"),
-                        rs.getString("file_path"),
-                        rs.getInt("directory_id"),
-                        rs.getLong("file_size"),
-                        rs.getInt("width"),
-                        rs.getInt("height"),
-                        rs.getString("format"),
-                        null, // 不加载缩略图
-                        rs.getTimestamp("created_at").toLocalDateTime(),
-                        rs.getTimestamp("modified_at").toLocalDateTime(),
-                        rs.getBoolean("is_deleted")
-                ));
+             var ps = conn.prepareStatement(sql)) {
+            bindRootPath(ps);
+            try (var rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        } catch (Exception e) {
+            logger.error("统计待处理图片失败", e);
+            return 0;
+        }
+    }
+
+    /**
+     * 获取本次扫描根目录下待AI处理的图片，单批最多处理 limit 张。
+     */
+    private List<ImageFile> getPendingAIImages(int limit) {
+        List<ImageFile> allImages = new ArrayList<>();
+        String sql = """
+                SELECT *
+                FROM images
+                WHERE ai_processed = FALSE
+                  AND is_deleted = FALSE
+                  AND (LOWER(file_path) = LOWER(?) OR POSITION(LOWER(?) IN LOWER(file_path)) = 1)
+                ORDER BY id
+                LIMIT ?
+                """;
+        try (var conn = DatabaseConnection.getConnection();
+             var ps = conn.prepareStatement(sql)) {
+            bindRootPath(ps);
+            ps.setInt(3, Math.max(1, limit));
+            try (var rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    allImages.add(new ImageFile(
+                            rs.getInt("id"),
+                            rs.getString("file_name"),
+                            rs.getString("file_path"),
+                            rs.getInt("directory_id"),
+                            rs.getLong("file_size"),
+                            rs.getInt("width"),
+                            rs.getInt("height"),
+                            rs.getString("format"),
+                            null, // 不加载缩略图
+                            rs.getTimestamp("created_at").toLocalDateTime(),
+                            rs.getTimestamp("modified_at").toLocalDateTime(),
+                            rs.getBoolean("is_deleted")
+                    ));
+                }
             }
         } catch (Exception e) {
             logger.error("查询待处理图片失败", e);
         }
         return allImages;
+    }
+
+    private void bindRootPath(java.sql.PreparedStatement ps) throws java.sql.SQLException {
+        String rootPath = normalizedRootPath();
+        ps.setString(1, rootPath);
+        ps.setString(2, rootPath.endsWith(File.separator) ? rootPath : rootPath + File.separator);
+    }
+
+    private String normalizedRootPath() {
+        try {
+            return rootDirectory.getCanonicalPath();
+        } catch (Exception e) {
+            return rootDirectory.getAbsolutePath();
+        }
+    }
+
+    private void sleepWithCancellation(long millis) throws InterruptedException {
+        long remaining = Math.max(0, millis);
+        while (remaining > 0) {
+            if (isCancelled()) {
+                throw new InterruptedException("扫描已取消");
+            }
+            long slice = Math.min(remaining, 200);
+            Thread.sleep(slice);
+            remaining -= slice;
+        }
     }
 
     private void ensureScanSchema() {

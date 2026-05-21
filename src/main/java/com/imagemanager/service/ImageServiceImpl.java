@@ -133,6 +133,9 @@ public class ImageServiceImpl implements ImageService {
     @Override
     public void copyImages(List<ImageFile> images) {
         this.clipboard = new ArrayList<>(images);
+        for (var image : images) {
+            logOperation(image.id(), "COPY", image.filePath(), "复制到应用剪贴板");
+        }
         logger.info("已复制 {} 张图片到剪贴板", images.size());
     }
 
@@ -169,7 +172,8 @@ public class ImageServiceImpl implements ImageService {
                         image.format(), image.thumbnail(),
                         LocalDateTime.now(), LocalDateTime.now(), false
                 );
-                imageDao.insert(newImage);
+                int newImageId = imageDao.insert(newImage);
+                logOperation(newImageId, "PASTE", image.filePath(), targetPath.toString());
 
                 logger.debug("已粘贴: {} → {}", image.fileName(), targetPath);
 
@@ -354,6 +358,23 @@ public class ImageServiceImpl implements ImageService {
                         "文件名不能包含字符 '" + c + "'（不允许使用 \\ / : * ? \" < > |）"
                 );
             }
+        }
+    }
+
+    private void logOperation(int imageId, String operationType, String oldValue, String newValue) {
+        String sql = """
+                INSERT INTO operation_logs (image_id, operation_type, old_value, new_value)
+                VALUES (?, ?, ?, ?)
+                """;
+        try (var conn = DatabaseConnection.getConnection();
+             var stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, imageId);
+            stmt.setString(2, operationType);
+            stmt.setString(3, oldValue);
+            stmt.setString(4, newValue);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            logger.warn("记录操作日志失败: imageId={}, operation={}", imageId, operationType, e);
         }
     }
 }
