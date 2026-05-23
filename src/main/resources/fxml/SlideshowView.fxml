@@ -31,7 +31,8 @@
            styleClass="slideshow-root">
     <ImageView fx:id="themeBackgroundImageView" preserveRatio="false" smooth="true"
                mouseTransparent="true"/>
-    <BorderPane fx:id="slideshowContentPane" styleClass="slideshow-content-pane">
+    <BorderPane fx:id="slideshowContentPane" styleClass="slideshow-content-pane"
+                maxWidth="Infinity" maxHeight="Infinity">
 
     <!-- ==================== 中央：大图展示区 ==================== -->
     <center>
@@ -51,55 +52,45 @@
             </HBox>
 
             <!-- 控制按钮栏 -->
-            <FlowPane styleClass="control-bar" alignment="CENTER" hgap="8" vgap="6" prefWrapLength="1000">
-                <padding><Insets top="6" right="10" bottom="6" left="10"/></padding>
+            <HBox styleClass="control-bar" alignment="CENTER" spacing="5"
+                  minHeight="52" prefHeight="52" maxHeight="52">
+                <padding><Insets top="8" right="6" bottom="8" left="6"/></padding>
 
                 <!-- 缩放控制 -->
                 <Button fx:id="zoomInButton" text="放大" onAction="#onZoomIn"
-                        styleClass="control-button" prefWidth="58" minWidth="58"/>
+                        styleClass="control-button" prefWidth="52" minWidth="52" maxWidth="52"/>
                 <Button fx:id="zoomOutButton" text="缩小" onAction="#onZoomOut"
-                        styleClass="control-button" prefWidth="58" minWidth="58"/>
-
+                        styleClass="control-button" prefWidth="52" minWidth="52" maxWidth="52"/>
                 <Button fx:id="fitButton" text="适应" onAction="#onFitToWindow"
-                        styleClass="control-button" prefWidth="58" minWidth="58"/>
+                        styleClass="control-button" prefWidth="52" minWidth="52" maxWidth="52"/>
                 <Button fx:id="actualSizeButton" text="1:1" onAction="#onActualSize"
-                        styleClass="control-button" prefWidth="54" minWidth="54"/>
+                        styleClass="control-button" prefWidth="46" minWidth="46" maxWidth="46"/>
 
-                <Separator orientation="VERTICAL" prefHeight="25"/>
-
-                <!-- 导航控制 -->
+                <!-- 导航与播放控制 -->
                 <Button fx:id="prevButton" text="上一张" onAction="#onPrevious"
-                        styleClass="control-button" prefWidth="70" minWidth="70"/>
+                        styleClass="control-button" prefWidth="62" minWidth="62" maxWidth="62"/>
                 <Button fx:id="nextButton" text="下一张" onAction="#onNext"
-                        styleClass="control-button" prefWidth="70" minWidth="70"/>
-
+                        styleClass="control-button" prefWidth="62" minWidth="62" maxWidth="62"/>
                 <CheckBox fx:id="loopCheckBox" text="循环" selected="true"
-                          styleClass="slideshow-check" prefWidth="64" minWidth="64"/>
+                          styleClass="slideshow-check" prefWidth="54" minWidth="54" maxWidth="54"/>
                 <Button fx:id="fullScreenButton" text="全屏" onAction="#onToggleFullScreen"
-                        styleClass="control-button" prefWidth="60" minWidth="60"/>
-
-                <Separator orientation="VERTICAL" prefHeight="25"/>
-
-                <!-- 播放控制 -->
+                        styleClass="control-button" prefWidth="52" minWidth="52" maxWidth="52"/>
                 <Button fx:id="playButton" text="播放" onAction="#onPlayToggle"
-                        styleClass="control-button play-button" prefWidth="64" minWidth="64"/>
-
-                <Separator orientation="VERTICAL" prefHeight="25"/>
+                        styleClass="control-button play-button" prefWidth="56" minWidth="56" maxWidth="56"/>
 
                 <!-- v2.0新增：背景音乐控制 -->
-                <ComboBox fx:id="musicCombo" prefWidth="132" minWidth="132" promptText="背景音乐"
+                <ComboBox fx:id="musicCombo" prefWidth="112" minWidth="112" maxWidth="112" promptText="背景音乐"
                           styleClass="music-combo"/>
                 <Button fx:id="musicToggleButton" text="播放音乐" onAction="#onMusicToggle"
-                        styleClass="control-button" prefWidth="88" minWidth="88"/>
-                <Slider fx:id="volumeSlider" min="0" max="1" value="0.5"
-                        prefWidth="78" minWidth="78" styleClass="volume-slider"/>
-
-                <Separator orientation="VERTICAL" prefHeight="25"/>
-
-                <!-- 退出 -->
+                        styleClass="control-button" prefWidth="78" minWidth="78" maxWidth="78"/>
+                <StackPane styleClass="volume-slider-box"
+                           minWidth="82" prefWidth="82" maxWidth="82">
+                    <Slider fx:id="volumeSlider" min="0" max="1" value="0.5"
+                            prefWidth="82" minWidth="82" maxWidth="82" styleClass="volume-slider"/>
+                </StackPane>
                 <Button fx:id="exitButton" text="退出" onAction="#onExit"
-                        styleClass="control-button exit-button" prefWidth="60" minWidth="60"/>
-            </FlowPane>
+                        styleClass="control-button exit-button" prefWidth="60" minWidth="60" maxWidth="60"/>
+            </HBox>
 
             <!-- 底部缩略图条 -->
             <ScrollPane fx:id="thumbnailStripScroll" styleClass="thumbnail-strip-scroll"

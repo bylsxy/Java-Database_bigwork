@@ -29,10 +29,10 @@
 
             <Separator orientation="VERTICAL" prefHeight="25"/>
 
-            <Label text="颜色:" style="-fx-text-fill: white;"/>
+            <Label text="颜色:" styleClass="toolbar-label"/>
             <ColorPicker fx:id="colorPicker" prefWidth="50" prefHeight="28"/>
 
-            <Label text="线宽:" style="-fx-text-fill: white;"/>
+            <Label text="线宽:" styleClass="toolbar-label"/>
             <Spinner fx:id="lineWidthSpinner" prefWidth="70" prefHeight="28"/>
 
             <Separator orientation="VERTICAL" prefHeight="25"/>
@@ -44,7 +44,7 @@
             <Pane HBox.hgrow="ALWAYS"/>
 
             <Label fx:id="toolStatusLabel" text="当前工具: 画笔"
-                   style="-fx-text-fill: #d0d5dd; -fx-font-size: 12px;"/>
+                   styleClass="editor-status-label"/>
         </ToolBar>
     </top>
 
@@ -63,11 +63,11 @@
             <Separator/>
             <HBox styleClass="version-timeline-bar" alignment="CENTER_LEFT" spacing="8">
                 <padding><Insets top="8" right="15" bottom="8" left="15"/></padding>
-                <Label text="版本历史:" style="-fx-font-weight: bold; -fx-font-size: 13px;"/>
+                <Label text="版本历史:" styleClass="version-label"/>
                 <ScrollPane fx:id="versionScroll" fitToHeight="true"
                             vbarPolicy="NEVER" hbarPolicy="AS_NEEDED"
                             prefHeight="54" HBox.hgrow="ALWAYS"
-                            style="-fx-background-color: transparent;">
+                            styleClass="thumbnail-scroll">
                     <HBox fx:id="versionTimeline" spacing="10" alignment="CENTER_LEFT">
                         <padding><Insets topRightBottomLeft="4"/></padding>
                     </HBox>

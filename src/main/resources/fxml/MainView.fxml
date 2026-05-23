@@ -13,7 +13,8 @@
            styleClass="root-pane">
     <ImageView fx:id="themeBackgroundImageView" preserveRatio="false" smooth="true"
                mouseTransparent="true"/>
-    <BorderPane fx:id="mainContentPane" styleClass="theme-content-pane">
+    <BorderPane fx:id="mainContentPane" styleClass="theme-content-pane"
+                maxWidth="Infinity" maxHeight="Infinity">
 
     <top>
         <VBox styleClass="app-header">

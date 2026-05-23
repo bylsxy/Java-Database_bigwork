@@ -28,7 +28,7 @@
                     <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
 
                     <Label text="默认连接 CPA 代理节点；模型列表会从接口自动获取，API Key 优先读取系统环境变量。"
-                           wrapText="true" style="-fx-text-fill: #666; -fx-font-size: 12px;"/>
+                           wrapText="true" styleClass="helper-text"/>
 
                     <GridPane hgap="12" vgap="10">
                         <columnConstraints>
@@ -37,17 +37,17 @@
                         </columnConstraints>
 
                         <Label text="Base URL:" GridPane.rowIndex="0" GridPane.columnIndex="0"
-                               style="-fx-font-weight: bold;"/>
+                               styleClass="field-label"/>
                         <TextField fx:id="baseUrlField" GridPane.rowIndex="0" GridPane.columnIndex="1"
                                    promptText="https://cpa.ystone.top/v1"/>
 
                         <Label text="API Key:" GridPane.rowIndex="1" GridPane.columnIndex="0"
-                               style="-fx-font-weight: bold;"/>
+                               styleClass="field-label"/>
                         <PasswordField fx:id="apiKeyField" GridPane.rowIndex="1" GridPane.columnIndex="1"
                                        promptText="优先从 DIMS_AI_API_KEY / CPA_API_KEY / HAJIMI 环境变量读取"/>
 
                         <Label text="模型:" GridPane.rowIndex="2" GridPane.columnIndex="0"
-                               style="-fx-font-weight: bold;"/>
+                               styleClass="field-label"/>
                         <VBox spacing="4" GridPane.rowIndex="2" GridPane.columnIndex="1">
                             <HBox spacing="8" alignment="CENTER_LEFT">
                                 <ComboBox fx:id="modelComboBox" HBox.hgrow="ALWAYS"
@@ -56,45 +56,45 @@
                                         styleClass="secondary-button"/>
                             </HBox>
                             <Label fx:id="modelStatusLabel" text="模型列表会自动从 /models 获取"
-                                   wrapText="true" style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+                                   wrapText="true" styleClass="small-helper-text"/>
                         </VBox>
 
                         <Label text="请求间隔:" GridPane.rowIndex="3" GridPane.columnIndex="0"
-                               style="-fx-font-weight: bold;"/>
+                               styleClass="field-label"/>
                         <HBox spacing="8" alignment="CENTER_LEFT"
                               GridPane.rowIndex="3" GridPane.columnIndex="1">
                             <TextField fx:id="delayField" prefWidth="80" promptText="1500"/>
-                            <Label text="毫秒（防止API限流）" style="-fx-text-fill: #666;"/>
+                            <Label text="毫秒（防止API限流）" styleClass="helper-text"/>
                         </HBox>
 
                         <Label text="单批上限(max):" GridPane.rowIndex="4" GridPane.columnIndex="0"
-                               style="-fx-font-weight: bold;"/>
+                               styleClass="field-label"/>
                         <HBox spacing="8" alignment="CENTER_LEFT"
                               GridPane.rowIndex="4" GridPane.columnIndex="1">
                             <Spinner fx:id="batchLimitSpinner" prefWidth="100"/>
                             <Label text="张（达到该上限会暂停，之后可再次扫描继续）"
-                                   style="-fx-text-fill: #666;"/>
+                                   styleClass="helper-text"/>
                         </HBox>
                     </GridPane>
 
                     <Separator/>
 
                     <!-- 实时测试区域 -->
-                    <Label text="实时连接测试" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                    <Label text="实时连接测试" styleClass="section-label"/>
                     <Label text="上传一张示例图片，验证API是否正确返回标签（测试标签数量、格式是否合法）"
-                           wrapText="true" style="-fx-text-fill: #666; -fx-font-size: 12px;"/>
+                           wrapText="true" styleClass="helper-text"/>
 
                     <HBox spacing="10" alignment="CENTER_LEFT">
                         <Button fx:id="testButton" text="选择图片并测试" onAction="#onTestAPI"
                                 styleClass="primary-button"/>
                         <ProgressIndicator fx:id="testProgress" prefWidth="24" prefHeight="24"
                                            visible="false"/>
-                        <Label fx:id="testStatusLabel" text="" style="-fx-text-fill: #666;"/>
+                        <Label fx:id="testStatusLabel" text="" styleClass="helper-text"/>
                     </HBox>
 
                     <TextArea fx:id="testResultArea" prefRowCount="8" editable="false" wrapText="true"
                               promptText="测试结果将显示在此处..."
-                              style="-fx-font-family: 'Consolas', monospace; -fx-font-size: 12px;"/>
+                              styleClass="test-result-area"/>
                 </VBox>
             </TitledPane>
 
@@ -104,7 +104,7 @@
                 <VBox spacing="10">
                     <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
 
-                    <Label text="当前扫描目录:" style="-fx-font-weight: bold;"/>
+                    <Label text="当前扫描目录:" styleClass="field-label"/>
                     <HBox spacing="10" alignment="CENTER_LEFT">
                         <TextField fx:id="scanDirField" HBox.hgrow="ALWAYS"
                                    promptText="选择图片扫描目录..." editable="true"/>
@@ -117,7 +117,7 @@
                         <Button text="下次启动显示向导" onAction="#onReopenWelcome"
                                 styleClass="warning-button"/>
                         <Label text="AI识别单批上限按 N(max) 显示，可在上方调整"
-                               style="-fx-text-fill: #666; -fx-font-size: 12px;"
+                               styleClass="helper-text"
                                alignment="CENTER_LEFT"/>
                     </HBox>
                 </VBox>
@@ -130,10 +130,10 @@
                     <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
 
                     <Label text="主题背景会应用到主窗口、图片查看器和幻灯片窗口。"
-                           wrapText="true" style="-fx-text-fill: #666; -fx-font-size: 12px;"/>
+                           wrapText="true" styleClass="helper-text"/>
 
                     <HBox spacing="10" alignment="CENTER_LEFT">
-                        <Label text="背景图片:" style="-fx-font-weight: bold;"/>
+                        <Label text="背景图片:" styleClass="field-label"/>
                         <TextField fx:id="themeBackgroundField" HBox.hgrow="ALWAYS"
                                    promptText="未设置主题背景" editable="false"/>
                         <Button text="选择..." onAction="#onBrowseThemeBackground" styleClass="secondary-button"/>
@@ -141,10 +141,10 @@
                     </HBox>
 
                     <HBox spacing="10" alignment="CENTER_LEFT">
-                        <Label text="背景透明度:" style="-fx-font-weight: bold;"/>
+                        <Label text="背景透明度:" styleClass="field-label"/>
                         <Slider fx:id="themeOpacitySlider" min="0" max="1" value="0.35"
                                 prefWidth="180"/>
-                        <Label fx:id="themeOpacityLabel" text="35%" style="-fx-text-fill: #666;"/>
+                        <Label fx:id="themeOpacityLabel" text="35%" styleClass="helper-text"/>
                     </HBox>
                 </VBox>
             </TitledPane>
@@ -156,13 +156,13 @@
                     <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
 
                     <HBox spacing="10" alignment="CENTER_LEFT">
-                        <Label text="播放间隔:" style="-fx-font-weight: bold;"/>
+                        <Label text="播放间隔:" styleClass="field-label"/>
                         <Spinner fx:id="intervalSpinner" prefWidth="80"/>
-                        <Label text="秒" style="-fx-text-fill: #666;"/>
+                        <Label text="秒" styleClass="helper-text"/>
                     </HBox>
 
                     <HBox spacing="10" alignment="CENTER_LEFT">
-                        <Label text="播放顺序:" style="-fx-font-weight: bold;"/>
+                        <Label text="播放顺序:" styleClass="field-label"/>
                         <ComboBox fx:id="orderComboBox" prefWidth="160"/>
                     </HBox>
                 </VBox>

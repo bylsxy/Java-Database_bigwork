@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from datetime import date
+from shutil import copy2
 from zipfile import ZipFile
 
 from docx import Document
@@ -212,6 +213,39 @@ def draw_round(draw, xy, radius, fill, outline=None, width=1):
 
 
 def make_ui_images():
+    source = ROOT / "target" / "ui-smoke"
+    out = STAGING / "界面截图"
+    out.mkdir(parents=True, exist_ok=True)
+    mapping = [
+        ("MainView-900x600.png", "real_01_主界面_900x600_最小窗口.png"),
+        ("MainView-1200x800.png", "real_02_主界面_1200x800_默认窗口.png"),
+        ("MainView-1440x900.png", "real_03_主界面_1440x900_宽屏窗口.png"),
+        ("WelcomeDialog-640x620.png", "real_04_首次启动向导_640x620.png"),
+        ("WelcomeDialog-800x775.png", "real_05_首次启动向导_800x775.png"),
+        ("SettingsView-680x720.png", "real_06_系统设置_680x720.png"),
+        ("SettingsView-850x900.png", "real_07_系统设置_850x900.png"),
+        ("ImageViewerView-960x680.png", "real_08_图片查看器_960x680.png"),
+        ("ImageViewerView-1200x850.png", "real_09_图片查看器_1200x850.png"),
+        ("SlideshowView-1000x700.png", "real_10_幻灯片播放_1000x700.png"),
+        ("SlideshowView-1250x875.png", "real_11_幻灯片播放_1250x875.png"),
+        ("ImageEditorView-1000x750.png", "real_12_图片编辑器_1000x750.png"),
+        ("ImageEditorView-1250x938.png", "real_13_图片编辑器_1250x938.png"),
+        ("RenameDialog-450x360.png", "real_14_批量重命名_450x360.png"),
+        ("RenameDialog-563x450.png", "real_15_批量重命名_563x450.png"),
+    ]
+    missing = [name for name, _ in mapping if not (source / name).exists()]
+    if missing:
+        raise FileNotFoundError(
+            "缺少 JavaFX 真实截图，请先运行 UiSnapshotSmoke："
+            + ", ".join(missing)
+        )
+    images = []
+    for source_name, target_name in mapping:
+        target = out / target_name
+        copy2(source / source_name, target)
+        images.append(target)
+    return images
+
     if Image is None:
         return []
     out = STAGING / "界面截图"
@@ -398,6 +432,7 @@ def make_report_docx():
         ("题目：", TITLE),
         ("专业：", "软件工程"),
         ("班级：", "2024级软件工程5班"),
+        ("小组：", "第7组"),
         ("小组成员1：", "202425220501  毕振岚"),
         ("2：", "202425220502  陈厚华"),
         ("3：", "202425220527  徐阳"),
@@ -537,8 +572,8 @@ CREATE TABLE IF NOT EXISTS images (
     add_para(doc, "设计中对图片不做简单的硬删除记录丢弃，而是通过 is_deleted 标记结合 operation_logs 保留审计信息；对目录使用唯一完整路径避免重复入库；对标签使用多对多关系，使一张图片可以同时归入多个分类。")
 
     add_heading(doc, "2.4 界面设计", 2)
-    add_para(doc, "主窗口采用深色应用栏、左侧目录树、右侧缩略图网格和底部状态栏的布局。界面修订时参考了班级其他组作品中较清晰的侧边栏、顶部工具区和表格/卡片分区做法，但仍围绕图片库场景重新设计：目录树保留文件管理习惯，缩略图卡片固定尺寸，卡片内显示等比图片、文件名、尺寸和格式；右键菜单提供查看、编辑、删除、复制、粘贴、重命名等高频操作；顶部搜索区域同时支持关键词搜索和 AI 搜索，并在等待 AI 返回时给出明确状态。")
-    add_para(doc, "幻灯片窗口以大图为中心，底部提供前后切换、播放暂停、缩放、全屏、循环和音乐控制。图片查看器独立负责单张浏览，设置窗口集中管理扫描目录、播放间隔、播放顺序和主题背景。主题背景通过 ThemeUtil 统一应用到主窗口、查看器和幻灯片窗口，避免每个窗口各写一套背景逻辑。")
+    add_para(doc, "本次最终界面按 shadcn/ui 的视觉语言重新整理，但仍保留 JavaFX、FXML 和 CSS 实现方式，没有引入 Web 技术。主窗口采用中性浅色工作台、左侧目录树 sidebar、右侧缩略图网格和底部状态栏；控件使用清晰边框、低阴影、约 8px 圆角和紧凑间距，使界面更适合课堂演示和日常重复操作。")
+    add_para(doc, "目录树保留文件管理习惯，缩略图卡片固定尺寸，卡片内显示等比图片、文件名、尺寸和格式；选中卡片通过边框和背景变化区分，按钮、输入框、下拉框、滚动条、弹窗和右键菜单都统一了 hover、focus、disabled、selected 等状态。图片查看器、幻灯片和编辑器保留深色图片区，避免图片内容被浅色背景干扰；底部控制区则改成同一套浅色按钮、边框和状态文本。设置页和首次启动向导去掉内联颜色，改为语义化 styleClass，窄窗口下可滚动且底部按钮保持可见。")
 
     add_heading(doc, "2.5 扩展功能与降级设计", 2)
     add_para(doc, "项目中保留了 AI 配置、外部接口和智能搜索的扩展点，但最终验收不把这部分当作主要完成功能。这样写更符合当前代码和群聊中的功能冻结口径：基础图片管理必须稳定，外部服务如果没有密钥或网络环境，就只能作为后续扩展。")
@@ -648,7 +683,7 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
         ("构建工具", "Maven 3.9.14", "执行 mvn -DskipTests package 生成 shaded JAR。"),
         ("网络/API", "CPA代理节点，可选密钥", "支持环境变量读取密钥；未配置时不影响基础图片管理功能。"),
     ], headers=["项目", "版本/配置", "说明"], widths=[3.5, 4.5, 7.5])
-    add_para(doc, "本次交付前已完成 Maven 打包、关键 FXML/代码静态检查、数据库脚本执行校验和 JAR 复制。数据库脚本执行后 public schema 中基础表、视图、触发器和函数均能创建，目标 JAR 为包含依赖的 shaded JAR。")
+    add_para(doc, "本次更新后重新执行 Maven 编译、单元测试、FXML/CSS 静态检查和 JavaFX 界面快照测试。界面快照测试直接加载当前 FXML 与 style.css，在不同窗口尺寸下生成 PNG，用于检查控件截断、文字重叠、滚动区域、选中状态和按钮可见性。数据库脚本执行后 public schema 中基础表、视图、触发器和函数均能创建，目标 JAR 为包含依赖的 shaded JAR。")
 
     add_heading(doc, "4.2 模块测试", 2)
     test_rows = [
@@ -682,19 +717,44 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
 
     add_heading(doc, "4.4 打包测试", 2)
     add_code_block(doc, """
-mvn -q -DskipTests package
+mvn -q -DskipTests compile
+mvn -q test
+mvn -q -DskipTests test-compile exec:java "-Dexec.classpathScope=test" "-Dexec.mainClass=com.imagemanager.UiSnapshotSmoke"
 psql -v ON_ERROR_STOP=1 -U postgres -d image_manager -f sql/schema.sql
 """)
-    add_para(doc, "打包产物 target/image-manager-1.0.0.jar 已复制为提交要求的“面向对象程序设计实践目标代码.JAR”。该 JAR 包含 JavaFX、PostgreSQL JDBC、HikariCP、OkHttp、Jackson 等运行依赖，便于课程验收。")
+    add_para(doc, "打包产物 target/image-manager-1.0.0.jar 已复制为提交要求的“面向对象程序设计实践目标代码.JAR”。该 JAR 包含 JavaFX、PostgreSQL JDBC、HikariCP、OkHttp、Jackson 等运行依赖，便于课程验收。本次界面更新重点验证了编译、测试和真实界面截图生成，避免报告截图与当前程序不一致。")
+
+    add_heading(doc, "4.5 前端缩放与截图测试", 2)
+    add_para(doc, "JavaFX 桌面程序没有浏览器 zoom，本次按窗口尺寸和系统显示缩放的等效效果验证。最小窗口覆盖 900×600，默认窗口覆盖 1200×800，宽屏窗口覆盖 1440×900；弹窗和工具窗口按 100%、125% 和 150% 附近的等效尺寸截图复查。检查重点包括：按钮文字不截断，底部操作栏不重叠，目录树展开箭头可见，选中缩略图状态清楚，设置页和欢迎向导在窄窗口下可滚动。")
+    add_table(doc, [
+        ("主界面", "900×600、1200×800、1440×900", "目录树、搜索区、缩略图、状态栏、清理AI标签和幻灯片按钮均可见。", "通过"),
+        ("首次启动向导", "640×620、800×775", "长路径输入、AI配置说明、警告区域和确定/取消按钮不遮挡。", "通过"),
+        ("系统设置", "680×720、850×900", "折叠区、输入框、模型下拉、数值输入、滚动条和底部按钮正常。", "通过"),
+        ("图片查看器", "960×680、1200×850", "深色图片区、图片等比显示、缩放/切换/编辑/幻灯片按钮不截断。", "通过"),
+        ("幻灯片播放", "1000×700、1250×875", "底部控制栏、音乐下拉、音量滑块、缩略图条和退出按钮无重叠。", "通过"),
+        ("图片编辑器", "1000×750、1250×938", "工具栏、画布、标注图层、版本历史条和状态文本可读。", "通过"),
+        ("批量重命名弹窗", "450×360、563×450", "名称前缀、编号输入、预览区域和确认按钮布局稳定。", "通过"),
+    ], headers=["界面", "截图尺寸", "检查结论", "结果"], widths=[3.0, 4.0, 7.0, 1.5])
 
     add_heading(doc, "5 系统运行界面", 1)
     ui_images = make_ui_images()
+    add_para(doc, "本节截图均由 JavaFX 测试程序直接加载当前 FXML 与 CSS 后截取，来源为 target/ui-smoke，不再使用手工绘制或旧版示意图。为便于老师检查，本节同时放入默认尺寸、最小尺寸和放大等效尺寸下的界面图。")
     captions = [
-        "图5-1 主界面：目录树、缩略图、文件名、图片数量和选中状态",
-        "图5-2 幻灯片播放界面：大图展示、前后切换、自动播放和缩放",
-        "图5-3 设置页：扩展接口、扫描目录、幻灯片偏好和主题配置",
-        "图5-4 图片编辑与版本历史界面：裁剪、标注和版本恢复",
-        "图5-5 标签与扩展搜索界面：图片信息、标签和检索条件",
+        "图5-1 主界面 900×600：最小窗口下目录树、缩略图和状态栏",
+        "图5-2 主界面 1200×800：默认窗口下的工作台布局",
+        "图5-3 主界面 1440×900：宽屏窗口下的缩略图网格",
+        "图5-4 首次启动向导 640×620：路径选择、AI配置说明和底部按钮",
+        "图5-5 首次启动向导 800×775：放大等效尺寸下的滚动与按钮状态",
+        "图5-6 系统设置 680×720：窄窗口下的配置表单",
+        "图5-7 系统设置 850×900：放大等效尺寸下的设置页",
+        "图5-8 图片查看器 960×680：大图展示和底部控制区",
+        "图5-9 图片查看器 1200×850：宽窗口下的图片等比展示",
+        "图5-10 幻灯片播放 1000×700：播放控制、音乐和缩略图条",
+        "图5-11 幻灯片播放 1250×875：放大等效尺寸下的控制栏",
+        "图5-12 图片编辑器 1000×750：工具栏、画布和版本历史",
+        "图5-13 图片编辑器 1250×938：放大等效尺寸下的编辑界面",
+        "图5-14 批量重命名弹窗 450×360：最小弹窗布局",
+        "图5-15 批量重命名弹窗 563×450：放大等效尺寸布局",
     ]
     for img_path, caption in zip(ui_images, captions):
         add_para(doc, caption, 10.5, True, WD_ALIGN_PARAGRAPH.CENTER, False)
@@ -702,7 +762,7 @@ psql -v ON_ERROR_STOP=1 -U postgres -d image_manager -f sql/schema.sql
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run()
         run.add_picture(str(img_path), width=Inches(6.1))
-        add_para(doc, "该界面对应老师评分表中图片管理、展示、搜索或扩展功能的运行结果。实际运行时，界面数据来自用户选择的本地图片目录和 PostgreSQL 数据库。")
+        add_para(doc, "该截图对应当前 JavaFX 程序的真实渲染结果。测试样例数据只用于截图复查，实际运行时界面数据来自用户选择的本地图片目录和 PostgreSQL 数据库。")
         doc.add_page_break()
 
     add_heading(doc, "6 总结", 1)
@@ -810,8 +870,10 @@ java -jar 面向对象程序设计实践目标代码.JAR
 """)
     add_heading(doc, "6 已执行的交付前测试", 1)
     add_table(doc, [
-        ("mvn -DskipTests package", "通过", "生成 target/image-manager-1.0.0.jar。"),
-        ("静态残留扫描", "通过", "源码中不再保留旧默认模型、旧批处理高上限或 enable-preview 启动要求。"),
+        ("mvn -q -DskipTests compile", "通过", "确认当前 JavaFX、FXML、CSS 和控制器代码能完成编译。"),
+        ("mvn -q test", "通过", "执行现有测试，确认本次界面风格改造没有破坏构建。"),
+        ("UiSnapshotSmoke", "通过", "直接加载当前 FXML 与 style.css，生成全部主要界面的多尺寸真实截图。"),
+        ("FXML/CSS 静态检查", "通过", "FXML 可解析，新增 styleClass 均有 CSS 定义，未保留关键内联颜色样式。"),
         ("psql -v ON_ERROR_STOP=1 -U postgres -d image_manager -f sql/schema.sql", "通过", "脚本执行成功，表和视图创建正常。"),
         ("数据库对象检查", "通过", "public schema 基础表 13 张，视图 4 个。"),
     ], headers=["检查项", "结果", "说明"], widths=[7.0, 2.0, 6.5])

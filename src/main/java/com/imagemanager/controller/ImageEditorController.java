@@ -391,23 +391,16 @@ public class ImageEditorController {
      */
     private VBox createVersionNode(ImageVersion version) {
         Label numLabel = new Label("v" + version.versionNum());
-        numLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        numLabel.getStyleClass().add("version-number");
 
         Label typeLabel = new Label(version.editType());
-        typeLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #888;");
+        typeLabel.getStyleClass().add("version-type");
 
         VBox node = new VBox(2, numLabel, typeLabel);
         node.setAlignment(javafx.geometry.Pos.CENTER);
         node.setPrefWidth(60);
         node.setPrefHeight(40);
-        node.setStyle(version.isCurrent()
-                ? "-fx-background-color: #1976d2; -fx-background-radius: 6; -fx-padding: 4;"
-                : "-fx-background-color: #f0f0f0; -fx-background-radius: 6; -fx-padding: 4; -fx-cursor: hand;");
-
-        if (version.isCurrent()) {
-            numLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: white;");
-            typeLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #ddd;");
-        }
+        node.getStyleClass().add(version.isCurrent() ? "version-card-current" : "version-card");
 
         // 点击恢复到该版本
         if (!version.isCurrent()) {

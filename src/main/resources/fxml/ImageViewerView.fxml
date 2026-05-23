@@ -13,7 +13,8 @@
            styleClass="viewer-root">
     <ImageView fx:id="themeBackgroundImageView" preserveRatio="false" smooth="true"
                mouseTransparent="true"/>
-    <BorderPane fx:id="viewerContentPane" styleClass="viewer-content-pane">
+    <BorderPane fx:id="viewerContentPane" styleClass="viewer-content-pane"
+                maxWidth="Infinity" maxHeight="Infinity">
         <center>
             <StackPane fx:id="imageContainer" styleClass="viewer-image-container">
                 <ImageView fx:id="mainImageView" preserveRatio="true" smooth="true"/>
