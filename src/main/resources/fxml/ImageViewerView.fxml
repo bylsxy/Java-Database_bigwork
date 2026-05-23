@@ -11,7 +11,8 @@
            fx:id="viewerRoot"
            prefWidth="960" prefHeight="680"
            styleClass="viewer-root">
-    <ImageView fx:id="themeBackgroundImageView" preserveRatio="false" smooth="true"
+    <ImageView fx:id="themeBackgroundImageView" preserveRatio="true" smooth="true"
+               managed="false"
                mouseTransparent="true"/>
     <BorderPane fx:id="viewerContentPane" styleClass="viewer-content-pane"
                 maxWidth="Infinity" maxHeight="Infinity">

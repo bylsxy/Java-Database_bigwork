@@ -11,6 +11,9 @@ import com.imagemanager.util.ThemeUtil;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.control.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
@@ -31,6 +34,10 @@ public class SettingsController {
     private static final Logger logger = LoggerFactory.getLogger(SettingsController.class);
     private final SettingsDao settingsDao = new SettingsDaoImpl();
     private final AIService aiService = new OpenAICompatibleService();
+
+    @FXML private StackPane settingsRoot;
+    @FXML private ImageView themeBackgroundImageView;
+    @FXML private VBox settingsContentPane;
 
     // AI配置
     @FXML private TextField baseUrlField;
@@ -56,8 +63,6 @@ public class SettingsController {
 
     // 界面主题
     @FXML private TextField themeBackgroundField;
-    @FXML private Slider themeOpacitySlider;
-    @FXML private Label themeOpacityLabel;
 
     // 底部按钮
     @FXML private Button saveButton;
@@ -87,8 +92,6 @@ public class SettingsController {
         originalBatchLimit = String.valueOf(AIConfig.getBatchLimit());
         originalScanDirectory = settingsDao.getValueOrDefault("scan_directory", "");
         String themeBackground = settingsDao.getValueOrDefault(ThemeUtil.THEME_BACKGROUND_PATH, "");
-        double themeOpacity = ThemeUtil.parseOpacity(
-                settingsDao.getValueOrDefault(ThemeUtil.THEME_BACKGROUND_OPACITY, ThemeUtil.DEFAULT_OPACITY));
 
         baseUrlField.setText(originalBaseUrl);
         apiKeyField.setText(originalApiKey);
@@ -122,10 +125,9 @@ public class SettingsController {
         batchLimitSpinner.setValueFactory(batchLimitFactory);
         scanDirField.setText(originalScanDirectory);
         themeBackgroundField.setText(themeBackground);
-        themeOpacitySlider.setValue(themeOpacity);
-        updateThemeOpacityLabel(themeOpacity);
-        themeOpacitySlider.valueProperty().addListener((obs, oldVal, newVal) ->
-                updateThemeOpacityLabel(newVal.doubleValue()));
+        ThemeUtil.markThemedSurface(settingsContentPane);
+        updateThemePreview();
+        themeBackgroundField.textProperty().addListener((obs, oldVal, newVal) -> updateThemePreview());
 
         // 幻灯片间隔 Spinner
         int currentInterval = 3;
@@ -311,8 +313,11 @@ public class SettingsController {
         themeBackgroundField.clear();
     }
 
-    private void updateThemeOpacityLabel(double value) {
-        themeOpacityLabel.setText("%d%%".formatted((int) Math.round(value * 100)));
+    private void updateThemePreview() {
+        String path = themeBackgroundField == null || themeBackgroundField.getText() == null
+                ? ""
+                : themeBackgroundField.getText().trim();
+        ThemeUtil.applyThemeBackground(settingsRoot, themeBackgroundImageView, path);
     }
 
     /**
@@ -383,8 +388,7 @@ public class SettingsController {
 
         // 界面主题
         settingsDao.upsert(ThemeUtil.THEME_BACKGROUND_PATH, themeBackground);
-        settingsDao.upsert(ThemeUtil.THEME_BACKGROUND_OPACITY,
-                String.valueOf(themeOpacitySlider.getValue()));
+        settingsDao.upsert(ThemeUtil.THEME_BACKGROUND_OPACITY, ThemeUtil.DEFAULT_OPACITY);
 
         // 幻灯片
         settingsDao.upsert("slideshow_interval", String.valueOf(intervalSpinner.getValue()));

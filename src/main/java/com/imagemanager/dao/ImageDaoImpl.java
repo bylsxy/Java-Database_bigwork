@@ -19,6 +19,7 @@ import java.util.Optional;
 public class ImageDaoImpl implements ImageDao {
 
     private static final Logger logger = LoggerFactory.getLogger(ImageDaoImpl.class);
+    private static boolean schemaChecked = false;
 
     // ==================== SQL 常量 ====================
     // 集中管理 SQL 语句，方便维护和审查
@@ -26,20 +27,20 @@ public class ImageDaoImpl implements ImageDao {
     /** 查询活跃图片（通过视图） */
     private static final String SQL_FIND_BY_DIRECTORY =
             "SELECT id, file_name, file_path, directory_id, file_size, width, height, " +
-            "format, thumbnail, created_at, modified_at " +
+            "format, thumbnail, created_at, modified_at, is_deleted, ai_processed " +
             "FROM images WHERE directory_id = ? AND is_deleted = FALSE " +
             "ORDER BY file_name";
 
     /** 按 ID 查询 */
     private static final String SQL_FIND_BY_ID =
             "SELECT id, file_name, file_path, directory_id, file_size, width, height, " +
-            "format, thumbnail, created_at, modified_at, is_deleted " +
+            "format, thumbnail, created_at, modified_at, is_deleted, ai_processed " +
             "FROM images WHERE id = ?";
 
     /** 按文件路径查询 */
     private static final String SQL_FIND_BY_PATH =
             "SELECT id, file_name, file_path, directory_id, file_size, width, height, " +
-            "format, thumbnail, created_at, modified_at, is_deleted " +
+            "format, thumbnail, created_at, modified_at, is_deleted, ai_processed " +
             "FROM images WHERE file_path = ? AND is_deleted = FALSE";
 
     /** 插入新图片 */
@@ -72,6 +73,7 @@ public class ImageDaoImpl implements ImageDao {
 
     @Override
     public List<ImageFile> findByDirectoryId(int directoryId) {
+        ensureImageStateColumns();
         var images = new ArrayList<ImageFile>();
         try (var conn = DatabaseConnection.getConnection();
              var stmt = conn.prepareStatement(SQL_FIND_BY_DIRECTORY)) {
@@ -93,6 +95,7 @@ public class ImageDaoImpl implements ImageDao {
 
     @Override
     public Optional<ImageFile> findById(int imageId) {
+        ensureImageStateColumns();
         try (var conn = DatabaseConnection.getConnection();
              var stmt = conn.prepareStatement(SQL_FIND_BY_ID)) {
 
@@ -111,6 +114,7 @@ public class ImageDaoImpl implements ImageDao {
 
     @Override
     public Optional<ImageFile> findByFilePath(String filePath) {
+        ensureImageStateColumns();
         try (var conn = DatabaseConnection.getConnection();
              var stmt = conn.prepareStatement(SQL_FIND_BY_PATH)) {
 
@@ -286,8 +290,25 @@ public class ImageDaoImpl implements ImageDao {
                 rs.getBytes("thumbnail"),
                 toLocalDateTime(rs.getTimestamp("created_at")),
                 toLocalDateTime(rs.getTimestamp("modified_at")),
-                includeDeleted && rs.getBoolean("is_deleted")
+                includeDeleted && rs.getBoolean("is_deleted"),
+                rs.getBoolean("ai_processed")
         );
+    }
+
+    private static synchronized void ensureImageStateColumns() {
+        if (schemaChecked) {
+            return;
+        }
+        try (var conn = DatabaseConnection.getConnection();
+             var stmt = conn.createStatement()) {
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS ai_processed BOOLEAN NOT NULL DEFAULT FALSE");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS last_ai_scan TIMESTAMP");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE");
+            schemaChecked = true;
+        } catch (SQLException e) {
+            logger.error("检查图片状态字段失败: {}", e.getMessage());
+            throw new RuntimeException("检查图片状态字段失败", e);
+        }
     }
 
     /**

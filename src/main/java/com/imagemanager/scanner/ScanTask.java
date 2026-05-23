@@ -87,7 +87,7 @@ public class ScanTask extends Task<Void> {
                             0, img.fileName(), img.filePath(),
                             getOrCreateDirectoryId(img.file().getParentFile()),
                             img.fileSize(), 0, 0, img.format(),
-                            null, LocalDateTime.now(), LocalDateTime.now(), false
+                            null, LocalDateTime.now(), LocalDateTime.now(), false, false
                     );
                     imageDao.insert(imageFile);
                     insertedCount++;
@@ -123,6 +123,7 @@ public class ScanTask extends Task<Void> {
 
         updateMessage("本目录共 " + totalImages + " 张图片，待AI识别 " + pendingTotal
                 + " 张；本次最多处理 " + batchLimit + "(max) 张。");
+        updateProgress(0, pendingCount);
 
         long requestDelay = AIConfig.getRequestDelay();
         int successCount = 0;
@@ -136,11 +137,11 @@ public class ScanTask extends Task<Void> {
 
             ImageFile img = pendingImages.get(i);
             String progressText = String.format(
-                    "正在AI识别: %s  [%d/%d(max)，本批%d张，目录总数%d张，待识别%d张，%.1f%%]",
-                    img.fileName(), (i + 1), batchLimit, pendingCount, totalImages, pendingTotal,
-                    (i + 1.0) / pendingCount * 100);
+                    "AI批次进度 %d/%d（%.1f%%），正在识别: %s，本次上限%d(max)，目录%d张，待识别%d张",
+                    (i + 1), pendingCount,
+                    (i + 1.0) / pendingCount * 100, img.fileName(), batchLimit, totalImages, pendingTotal);
             updateMessage(progressText);
-            updateProgress(totalImages + i, totalImages + (long) pendingCount);
+            updateProgress(i + 1, pendingCount);
 
             try {
                 File imageFile = new File(img.filePath());
@@ -284,7 +285,8 @@ public class ScanTask extends Task<Void> {
                             null, // 不加载缩略图
                             rs.getTimestamp("created_at").toLocalDateTime(),
                             rs.getTimestamp("modified_at").toLocalDateTime(),
-                            rs.getBoolean("is_deleted")
+                            rs.getBoolean("is_deleted"),
+                            rs.getBoolean("ai_processed")
                     ));
                 }
             }

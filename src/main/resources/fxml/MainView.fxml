@@ -11,7 +11,8 @@
            fx:id="appRoot"
            prefWidth="1200" prefHeight="800"
            styleClass="root-pane">
-    <ImageView fx:id="themeBackgroundImageView" preserveRatio="false" smooth="true"
+    <ImageView fx:id="themeBackgroundImageView" preserveRatio="true" smooth="true"
+               managed="false"
                mouseTransparent="true"/>
     <BorderPane fx:id="mainContentPane" styleClass="theme-content-pane"
                 maxWidth="Infinity" maxHeight="Infinity">

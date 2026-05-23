@@ -41,7 +41,7 @@ import java.util.List;
  * v2.0 增强功能：
  * <ul>
  *   <li>多选播放 — 仅播放 Ctrl 选中的图片（由 MainController 传入子集）</li>
- *   <li>背景音乐 — 内置三首MP3 + 自定义本地文件，ComboBox选择，Slider调音量</li>
+ *   <li>背景音乐 — 内置三首MP3 + 自定义本地文件，ComboBox选择</li>
  *   <li>可配置播放间隔 — 从数据库 app_settings 读取</li>
  * </ul>
  */
@@ -78,7 +78,6 @@ public class SlideshowController {
     // v2.0: 音乐控件
     @FXML private ComboBox<String> musicCombo;
     @FXML private Button musicToggleButton;
-    @FXML private Slider volumeSlider;
 
     // ==================== 服务 ====================
 
@@ -306,14 +305,6 @@ public class SlideshowController {
                 playSelectedMusic(selected);
             }
         });
-
-        // 音量滑块
-        if (volumeSlider != null) {
-            volumeSlider.setValue(musicService.getVolume());
-            volumeSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
-                musicService.setVolume(newVal.doubleValue());
-            });
-        }
 
         // 初始按钮状态：无音乐播放，图标为静音
         updateMusicToggleButton();

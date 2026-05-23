@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
  * @param createdAt   首次录入数据库的时间
  * @param modifiedAt  最后修改时间
  * @param deleted     是否已逻辑删除
+ * @param aiProcessed 是否已完成 AI 识别并写入索引数据
  */
 public record ImageFile(
         int id,
@@ -33,7 +34,8 @@ public record ImageFile(
         byte[] thumbnail,
         LocalDateTime createdAt,
         LocalDateTime modifiedAt,
-        boolean deleted
+        boolean deleted,
+        boolean aiProcessed
 ) {
 
     /**
@@ -100,7 +102,7 @@ public record ImageFile(
         return new ImageFile(
                 id, newFileName, filePath, directoryId, fileSize,
                 width, height, format, thumbnail, createdAt,
-                LocalDateTime.now(), deleted
+                LocalDateTime.now(), deleted, aiProcessed
         );
     }
 
@@ -111,7 +113,7 @@ public record ImageFile(
         return new ImageFile(
                 0, fileName, newFilePath, newDirectoryId, fileSize,
                 width, height, format, thumbnail, LocalDateTime.now(),
-                LocalDateTime.now(), false
+                LocalDateTime.now(), false, false
         );
     }
 }

@@ -2,9 +2,12 @@ package com.imagemanager.controller;
 
 import com.imagemanager.model.ImageFile;
 import com.imagemanager.model.ImageVersion;
+import com.imagemanager.dao.SettingsDao;
+import com.imagemanager.dao.SettingsDaoImpl;
 import com.imagemanager.service.EditService;
 import com.imagemanager.util.AlertUtil;
 import com.imagemanager.util.ImageUtil;
+import com.imagemanager.util.ThemeUtil;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -15,6 +18,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -42,9 +46,13 @@ public class ImageEditorController {
     private static final Logger logger = LoggerFactory.getLogger(ImageEditorController.class);
 
     private final EditService editService = new EditService();
+    private final SettingsDao settingsDao = new SettingsDaoImpl();
 
     // ==================== FXML 注入 ====================
 
+    @FXML private StackPane editorRoot;
+    @FXML private ImageView themeBackgroundImageView;
+    @FXML private BorderPane editorContentPane;
     @FXML private StackPane canvasContainer;
     @FXML private ScrollPane editorScrollPane;
     @FXML private ImageView editorImageView;
@@ -79,6 +87,9 @@ public class ImageEditorController {
 
     @FXML
     public void initialize() {
+        ThemeUtil.applyThemeBackground(editorRoot, themeBackgroundImageView, settingsDao);
+        ThemeUtil.markThemedSurface(editorContentPane);
+
         // 颜色选择器默认红色
         colorPicker.setValue(Color.RED);
 
@@ -122,6 +133,23 @@ public class ImageEditorController {
         refreshVersionTimeline();
 
         logger.info("编辑器已初始化: {}", image.fileName());
+    }
+
+    public void refreshLayoutAfterShow() {
+        javafx.application.Platform.runLater(() -> {
+            if (editorRoot == null) {
+                return;
+            }
+            editorRoot.setMinSize(0, 0);
+            editorContentPane.setMinSize(0, 0);
+            ThemeUtil.applyThemeBackground(editorRoot, themeBackgroundImageView, settingsDao);
+            editorRoot.applyCss();
+            editorRoot.layout();
+            if (canvasContainer != null) {
+                canvasContainer.applyCss();
+                canvasContainer.layout();
+            }
+        });
     }
 
     // ==================== 工具切换 ====================

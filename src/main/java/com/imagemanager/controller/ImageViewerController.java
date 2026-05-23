@@ -58,8 +58,6 @@ public class ImageViewerController {
         this.images = new ArrayList<>(images);
         this.currentIndex = Math.max(0, Math.min(startIndex, this.images.size() - 1));
 
-        mainImageView.fitWidthProperty().bind(imageContainer.widthProperty().subtract(20));
-        mainImageView.fitHeightProperty().bind(imageContainer.heightProperty().subtract(20));
         ThemeUtil.applyThemeBackground(viewerRoot, themeBackgroundImageView, settingsDao);
         ThemeUtil.markThemedSurface(viewerContentPane);
 
@@ -113,11 +111,48 @@ public class ImageViewerController {
     private void onFitToWindow() {
         zoomLevel = 1.0;
         mainImageView.setPreserveRatio(true);
-        mainImageView.fitWidthProperty().bind(imageContainer.widthProperty().subtract(20));
-        mainImageView.fitHeightProperty().bind(imageContainer.heightProperty().subtract(20));
+        bindImageToViewport();
         mainImageView.setScaleX(1.0);
         mainImageView.setScaleY(1.0);
         updateInfoForCurrentImage();
+    }
+
+    public void refreshLayoutAfterShow() {
+        Platform.runLater(() -> {
+            if (viewerRoot == null || imageContainer == null) {
+                return;
+            }
+            Scene scene = viewerRoot.getScene();
+            if (scene != null) {
+                viewerRoot.setMinSize(0, 0);
+                viewerContentPane.setMinSize(0, 0);
+                imageContainer.setMinSize(0, 0);
+                viewerRoot.setPrefSize(scene.getWidth(), scene.getHeight());
+                viewerRoot.resize(scene.getWidth(), scene.getHeight());
+            }
+            ThemeUtil.applyThemeBackground(viewerRoot, themeBackgroundImageView, settingsDao);
+            viewerRoot.applyCss();
+            viewerRoot.layout();
+            imageContainer.applyCss();
+            imageContainer.layout();
+            if (zoomLevel == 1.0) {
+                onFitToWindow();
+            }
+            Platform.runLater(() -> {
+                viewerRoot.applyCss();
+                viewerRoot.layout();
+                imageContainer.layout();
+            });
+        });
+    }
+
+    private void bindImageToViewport() {
+        mainImageView.fitWidthProperty().unbind();
+        mainImageView.fitHeightProperty().unbind();
+        mainImageView.fitWidthProperty().bind(imageContainer.widthProperty().subtract(20).map(value ->
+                Math.max(1, value.doubleValue())));
+        mainImageView.fitHeightProperty().bind(imageContainer.heightProperty().subtract(20).map(value ->
+                Math.max(1, value.doubleValue())));
     }
 
     @FXML

@@ -17,7 +17,7 @@
     ├────────────────────────────────────────────────────┤
     │  [图片信息条]                                        │
     ├────────────────────────────────────────────────────┤
-    │  [🔍+🔍-] [⬅ ➡] [▶播放] [🎵音乐▼] [🔊音量] [✕退出] │
+    │  [🔍+🔍-] [⬅ ➡] [▶播放] [🎵音乐▼] [✕退出] │
     ├────────────────────────────────────────────────────┤
     │  [缩略图条: 水平排列的小缩略图]                       │
     └────────────────────────────────────────────────────┘
@@ -29,7 +29,8 @@
            fx:id="slideshowRoot"
            prefWidth="1000" prefHeight="700"
            styleClass="slideshow-root">
-    <ImageView fx:id="themeBackgroundImageView" preserveRatio="false" smooth="true"
+    <ImageView fx:id="themeBackgroundImageView" preserveRatio="true" smooth="true"
+               managed="false"
                mouseTransparent="true"/>
     <BorderPane fx:id="slideshowContentPane" styleClass="slideshow-content-pane"
                 maxWidth="Infinity" maxHeight="Infinity">
@@ -83,11 +84,6 @@
                           styleClass="music-combo"/>
                 <Button fx:id="musicToggleButton" text="播放音乐" onAction="#onMusicToggle"
                         styleClass="control-button" prefWidth="78" minWidth="78" maxWidth="78"/>
-                <StackPane styleClass="volume-slider-box"
-                           minWidth="82" prefWidth="82" maxWidth="82">
-                    <Slider fx:id="volumeSlider" min="0" max="1" value="0.5"
-                            prefWidth="82" minWidth="82" maxWidth="82" styleClass="volume-slider"/>
-                </StackPane>
                 <Button fx:id="exitButton" text="退出" onAction="#onExit"
                         styleClass="control-button exit-button" prefWidth="60" minWidth="60" maxWidth="60"/>
             </HBox>

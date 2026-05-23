@@ -22,12 +22,128 @@
 
 .theme-content-pane,
 .viewer-content-pane,
-.slideshow-content-pane {
+.slideshow-content-pane,
+.editor-content-pane {
     -fx-background-color: transparent;
 }
 
 .theme-surface {
-    -fx-background-color: rgba(248, 250, 252, 0.94);
+    -fx-background-color: rgba(248, 250, 252, 0.18);
+}
+
+.theme-surface .app-header,
+.theme-surface .top-toolbar,
+.theme-surface .tree-container,
+.theme-surface .tree-header,
+.theme-surface .directory-tree,
+.theme-surface .directory-info-bar,
+.theme-surface .preview-container,
+.theme-surface .thumbnail-pane,
+.theme-surface .status-bar,
+.theme-surface .settings-section > .title,
+.theme-surface .settings-section > .content,
+.theme-surface .viewer-controls,
+.theme-surface .slideshow-controls,
+.theme-surface .editor-toolbar,
+.theme-surface .version-timeline-bar,
+.theme-surface .viewer-control-bar,
+.theme-surface .control-bar {
+    -fx-background-color: rgba(255, 255, 255, 0.58);
+}
+
+.theme-surface .main-split,
+.theme-surface .thumbnail-scroll,
+.theme-surface .settings-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.theme-surface .viewer-info-bar,
+.theme-surface .info-bar {
+    -fx-background-color: rgba(248, 250, 252, 0.52);
+}
+
+.theme-surface .editor-canvas-container,
+.theme-surface .viewer-image-container,
+.theme-surface .image-container {
+    -fx-background-color: rgba(2, 6, 23, 0.46);
+}
+
+.theme-background-enabled.root-pane,
+.theme-background-enabled.settings-root,
+.theme-background-enabled.viewer-root,
+.theme-background-enabled.slideshow-root,
+.theme-background-enabled.editor-root {
+    -fx-background-color: transparent;
+}
+
+.theme-background-enabled .theme-surface {
+    -fx-background-color: rgba(248, 250, 252, 0.04);
+}
+
+.theme-background-enabled .settings-content-pane {
+    -fx-background-color: rgba(248, 250, 252, 0.06);
+}
+
+.theme-background-enabled .theme-surface .app-header,
+.theme-background-enabled .theme-surface .top-toolbar,
+.theme-background-enabled .theme-surface .tree-container,
+.theme-background-enabled .theme-surface .tree-header,
+.theme-background-enabled .theme-surface .directory-tree,
+.theme-background-enabled .theme-surface .directory-info-bar,
+.theme-background-enabled .theme-surface .preview-container,
+.theme-background-enabled .theme-surface .thumbnail-pane,
+.theme-background-enabled .theme-surface .status-bar,
+.theme-background-enabled .theme-surface .settings-section > .title,
+.theme-background-enabled .theme-surface .settings-section > .content,
+.theme-background-enabled .theme-surface .viewer-controls,
+.theme-background-enabled .theme-surface .slideshow-controls,
+.theme-background-enabled .theme-surface .editor-toolbar,
+.theme-background-enabled .theme-surface .version-timeline-bar,
+.theme-background-enabled .theme-surface .viewer-control-bar,
+.theme-background-enabled .theme-surface .control-bar {
+    -fx-background-color: rgba(255, 255, 255, 0.36);
+}
+
+.theme-background-enabled .theme-surface .thumbnail-card {
+    -fx-background-color: rgba(255, 255, 255, 0.68);
+}
+
+.theme-background-enabled .theme-surface .thumbnail-card:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.76);
+}
+
+.theme-background-enabled .theme-surface .thumbnail-card.selected {
+    -fx-background-color: rgba(248, 250, 252, 0.72);
+}
+
+.theme-background-enabled .theme-surface .main-split,
+.theme-background-enabled .theme-surface .thumbnail-scroll,
+.theme-background-enabled .theme-surface .settings-scroll,
+.theme-background-enabled .theme-surface .editor-canvas-scroll,
+.theme-background-enabled .theme-surface .thumbnail-strip-scroll,
+.theme-background-enabled .theme-surface .thumbnail-scroll .viewport,
+.theme-background-enabled .theme-surface .settings-scroll .viewport,
+.theme-background-enabled .theme-surface .editor-canvas-scroll .viewport,
+.theme-background-enabled .theme-surface .thumbnail-strip-scroll .viewport {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.theme-background-enabled .theme-surface .viewer-info-bar,
+.theme-background-enabled .theme-surface .info-bar {
+    -fx-background-color: rgba(248, 250, 252, 0.34);
+}
+
+.theme-background-enabled .theme-surface .editor-canvas-container,
+.theme-background-enabled .theme-surface .viewer-image-container,
+.theme-background-enabled .theme-surface .image-container {
+    -fx-background-color: rgba(2, 6, 23, 0.22);
+}
+
+.theme-background-enabled .theme-surface .toolbar-label,
+.theme-background-enabled .theme-surface .editor-status-label {
+    -fx-text-fill: #020617;
 }
 
 .label {
@@ -562,6 +678,23 @@
     -fx-max-height: 112;
 }
 
+.ai-indexed-badge {
+    -fx-background-color: #ECFDF5;
+    -fx-border-color: #16A34A;
+    -fx-border-width: 2;
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+    -fx-min-width: 22;
+    -fx-min-height: 22;
+    -fx-max-width: 22;
+    -fx-max-height: 22;
+    -fx-alignment: center;
+    -fx-text-fill: #15803D;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 0;
+}
+
 .thumbnail-name {
     -fx-font-size: 12px;
     -fx-font-weight: bold;
@@ -604,6 +737,10 @@
 
 .settings-root {
     -fx-background-color: #F8FAFC;
+}
+
+.settings-content-pane {
+    -fx-background-color: rgba(248, 250, 252, 0.28);
 }
 
 .settings-title,
@@ -805,23 +942,6 @@
 
 .music-combo .list-cell {
     -fx-font-size: 12px;
-}
-
-.volume-slider {
-    -fx-padding: 0 4 0 4;
-}
-
-.volume-slider .track {
-    -fx-background-color: transparent;
-}
-
-.volume-slider .thumb {
-    -fx-background-color: #020617;
-    -fx-border-color: #020617;
-}
-
-.volume-slider-box {
-    -fx-alignment: center;
 }
 
 .thumbnail-strip-scroll,

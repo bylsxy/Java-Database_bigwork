@@ -3,6 +3,7 @@ package com.imagemanager;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -185,7 +186,7 @@ public class UiSnapshotSmoke {
         if (thumbnailPane != null) {
             thumbnailPane.getChildren().clear();
             for (int i = 1; i <= 12; i++) {
-                thumbnailPane.getChildren().add(createThumbnailCard(i, i == 2 || i == 5));
+                thumbnailPane.getChildren().add(createThumbnailCard(i, i == 2 || i == 5, i == 2 || i == 4 || i == 8));
             }
         }
     }
@@ -268,7 +269,7 @@ public class UiSnapshotSmoke {
         }
     }
 
-    private static VBox createThumbnailCard(int index, boolean selected) {
+    private static VBox createThumbnailCard(int index, boolean selected, boolean indexed) {
         VBox card = new VBox(8);
         card.setAlignment(Pos.CENTER);
         card.setPrefSize(170, 188);
@@ -284,6 +285,13 @@ public class UiSnapshotSmoke {
         imageView.setFitHeight(100);
         imageView.setPreserveRatio(true);
         imageBox.getChildren().add(imageView);
+        if (indexed) {
+            Label badge = new Label("✓");
+            badge.getStyleClass().add("ai-indexed-badge");
+            StackPane.setAlignment(badge, Pos.TOP_RIGHT);
+            StackPane.setMargin(badge, new Insets(6));
+            imageBox.getChildren().add(badge);
+        }
 
         Label name = new Label("IMG_2026_%04d.jpg".formatted(index));
         name.getStyleClass().add("thumbnail-name");

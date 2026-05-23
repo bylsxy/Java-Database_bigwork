@@ -22,7 +22,9 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Bounds;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -33,6 +35,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import org.slf4j.Logger;
@@ -445,6 +448,10 @@ public class MainController {
         StackPane imageContainer = new StackPane(imageView);
         imageContainer.getStyleClass().add("thumbnail-image-container");
         imageContainer.setPrefSize(148, 112);
+        if (image.aiProcessed()) {
+            Label indexedBadge = createAiIndexedBadge();
+            imageContainer.getChildren().add(indexedBadge);
+        }
 
         // 文件名标签
         Label nameLabel = new Label(image.fileName());
@@ -483,6 +490,15 @@ public class MainController {
         });
 
         return card;
+    }
+
+    private Label createAiIndexedBadge() {
+        Label badge = new Label("✓");
+        badge.getStyleClass().add("ai-indexed-badge");
+        badge.setTooltip(new Tooltip("已完成AI索引，可通过标签或AI搜索"));
+        StackPane.setAlignment(badge, Pos.TOP_RIGHT);
+        StackPane.setMargin(badge, new Insets(6));
+        return badge;
     }
 
     // ==================== 选中交互 ====================
@@ -712,13 +728,25 @@ public class MainController {
             ImageFile image = currentImages.get(Math.max(0, Math.min(startIndex, currentImages.size() - 1)));
             Stage viewerStage = new Stage();
             viewerStage.setTitle("图片查看 - " + image.fileName());
-            Scene scene = new Scene(viewerRoot, 960, 680);
+            Window ownerWindow = thumbnailPane.getScene().getWindow();
+            Rectangle2D screenBounds = ownerVisualBounds(ownerWindow);
+            double sceneWidth = boundedSceneSize(1040, 760, screenBounds.getWidth(), 120);
+            double sceneHeight = boundedSceneSize(760, 560, screenBounds.getHeight(), 120);
+            Scene scene = new Scene(viewerRoot, sceneWidth, sceneHeight);
             scene.getStylesheets().add(
                     getClass().getResource("/css/style.css").toExternalForm());
             viewerStage.setScene(scene);
-            viewerStage.initOwner(thumbnailPane.getScene().getWindow());
-            viewerStage.setMinWidth(720);
-            viewerStage.setMinHeight(520);
+            viewerStage.initOwner(ownerWindow);
+            viewerStage.setResizable(true);
+            viewerStage.setMinWidth(Math.min(720, sceneWidth));
+            viewerStage.setMinHeight(Math.min(520, sceneHeight));
+            viewerStage.setMaxWidth(screenBounds.getWidth());
+            viewerStage.setMaxHeight(screenBounds.getHeight());
+            viewerStage.setOnShown(event -> Platform.runLater(() -> {
+                viewerStage.sizeToScene();
+                keepStageInsideScreen(viewerStage, screenBounds);
+                controller.refreshLayoutAfterShow();
+            }));
             viewerStage.show();
         } catch (Exception e) {
             logger.error("打开图片查看器失败", e);
@@ -907,13 +935,25 @@ public class MainController {
 
             Stage editorStage = new Stage();
             editorStage.setTitle("图片编辑 - " + image.fileName());
-            Scene scene = new Scene(editorRoot, 1000, 750);
+            Window ownerWindow = thumbnailPane.getScene().getWindow();
+            Rectangle2D screenBounds = ownerVisualBounds(ownerWindow);
+            double sceneWidth = boundedSceneSize(1000, 760, screenBounds.getWidth(), 120);
+            double sceneHeight = boundedSceneSize(750, 560, screenBounds.getHeight(), 120);
+            Scene scene = new Scene(editorRoot, sceneWidth, sceneHeight);
             scene.getStylesheets().add(
                     getClass().getResource("/css/style.css").toExternalForm());
             editorStage.setScene(scene);
-            editorStage.initOwner(thumbnailPane.getScene().getWindow());
-            editorStage.setMinWidth(800);
-            editorStage.setMinHeight(600);
+            editorStage.initOwner(ownerWindow);
+            editorStage.setResizable(true);
+            editorStage.setMinWidth(Math.min(720, sceneWidth));
+            editorStage.setMinHeight(Math.min(520, sceneHeight));
+            editorStage.setMaxWidth(screenBounds.getWidth());
+            editorStage.setMaxHeight(screenBounds.getHeight());
+            editorStage.setOnShown(event -> Platform.runLater(() -> {
+                editorStage.sizeToScene();
+                keepStageInsideScreen(editorStage, screenBounds);
+                controller.refreshLayoutAfterShow();
+            }));
             editorStage.setOnHidden(event -> {
                 if (currentDirectoryPath != null) {
                     onDirectorySelected(currentDirectoryPath);
@@ -1313,12 +1353,20 @@ public class MainController {
 
             Stage settingsStage = new Stage();
             settingsStage.setTitle("系统设置 - 数字图像管理系统");
-            Scene scene = new Scene(settingsRoot);
+            Rectangle2D screenBounds = ownerVisualBounds(ownerWindow);
+            double sceneWidth = Math.min(720, Math.max(560, screenBounds.getWidth() - 96));
+            double sceneHeight = Math.min(760, Math.max(520, screenBounds.getHeight() - 96));
+            Scene scene = new Scene(settingsRoot, sceneWidth, sceneHeight);
             scene.getStylesheets().add(
                     getClass().getResource("/css/style.css").toExternalForm());
             settingsStage.setScene(scene);
             settingsStage.initOwner(ownerWindow);
             settingsStage.setResizable(true);
+            settingsStage.setMinWidth(Math.min(560, sceneWidth));
+            settingsStage.setMinHeight(Math.min(480, sceneHeight));
+            settingsStage.setMaxWidth(screenBounds.getWidth());
+            settingsStage.setMaxHeight(screenBounds.getHeight());
+            settingsStage.setOnShown(event -> keepStageInsideScreen(settingsStage, screenBounds));
             settingsStage.showAndWait();
 
             if (controller.isSaved()) {
@@ -1335,6 +1383,44 @@ public class MainController {
             logger.error("打开设置页面失败", e);
             AlertUtil.showError("错误", "无法打开设置页面: " + e.getMessage());
         }
+    }
+
+    private Rectangle2D ownerVisualBounds(Window ownerWindow) {
+        if (ownerWindow == null) {
+            return Screen.getPrimary().getVisualBounds();
+        }
+        return Screen.getScreensForRectangle(
+                        ownerWindow.getX(),
+                        ownerWindow.getY(),
+                        Math.max(1, ownerWindow.getWidth()),
+                        Math.max(1, ownerWindow.getHeight()))
+                .stream()
+                .findFirst()
+                .orElse(Screen.getPrimary())
+                .getVisualBounds();
+    }
+
+    private double boundedSceneSize(double preferred, double minimum, double available, double margin) {
+        double maxSize = Math.max(360, available - margin);
+        double desired = Math.min(preferred, Math.max(minimum, maxSize));
+        return Math.min(desired, maxSize);
+    }
+
+    private void keepStageInsideScreen(Stage stage, Rectangle2D bounds) {
+        double margin = 24;
+        double maxWidth = Math.max(360, bounds.getWidth() - margin);
+        double maxHeight = Math.max(320, bounds.getHeight() - margin);
+        if (stage.getWidth() > maxWidth) {
+            stage.setWidth(maxWidth);
+        }
+        if (stage.getHeight() > maxHeight) {
+            stage.setHeight(maxHeight);
+        }
+
+        double x = bounds.getMinX() + (bounds.getWidth() - stage.getWidth()) / 2;
+        double y = bounds.getMinY() + (bounds.getHeight() - stage.getHeight()) / 2;
+        stage.setX(Math.max(bounds.getMinX(), x));
+        stage.setY(Math.max(bounds.getMinY(), y));
     }
 
     // ==================== AI扫描 (v2.0新增) ====================

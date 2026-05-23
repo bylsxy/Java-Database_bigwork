@@ -170,7 +170,7 @@ public class ImageServiceImpl implements ImageService {
                         0, targetFileName, targetPath.toString(), targetDir.id(),
                         image.fileSize(), image.width(), image.height(),
                         image.format(), image.thumbnail(),
-                        LocalDateTime.now(), LocalDateTime.now(), false
+                        LocalDateTime.now(), LocalDateTime.now(), false, false
                 );
                 int newImageId = imageDao.insert(newImage);
                 logOperation(newImageId, "PASTE", image.filePath(), targetPath.toString());
@@ -314,7 +314,7 @@ public class ImageServiceImpl implements ImageService {
                 0, fileName, file.getAbsolutePath(), directoryId,
                 fileSize, dimensions[0], dimensions[1],
                 extension, null,
-                LocalDateTime.now(), LocalDateTime.now(), false
+                LocalDateTime.now(), LocalDateTime.now(), false, false
         );
     }
 

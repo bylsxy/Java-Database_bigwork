@@ -31,6 +31,7 @@ public class MusicService {
             System.getProperty("java.io.tmpdir"),
             "DIMS_Builtin_Music"
     );
+    private static final double DEFAULT_VOLUME = 0.5;
 
     /** 内置音乐名称与文件名的映射 */
     private static final Map<String, String> BUILTIN_MUSIC_MAP = Map.of(
@@ -41,7 +42,6 @@ public class MusicService {
 
     private MediaPlayer currentPlayer;
     private String currentMusicIdentifier; // 内置名称或自定义文件路径
-    private double volume = 0.5;
     private boolean playRequested = false;
     private boolean paused = false;
 
@@ -71,7 +71,7 @@ public class MusicService {
             MediaPlayer player = new MediaPlayer(media);
             currentPlayer = player;
             player.setCycleCount(MediaPlayer.INDEFINITE); // 单曲循环
-            player.setVolume(volume);
+            player.setVolume(DEFAULT_VOLUME);
             player.setOnReady(() -> {
                 if (playRequested && !paused && currentPlayer == player) {
                     player.play();
@@ -199,23 +199,6 @@ public class MusicService {
      */
     public boolean hasLoadedMusic() {
         return currentPlayer != null;
-    }
-
-    /**
-     * 设置音量 (0.0 ~ 1.0)。
-     */
-    public void setVolume(double vol) {
-        this.volume = Math.max(0.0, Math.min(1.0, vol));
-        if (currentPlayer != null) {
-            currentPlayer.setVolume(this.volume);
-        }
-    }
-
-    /**
-     * 获取当前音量。
-     */
-    public double getVolume() {
-        return volume;
     }
 
     /**
