@@ -7,6 +7,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Properties;
@@ -34,6 +37,9 @@ public final class DatabaseConnection {
 
     /** HikariCP 数据源（连接池），整个应用唯一实例 */
     private static HikariDataSource dataSource;
+    private static Throwable lastInitializationError;
+
+    public record DatabaseConfig(String url, String username, String password) {}
 
     // 禁止实例化 — 所有方法均为静态的
     private DatabaseConnection() {
@@ -60,9 +66,10 @@ public final class DatabaseConnection {
 
             // 配置 HikariCP
             var config = new HikariConfig();
-            config.setJdbcUrl(configValue(props, "db.url", "DIMS_DB_URL"));
-            config.setUsername(configValue(props, "db.username", "DIMS_DB_USERNAME"));
-            config.setPassword(configValue(props, "db.password", "DIMS_DB_PASSWORD"));
+            DatabaseConfig databaseConfig = configuredDatabase();
+            config.setJdbcUrl(databaseConfig.url());
+            config.setUsername(databaseConfig.username());
+            config.setPassword(databaseConfig.password());
 
             // 连接池参数
             config.setMaximumPoolSize(
@@ -72,7 +79,7 @@ public final class DatabaseConnection {
                     Integer.parseInt(props.getProperty("db.pool.minimumIdle", "2"))
             );
             config.setConnectionTimeout(
-                    Long.parseLong(props.getProperty("db.pool.connectionTimeout", "30000"))
+                    Math.min(Long.parseLong(props.getProperty("db.pool.connectionTimeout", "5000")), 5000)
             );
             config.setIdleTimeout(
                     Long.parseLong(props.getProperty("db.pool.idleTimeout", "600000"))
@@ -87,15 +94,32 @@ public final class DatabaseConnection {
 
             // 创建连接池
             dataSource = new HikariDataSource(config);
+            lastInitializationError = null;
 
             logger.info("数据库连接池初始化成功 [URL={}] [池大小={}]",
-                    props.getProperty("db.url"),
+                    databaseConfig.url(),
                     config.getMaximumPoolSize());
 
         } catch (Exception e) {
+            dataSource = null;
+            lastInitializationError = e;
             logger.error("数据库连接池初始化失败", e);
             throw new RuntimeException("无法初始化数据库连接: " + e.getMessage(), e);
         }
+    }
+
+    public static synchronized boolean tryInitialize() {
+        try {
+            initialize();
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    public static synchronized void reinitialize() {
+        close();
+        initialize();
     }
 
     /**
@@ -138,6 +162,49 @@ public final class DatabaseConnection {
         return dataSource != null && !dataSource.isClosed();
     }
 
+    public static Throwable getLastInitializationError() {
+        return lastInitializationError;
+    }
+
+    public static DatabaseConfig configuredDatabase() {
+        try {
+            Properties props = loadProperties();
+            return new DatabaseConfig(
+                    configValue(props, "db.url", "DIMS_DB_URL"),
+                    configValue(props, "db.username", "DIMS_DB_USERNAME"),
+                    configValue(props, "db.password", "DIMS_DB_PASSWORD")
+            );
+        } catch (IOException e) {
+            throw new RuntimeException("无法读取数据库配置: " + e.getMessage(), e);
+        }
+    }
+
+    public static synchronized void saveUserConfig(String jdbcUrl, String username, String password) {
+        try {
+            Properties props = loadProperties();
+            props.setProperty("db.url", jdbcUrl == null ? "" : jdbcUrl.trim());
+            props.setProperty("db.username", username == null ? "" : username.trim());
+            props.setProperty("db.password", password == null ? "" : password);
+            Path configPath = userConfigPath();
+            Files.createDirectories(configPath.getParent());
+            try (OutputStream output = Files.newOutputStream(configPath)) {
+                props.store(output, "Digital Image Manager local database configuration");
+            }
+            close();
+            logger.info("数据库连接配置已保存到 {}", configPath);
+        } catch (IOException e) {
+            throw new RuntimeException("保存数据库配置失败: " + e.getMessage(), e);
+        }
+    }
+
+    public static Path userConfigPath() {
+        String localAppData = System.getenv("LOCALAPPDATA");
+        Path baseDir = localAppData == null || localAppData.isBlank()
+                ? Path.of(System.getProperty("user.home"), ".dims")
+                : Path.of(localAppData, "DigitalImageManager");
+        return baseDir.resolve("database.properties");
+    }
+
     /**
      * 从 classpath 加载 database.properties 配置文件。
      */
@@ -148,6 +215,12 @@ public final class DatabaseConnection {
                 throw new IOException("找不到配置文件: " + CONFIG_FILE);
             }
             props.load(input);
+        }
+        Path userConfig = userConfigPath();
+        if (Files.isRegularFile(userConfig)) {
+            try (InputStream input = Files.newInputStream(userConfig)) {
+                props.load(input);
+            }
         }
         return props;
     }

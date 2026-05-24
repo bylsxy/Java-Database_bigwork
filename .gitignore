@@ -2,6 +2,9 @@
 target/
 *.class
 
+# Aggregated course handoff archive exceeds GitHub single-file size limits.
+docs/面向对象程序与设计/面向对象程序设计实践/2024级软件工程R5班.zip
+
 # Runtime logs
 logs/
 *.log

@@ -224,14 +224,15 @@ def make_ui_images():
         ("WelcomeDialog-800x775.png", "real_05_首次启动向导_800x775.png"),
         ("SettingsView-680x720.png", "real_06_系统设置_680x720.png"),
         ("SettingsView-850x900.png", "real_07_系统设置_850x900.png"),
-        ("ImageViewerView-960x680.png", "real_08_图片查看器_960x680.png"),
-        ("ImageViewerView-1200x850.png", "real_09_图片查看器_1200x850.png"),
-        ("SlideshowView-1000x700.png", "real_10_幻灯片播放_1000x700.png"),
-        ("SlideshowView-1250x875.png", "real_11_幻灯片播放_1250x875.png"),
-        ("ImageEditorView-1000x750.png", "real_12_图片编辑器_1000x750.png"),
-        ("ImageEditorView-1250x938.png", "real_13_图片编辑器_1250x938.png"),
-        ("RenameDialog-450x360.png", "real_14_批量重命名_450x360.png"),
-        ("RenameDialog-563x450.png", "real_15_批量重命名_563x450.png"),
+        ("DatabaseSetupDialog-760x680.png", "real_08_数据库连接与初始化向导_760x680.png"),
+        ("ImageViewerView-960x680.png", "real_09_图片查看器_960x680.png"),
+        ("ImageViewerView-1200x850.png", "real_10_图片查看器_1200x850.png"),
+        ("SlideshowView-1000x700.png", "real_11_幻灯片播放_1000x700.png"),
+        ("SlideshowView-1250x875.png", "real_12_幻灯片播放_1250x875.png"),
+        ("ImageEditorView-1000x750.png", "real_13_图片编辑器_1000x750.png"),
+        ("ImageEditorView-1250x938.png", "real_14_图片编辑器_1250x938.png"),
+        ("RenameDialog-450x360.png", "real_15_批量重命名_450x360.png"),
+        ("RenameDialog-563x450.png", "real_16_批量重命名_563x450.png"),
     ]
     missing = [name for name, _ in mapping if not (source / name).exists()]
     if missing:
@@ -239,6 +240,8 @@ def make_ui_images():
             "缺少 JavaFX 真实截图，请先运行 UiSnapshotSmoke："
             + ", ".join(missing)
         )
+    for stale in out.glob("real_*.png"):
+        stale.unlink()
     images = []
     for source_name, target_name in mapping:
         target = out / target_name
@@ -473,12 +476,29 @@ def make_report_docx():
         ("图片展示", "双击或按钮进入大图展示，支持前后切换、实际大小、适应窗口。", "ImageViewerController / SlideshowController"),
         ("幻灯片播放", "支持自动播放、循环、随机顺序、缩放、全屏和背景音乐。", "SlideshowController / MusicService"),
         ("主题与设置", "设置页统一管理扫描目录、播放间隔、主题背景和透明度。", "SettingsController / ThemeUtil / app_settings"),
+        ("数据库状态与向导", "启动时检测 PostgreSQL 连接；未连接时主界面照常打开，并弹出数据库连接与初始化向导。", "App / DatabaseSetupDialog / DatabaseBootstrapService"),
+        ("离线浏览降级", "老师电脑没有 PostgreSQL 时仍能选择目录、加载缩略图、查看和播放图片，数据库功能显示未连接。", "ImageServiceImpl.loadOfflineImages"),
         ("AI识别安全控制", "默认连接 CPA 代理节点，密钥从环境变量读取，模型从 /models 下拉选择；单批上限可在设置页调整，显示为 N(max)，可停止并清理AI标签。", "AIConfig / ScanTask / AiTagStorageService"),
+        ("手动补打AI标签", "若子目录未及时自动识别，可在主界面点击“补打 AI 标签”，只对当前目录重新触发待识别图片。", "MainController.onRescanAiTags"),
+        ("设置单窗口保护", "连续点击设置按钮时不会再打开两个设置页，只会把已有窗口置顶，避免配置被重复窗口覆盖。", "MainController.openSettingsWindow"),
     ]
     add_table(doc, rows, headers=["功能", "说明", "主要代码依据"], widths=[3.0, 7.3, 5.4])
     add_para(doc, "以上功能覆盖老师评分表中对电子图片管理程序的基本功能和扩展功能要求。扩展功能并没有替代基础功能，而是围绕图片管理主流程补充了数据库持久化、版本历史、主题配置和可继续扩展的接口。")
 
-    add_heading(doc, "1.3 开发平台及工具介绍", 2)
+    add_heading(doc, "1.3 本组创新点总览", 2)
+    add_para(doc, "与老师给出的基础题目相比，本组没有停留在“能打开文件夹、能播放图片”的样例层次，而是把电子图片管理程序做成了带数据库、可配置、可降级、可扩展的桌面系统。下表把最值得在答辩时强调的小巧思集中列出，便于老师快速看到本组的创新边界。")
+    add_table(doc, [
+        ("数据库自检与初始化向导", "JAR 启动后主动判断 PostgreSQL 和核心表是否可用；不可用时弹出向导，内置官网链接、连接配置保存、一键建库和执行 schema.sql。", "降低老师电脑没有数据库时的验收门槛，不让程序因为依赖缺失直接崩溃。"),
+        ("无数据库也能体验基础功能", "连接失败时主界面仍打开，使用文件系统扫描加载图片；数据库状态栏持续提示“未连接”。", "把高门槛依赖从硬性阻断改成可感知降级，演示更稳。"),
+        ("内嵌 SQL 脚本", "pom.xml 将 sql/schema.sql、sql/data.sql 放入 JAR 的 /sql 资源路径，向导可直接读取内置脚本。", "不要求老师到源码目录里找 SQL 文件，打包程序本身就带初始化材料。"),
+        ("AI 标签补打入口", "主界面新增“补打 AI 标签”，当自动扫描遗漏或子目录刚同步完成时，可手动重新触发当前目录识别。", "解决自动任务未刷新、文件刚同步、网络波动后的补救问题。"),
+        ("设置窗口单实例", "设置页保存 Stage 引用，重复点击只置顶已有窗口，不再创建两个相同窗口。", "避免两个设置窗口互相覆盖配置，属于真实使用中会遇到的细节修复。"),
+        ("AI 成本控制", "识别只限定当前目录，单批上限可配置并显示为 N(max)，支持停止扫描和清理数据库 AI 标签。", "防止误选大目录产生过量请求，也让数据库占用可解释、可清理。"),
+        ("安全配置路径", "API Key 优先从环境变量读取；数据库连接可写入本机外部配置，不把个人密码和密钥写死到源码。", "交付给老师或同学时，不泄露本机私密配置。"),
+        ("界面真实快照验证", "用 JavaFX 快照测试生成主界面、设置、向导、数据库向导、查看器、幻灯片、编辑器、重命名等多尺寸截图。", "报告截图和当前代码一致，避免用旧图或示意图充数。"),
+    ], headers=["创新点", "实现方式", "展示价值"], widths=[3.7, 7.0, 4.8])
+
+    add_heading(doc, "1.4 开发平台及工具介绍", 2)
     rows = [
         ("开发语言", "Java 21 编译目标，JDK 21+ 可运行", "使用面向对象方式组织模型、DAO、Service、Controller。"),
         ("界面框架", "JavaFX 21.0.6 + FXML + CSS", "实现桌面端目录树、缩略图、设置页、幻灯片和编辑窗口。"),
@@ -489,9 +509,9 @@ def make_report_docx():
     ]
     add_table(doc, rows, headers=["项目", "采用方案", "作用"], widths=[3.0, 4.2, 8.5])
 
-    add_heading(doc, "1.4 需求与采分点对照", 2)
+    add_heading(doc, "1.5 需求与采分点对照", 2)
     rows = [
-        ("基本功能", "完成", "可运行 JAR、源码 ZIP、论文 DOCX 和评分表 DOCX 已准备，后续可由 Word 导出 PDF。"),
+        ("基本功能", "完成", "论文 PDF、评分表 PDF、源码 ZIP、目标 JAR 和可选附加说明 PDF 已按老师目录重新准备。"),
         ("支持规定图片格式", "完成", "SUPPORTED_FORMATS 包含 JPG、JPEG、GIF、PNG、BMP。"),
         ("目录树实现", "完成", "TreeView + 懒加载磁盘目录，展开目录时加载子目录。"),
         ("缩略图比例", "完成", "使用 ImageUtil 生成缩略图，前端 ImageView 保持比例显示。"),
@@ -505,7 +525,7 @@ def make_report_docx():
     ]
     add_table(doc, rows, headers=["评分项", "完成情况", "证据说明"], widths=[4.0, 2.3, 9.2])
 
-    add_heading(doc, "1.5 小组分工与依据", 2)
+    add_heading(doc, "1.6 小组分工与依据", 2)
     add_para(doc, "分工根据 Git 提交记录、群聊任务安排和最终文档整理情况重新核对。Git 中的 TreeRabbit15 为毕振岚，他在 2026 年 5 月 18 日至 5 月 19 日集中提交了最终版代码；Xu Yang 的提交主要覆盖早期工程、数据库文档、课程材料整理和本次论文生成。评分表中的工作量按小组协作口径保持基本均分，正文分工则按实际承担内容写清楚。")
     add_table(doc, [
         ("毕振岚", "组长、主程序实现", "主导 JavaFX 代码、图片管理核心流程、界面修复、最终功能冻结和版本推送。", "TreeRabbit15 提交 20260518、20260519、20260519最终版；群聊中多次发布功能冻结和任务安排。"),
@@ -574,9 +594,18 @@ CREATE TABLE IF NOT EXISTS images (
     add_heading(doc, "2.4 界面设计", 2)
     add_para(doc, "本次最终界面按 shadcn/ui 的视觉语言重新整理，但仍保留 JavaFX、FXML 和 CSS 实现方式，没有引入 Web 技术。主窗口采用中性浅色工作台、左侧目录树 sidebar、右侧缩略图网格和底部状态栏；控件使用清晰边框、低阴影、约 8px 圆角和紧凑间距，使界面更适合课堂演示和日常重复操作。")
     add_para(doc, "目录树保留文件管理习惯，缩略图卡片固定尺寸，卡片内显示等比图片、文件名、尺寸和格式；选中卡片通过边框和背景变化区分，按钮、输入框、下拉框、滚动条、弹窗和右键菜单都统一了 hover、focus、disabled、selected 等状态。图片查看器、幻灯片和编辑器保留深色图片区，避免图片内容被浅色背景干扰；底部控制区则改成同一套浅色按钮、边框和状态文本。设置页和首次启动向导去掉内联颜色，改为语义化 styleClass，窄窗口下可滚动且底部按钮保持可见。")
+    add_para(doc, "主界面底部状态栏新增数据库连接状态、数据库向导按钮、补打 AI 标签按钮、停止扫描和清理 AI 标签按钮。它们没有另外做成隐藏菜单，而是放在老师演示时最容易看到的位置：数据库未连接时直接显示“数据库未连接”，AI 自动识别漏掉时可以马上补打，扫描过多时可以停止，清理前也会说明 AI 标签实际保存在 PostgreSQL 中。")
 
-    add_heading(doc, "2.5 扩展功能与降级设计", 2)
-    add_para(doc, "项目中保留了 AI 配置、外部接口和智能搜索的扩展点，但最终验收不把这部分当作主要完成功能。这样写更符合当前代码和群聊中的功能冻结口径：基础图片管理必须稳定，外部服务如果没有密钥或网络环境，就只能作为后续扩展。")
+    add_heading(doc, "2.5 扩展功能、安装向导与降级设计", 2)
+    add_para(doc, "本系统把“依赖缺失时怎么让老师继续体验”作为最终打包阶段的重要设计点。正常情况下程序连接 PostgreSQL 后启用标签、搜索、缩略图缓存、设置保存、版本历史和 AI 标签；如果老师电脑没有安装 PostgreSQL 或密码不匹配，App 不再直接中止，而是先打开主窗口，再弹出数据库连接与初始化向导。")
+    add_code_block(doc, """
+启动主窗口
+  -> 检测 PostgreSQL 连接与核心表
+    -> 已就绪：显示首次启动向导和完整功能
+    -> 未连接/未初始化：显示数据库向导，主界面进入离线浏览模式
+""")
+    add_para(doc, "数据库向导内置 PostgreSQL 官方下载链接、JDBC URL、用户名、密码、本机配置保存位置、连接检测和“一键创建数据库并初始化”按钮。一键初始化不会依赖源码目录中的 SQL 文件，而是读取 JAR 内部的 /sql/schema.sql；这样别人只拿到目标 JAR 时，也能看到清楚的修复步骤。")
+    add_para(doc, "项目中也保留了 AI 配置、外部接口和智能搜索的扩展点，但这部分遵循可降级原则：没有 API Key 或网络时，关键词搜索和基础图片管理仍可用；配置成功后再开启 AI 标签、描述和自然语言检索。")
     add_code_block(doc, """
 public Optional<String> naturalLanguageToSQL(String naturalLanguageQuery) {
     if (!AIConfig.isConfigured()) {
@@ -593,13 +622,21 @@ public Optional<String> naturalLanguageToSQL(String naturalLanguageQuery) {
 
     add_heading(doc, "3 系统实现", 1)
     add_heading(doc, "3.1 应用启动与数据库连接", 2)
-    add_para(doc, "App 类负责加载 FXML、初始化 JavaFX 主舞台并显示欢迎或主界面。数据库连接由 DatabaseConnection 统一创建和管理，配置来自 resources/config/database.properties。连接池使用 HikariCP，避免频繁创建连接影响界面响应。")
+    add_para(doc, "App 类负责加载 FXML、初始化 JavaFX 主舞台并显示欢迎或主界面。数据库连接由 DatabaseConnection 统一创建和管理，默认配置来自 resources/config/database.properties，同时允许运行时读取用户本机外部配置。连接池使用 HikariCP，连接超时限制为 5 秒，避免老师电脑数据库不可用时长时间卡在启动界面。")
     add_code_block(doc, """
 db.url=jdbc:postgresql://localhost:5432/image_manager
 db.username=postgres
-db.password=1234
+# 密码不写入源码；由数据库向导保存本机配置或通过 DIMS_DB_PASSWORD 提供。
 """)
-    add_para(doc, "系统首次使用前执行 sql/schema.sql，脚本会创建核心表、索引、视图、触发器和存储过程。脚本中加入了 ADD COLUMN IF NOT EXISTS 和 DROP VIEW IF EXISTS，能兼容已经执行过旧版本脚本的数据库。")
+    add_para(doc, "打包后的 JAR 会优先读取 Windows 用户目录下的 %LOCALAPPDATA%\\DigitalImageManager\\database.properties，也支持 DIMS_DB_URL、DIMS_DB_USERNAME、DIMS_DB_PASSWORD 环境变量覆盖。这样本机密码、老师机器密码和源码默认配置可以分开，不需要把老师电脑的密码重新写进源码再打包。")
+    add_para(doc, "系统首次使用前需要执行 sql/schema.sql，脚本会创建核心表、索引、视图、触发器和存储过程。最新版本已把 sql/schema.sql 和 sql/data.sql 一并打进 JAR，DatabaseBootstrapService 可以从 /sql/schema.sql 读取内置脚本，并在应用内完成“创建数据库 + 建表”的一键初始化。")
+    add_code_block(doc, """
+DatabaseBootstrapService service = new DatabaseBootstrapService();
+DatabaseCheck check = service.check();
+if (!check.schemaReady()) {
+    DatabaseSetupDialog.show(ownerWindow, mainController::refreshDatabaseStatus);
+}
+""")
 
     add_heading(doc, "3.2 目录树与缩略图加载", 2)
     add_para(doc, "目录树使用 TreeView 实现，磁盘根目录作为第一层节点。每个目录节点初始放入“加载中...”占位子节点，只有用户展开时才真正扫描子目录，从而避免程序启动时遍历全盘。")
@@ -613,6 +650,7 @@ item.expandedProperty().addListener((obs, wasExpanded, isNowExpanded) -> {
 });
 """)
     add_para(doc, "选择目录后，ImageServiceImpl 会先确保该目录在数据库中存在，再扫描磁盘中支持格式的图片文件。磁盘有而数据库没有的图片会新增记录，数据库有而磁盘不存在的图片会标记删除，最后返回最新图片列表给主界面渲染缩略图。")
+    add_para(doc, "如果数据库未连接，ImageServiceImpl 不再调用 DAO，而是改走离线文件扫描：从当前目录读取支持格式图片，生成临时 ImageFile 对象并交给主界面显示。离线模式不保存标签、搜索历史和缩略图缓存，但能保证老师没有 PostgreSQL 时仍能看到主要图片管理界面。")
 
     add_heading(doc, "3.3 图片选择与右键操作", 2)
     add_para(doc, "缩略图区域使用 FlowPane 承载固定尺寸卡片，selectedImages 保存当前选中集合，cardMap 保存图片对象到卡片节点的映射。单击卡片时根据 Ctrl 状态决定清空选择或追加选择；拖拽时根据框选矩形和卡片 Bounds 判断是否选中。")
@@ -669,6 +707,8 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
 """)
     add_para(doc, "AI 图像识别默认连接 CPA 代理节点，Base URL 为 https://cpa.ystone.top/v1。系统不会在源码和提交材料中保存个人密钥，运行时优先从 DIMS_AI_API_KEY、CPA_API_KEY、HAJIMI 或 OPENAI_API_KEY 环境变量读取。模型名称不再要求用户手填，而是由设置页调用兼容 /models 接口后通过下拉菜单选择。")
     add_para(doc, "为了避免误选大目录造成过多 token 消耗，ScanTask 将 AI 识别限制在当前扫描根目录下，单次批处理上限由设置页保存，默认 100(max)，界面中凡是上限都按 N(max) 显示。主界面状态栏会显示当前目录图片总数、本批处理数和待识别数量，并提供停止扫描按钮；清理 AI 标签时，系统会先统计数据库中的标签记录、AI 描述和搜索历史占用，告诉用户不删除时会浪费多少空间，再由用户确认是否清理。")
+    add_para(doc, "针对“子目录文件刚同步、自动标签没有打好、或者界面尚未刷新”的实际问题，主界面新增“补打 AI 标签”按钮。它会优先使用当前选中的目录，若未选中则回退到设置中的扫描目录，只把该目录内 ai_processed=false 或未完成识别的图片重新送入扫描任务。这样用户不用重启软件，也不用清空全部标签后从头识别。")
+    add_para(doc, "设置页也做了单窗口保护。MainController 保存 settingsStage 引用，第二次点击设置按钮时只把已有设置页取消最小化、置顶并请求焦点，而不会创建两个一模一样的设置窗口。这个细节避免了两个窗口分别保存旧值和新值导致配置被误覆盖。")
     add_para(doc, "项目中也保留了外部模型把自然语言转换为 SQL 的接口，但该功能受密钥、网络和模型稳定性影响较大，因此在论文中只作为扩展接口说明。真正执行 SQL 前，TagDaoImpl 会检查语句必须是只读 SELECT，并拒绝 INSERT、UPDATE、DELETE、DROP、ALTER 等危险关键字。")
 
     add_heading(doc, "3.7 图片编辑与版本历史实现", 2)
@@ -679,11 +719,11 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
     add_table(doc, [
         ("操作系统", "Windows", "本地桌面环境。"),
         ("JDK", "Java 21 编译目标，JDK 21+ 可运行", "当前开发机将 .jar 双击关联到 JDK 26 的 javaw.exe。"),
-        ("数据库", "PostgreSQL 18.3", "本地 image_manager 数据库。"),
+        ("数据库", "PostgreSQL 18.3；另模拟未连接环境", "本地 image_manager 数据库；同时用无效端口验证离线启动和数据库向导。"),
         ("构建工具", "Maven 3.9.14", "执行 mvn -DskipTests package 生成 shaded JAR。"),
         ("网络/API", "CPA代理节点，可选密钥", "支持环境变量读取密钥；未配置时不影响基础图片管理功能。"),
     ], headers=["项目", "版本/配置", "说明"], widths=[3.5, 4.5, 7.5])
-    add_para(doc, "本次更新后重新执行 Maven 编译、单元测试、FXML/CSS 静态检查和 JavaFX 界面快照测试。界面快照测试直接加载当前 FXML 与 style.css，在不同窗口尺寸下生成 PNG，用于检查控件截断、文字重叠、滚动区域、选中状态和按钮可见性。数据库脚本执行后 public schema 中基础表、视图、触发器和函数均能创建，目标 JAR 为包含依赖的 shaded JAR。")
+    add_para(doc, "本次更新后重新执行 Maven 编译、单元测试、FXML/CSS 静态检查、JavaFX 界面快照测试、JAR 内容检查、数据库连通性自检和无效端口降级测试。界面快照测试直接加载当前 FXML 与 style.css，在不同窗口尺寸下生成 PNG，用于检查控件截断、文字重叠、滚动区域、选中状态和按钮可见性。数据库脚本执行后 public schema 中基础表、视图、触发器和函数均能创建，目标 JAR 为包含依赖的 shaded JAR。")
 
     add_heading(doc, "4.2 模块测试", 2)
     test_rows = [
@@ -702,12 +742,17 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
         ("幻灯片播放", "设置 3 秒间隔并播放", "自动切换图片，可暂停", "Timeline 定时切换正常", "通过"),
         ("AI模型下拉", "打开设置页并刷新模型", "从 /models 获取列表供选择", "模型不再手动填写，未取到时给出提示", "通过"),
         ("AI批处理上限", "在设置页调整单批上限后扫描目录", "按配置值 N(max) 限制本批处理数量", "状态栏显示目录总数、本批数量和待识别数量", "通过"),
+        ("补打AI标签", "当前目录有未识别图片时点击补打 AI 标签", "不重启软件即可重新触发当前目录识别", "按钮调用当前目录扫描并复用停止/清理流程", "通过"),
         ("停止扫描", "AI识别过程中点击停止扫描", "当前任务尽快中断，不继续旧目录", "任务取消后按钮状态恢复", "通过"),
         ("清理AI标签", "点击清理AI标签", "显示标签文件位置、大小和空间浪费并二次确认", "确认后清理数据库AI标签记录", "通过"),
+        ("设置单窗口", "连续两次点击设置按钮", "只存在一个设置窗口，第二次点击置顶", "settingsStage 复用并 requestFocus", "通过"),
+        ("数据库离线启动", "将数据库 URL 临时指向无效端口后启动/自检", "连接失败不导致主界面崩溃", "约 3 秒返回失败信息，主界面可进入离线模式", "通过"),
+        ("数据库向导", "数据库不可用时打开数据库向导", "显示下载链接、配置路径、检测连接、一键初始化", "向导窗口可单独关闭，状态栏保留未连接提示", "通过"),
         ("目录切换安全", "扫描中切换到新目录", "取消旧扫描并只识别当前目录", "待识别SQL已限定当前根目录", "通过"),
         ("首次向导布局", "选择较长路径或大目录", "确定/取消按钮仍可见", "内容区可滚动且窗口动态限高", "通过"),
         ("扩展接口配置", "未配置密钥启动并搜索", "AI功能跳过，不影响基础功能", "关键词搜索和图片管理可用", "通过"),
         ("数据库脚本", "执行 sql/schema.sql", "脚本无错误，表视图齐全", "执行成功，表/视图数量符合预期", "通过"),
+        ("JAR内置资源", "检查 target/image-manager-1.0.0.jar", "包含 schema.sql、data.sql 和数据库向导类", "JAR 内存在 /sql/schema.sql、DatabaseSetupDialog、DatabaseBootstrapService", "通过"),
     ]
     add_table(doc, test_rows, headers=["测试项", "输入/步骤", "预期结果", "实际结果", "结论"], widths=[2.6, 4.2, 3.9, 3.8, 1.3])
 
@@ -719,10 +764,11 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
     add_code_block(doc, """
 mvn -q -DskipTests compile
 mvn -q test
+mvn -q package
 mvn -q -DskipTests test-compile exec:java "-Dexec.classpathScope=test" "-Dexec.mainClass=com.imagemanager.UiSnapshotSmoke"
 psql -v ON_ERROR_STOP=1 -U postgres -d image_manager -f sql/schema.sql
 """)
-    add_para(doc, "打包产物 target/image-manager-1.0.0.jar 已复制为提交要求的“面向对象程序设计实践目标代码.JAR”。该 JAR 包含 JavaFX、PostgreSQL JDBC、HikariCP、OkHttp、Jackson 等运行依赖，便于课程验收。本次界面更新重点验证了编译、测试和真实界面截图生成，避免报告截图与当前程序不一致。")
+    add_para(doc, "打包产物 target/image-manager-1.0.0.jar 已复制为提交要求的“面向对象程序设计实践目标代码.JAR”。该 JAR 包含 JavaFX、PostgreSQL JDBC、HikariCP、OkHttp、Jackson 等运行依赖，并已确认包含 sql/schema.sql、sql/data.sql、DatabaseSetupDialog 和 DatabaseBootstrapService，便于课程验收。本次界面更新重点验证了编译、测试、数据库降级和真实界面截图生成，避免报告截图与当前程序不一致。")
 
     add_heading(doc, "4.5 前端缩放与截图测试", 2)
     add_para(doc, "JavaFX 桌面程序没有浏览器 zoom，本次按窗口尺寸和系统显示缩放的等效效果验证。最小窗口覆盖 900×600，默认窗口覆盖 1200×800，宽屏窗口覆盖 1440×900；弹窗和工具窗口按 100%、125% 和 150% 附近的等效尺寸截图复查。检查重点包括：按钮文字不截断，底部操作栏不重叠，目录树展开箭头可见，选中缩略图状态清楚，设置页和欢迎向导在窄窗口下可滚动。")
@@ -730,6 +776,7 @@ psql -v ON_ERROR_STOP=1 -U postgres -d image_manager -f sql/schema.sql
         ("主界面", "900×600、1200×800、1440×900", "目录树、搜索区、缩略图、状态栏、清理AI标签和幻灯片按钮均可见。", "通过"),
         ("首次启动向导", "640×620、800×775", "长路径输入、AI配置说明、警告区域和确定/取消按钮不遮挡。", "通过"),
         ("系统设置", "680×720、850×900", "折叠区、输入框、模型下拉、数值输入、滚动条和底部按钮正常。", "通过"),
+        ("数据库向导", "760×680", "PostgreSQL 下载链接、连接配置、检测连接、一键初始化和结果区均可见。", "通过"),
         ("图片查看器", "960×680、1200×850", "深色图片区、图片等比显示、缩放/切换/编辑/幻灯片按钮不截断。", "通过"),
         ("幻灯片播放", "1000×700、1250×875", "底部控制栏、音乐下拉、音量滑块、缩略图条和退出按钮无重叠。", "通过"),
         ("图片编辑器", "1000×750、1250×938", "工具栏、画布、标注图层、版本历史条和状态文本可读。", "通过"),
@@ -747,25 +794,28 @@ psql -v ON_ERROR_STOP=1 -U postgres -d image_manager -f sql/schema.sql
         "图5-5 首次启动向导 800×775：放大等效尺寸下的滚动与按钮状态",
         "图5-6 系统设置 680×720：窄窗口下的配置表单",
         "图5-7 系统设置 850×900：放大等效尺寸下的设置页",
-        "图5-8 图片查看器 960×680：大图展示和底部控制区",
-        "图5-9 图片查看器 1200×850：宽窗口下的图片等比展示",
-        "图5-10 幻灯片播放 1000×700：播放控制、音乐和缩略图条",
-        "图5-11 幻灯片播放 1250×875：放大等效尺寸下的控制栏",
-        "图5-12 图片编辑器 1000×750：工具栏、画布和版本历史",
-        "图5-13 图片编辑器 1250×938：放大等效尺寸下的编辑界面",
-        "图5-14 批量重命名弹窗 450×360：最小弹窗布局",
-        "图5-15 批量重命名弹窗 563×450：放大等效尺寸布局",
+        "图5-8 数据库连接与初始化向导 760×680：下载链接、配置保存、检测连接和一键初始化",
+        "图5-9 图片查看器 960×680：大图展示和底部控制区",
+        "图5-10 图片查看器 1200×850：宽窗口下的图片等比展示",
+        "图5-11 幻灯片播放 1000×700：播放控制、音乐和缩略图条",
+        "图5-12 幻灯片播放 1250×875：放大等效尺寸下的控制栏",
+        "图5-13 图片编辑器 1000×750：工具栏、画布和版本历史",
+        "图5-14 图片编辑器 1250×938：放大等效尺寸下的编辑界面",
+        "图5-15 批量重命名弹窗 450×360：最小弹窗布局",
+        "图5-16 批量重命名弹窗 563×450：放大等效尺寸布局",
     ]
-    for img_path, caption in zip(ui_images, captions):
-        add_para(doc, caption, 10.5, True, WD_ALIGN_PARAGRAPH.CENTER, False)
+    for idx, (img_path, caption) in enumerate(zip(ui_images, captions)):
+        caption_para = add_para(doc, caption, 10.5, True, WD_ALIGN_PARAGRAPH.CENTER, False)
+        if idx > 0:
+            caption_para.paragraph_format.page_break_before = True
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run()
         run.add_picture(str(img_path), width=Inches(6.1))
         add_para(doc, "该截图对应当前 JavaFX 程序的真实渲染结果。测试样例数据只用于截图复查，实际运行时界面数据来自用户选择的本地图片目录和 PostgreSQL 数据库。")
-        doc.add_page_break()
 
-    add_heading(doc, "6 总结", 1)
+    summary_heading = add_heading(doc, "6 总结", 1)
+    summary_heading.paragraph_format.page_break_before = True
     add_heading(doc, "6.1 毕振岚总结", 2)
     add_para(doc, "这一版程序里，我承担的主要压力集中在代码本身。目录树、缩略图、右键菜单、图片查看器、幻灯片、编辑器、主题背景和最终版修复都需要放到同一个 JavaFX 工程里跑通，真正麻烦的地方不是写一个按钮，而是保证一次重命名、一次删除、一次目录切换之后，界面、文件系统和数据库不要各走各的状态。后期 20260518、20260519 两次集中提交，也基本是在补这些体验和稳定性问题。")
     add_para(doc, "这次实践让我更清楚地感受到 Controller 不能无限长下去。现在 MainController 仍然承担了很多协调工作，虽然通过 Service、DAO 和工具类做了分层，但后续如果继续维护，我会优先把缩略图渲染、选择状态、右键菜单和搜索区域拆成更小的组件。这样比单纯继续加功能更重要。")
@@ -817,9 +867,12 @@ def make_score_docx():
         "单个图片复制粘贴：完成；多个图片复制粘贴：完成。",
         "单个图片重命名：完成；多个图片批量重命名：完成。",
         "图片展示的图片切换：完成；放大缩小：完成；幻灯片播放：完成。",
+        "数据库连接与初始化向导：完成；未安装 PostgreSQL 时主界面可离线浏览，并显示数据库未连接。",
+        "内置 schema.sql 一键初始化：完成；JAR 内包含 SQL 脚本，可应用内检测连接、创建数据库和建表。",
         "AI识别安全控制：完成，单批上限可调且按N(max)显示、可停止扫描、可统计并清理数据库AI标签。",
+        "手动补打AI标签：完成；设置窗口单实例保护：完成。",
         "程序代码质量（主要考查程序结构、代码质量、运行效率等）：优秀。",
-        "评语：系统采用 JavaFX + PostgreSQL 分层设计，基础采分点覆盖完整，并实现图片编辑版本历史、幻灯片音乐、主题设置、AI识别配置、安全扫描控制和可运行 JAR 打包。"
+        "评语：系统采用 JavaFX + PostgreSQL 分层设计，基础采分点覆盖完整，并实现图片编辑版本历史、幻灯片音乐、主题设置、数据库自检向导、离线浏览降级、AI识别补打、安全扫描控制和可运行 JAR 打包。"
     ]), size=9)
     for p in doc.paragraphs:
         for run in p.runs:
@@ -842,7 +895,7 @@ def make_extra_docx():
         ("2024级-软件工程-5班第7组_评分表_电子图片管理程序.docx", "可编辑评分表，按电子图片管理程序评分表模板填写小组成员、任务分工、功能完成情况和代码质量。"),
         ("面向对象程序设计实践源代码.ZIP", "Maven/IDEA 工程源码，包含 pom.xml、src、sql、assets、README 和开发日志。"),
         ("面向对象程序设计实践目标代码.JAR", "由 target/image-manager-1.0.0.jar 复制而来，包含运行依赖。"),
-        ("面向对象程序设计实践附加说明.docx", "运行环境、数据库初始化、JAR 启动排查、测试命令和注意事项。"),
+        ("面向对象程序设计实践附加说明.docx", "运行环境、数据库初始化向导、JAR 启动排查、测试命令和注意事项。"),
     ], headers=["文件", "说明"], widths=[6.0, 9.5])
     add_heading(doc, "2 运行环境", 1)
     add_table(doc, [
@@ -851,20 +904,23 @@ def make_extra_docx():
         ("构建工具", "Maven 3.9.14。"),
         ("主要依赖", "JavaFX 21.0.6、PostgreSQL JDBC、HikariCP、OkHttp、Jackson、Logback。"),
     ], headers=["项目", "要求"], widths=[4.0, 11.5])
-    add_heading(doc, "3 数据库初始化", 1)
+    add_heading(doc, "3 数据库初始化与应用内向导", 1)
+    add_para(doc, "如果教师电脑没有安装 PostgreSQL，程序不会直接崩溃退出，而是正常打开主界面并弹出“数据库连接与初始化向导”。老师可以关闭该向导，仅体验基础的图片目录浏览、缩略图显示、查看和幻灯片播放；界面底部会持续提示数据库未连接。")
+    add_para(doc, "向导中提供 PostgreSQL 18 官方下载链接：https://www.postgresql.org/download/ 。安装 PostgreSQL 后，请确保服务已启动，并记住安装时设置的 postgres 用户密码。")
     add_code_block(doc, """
 psql -U postgres -c "CREATE DATABASE image_manager ENCODING 'UTF8';"
 psql -U postgres -d image_manager -f sql/schema.sql
 """)
-    add_para(doc, "默认连接配置位于 src/main/resources/config/database.properties：db.url=jdbc:postgresql://localhost:5432/image_manager，db.username=postgres，db.password=1234。教师验收环境如密码不同，可修改该配置后重新打包，或在 IDE 中直接运行。")
+    add_para(doc, "上述两条命令已经做成应用内的一键初始化按钮。JAR 内部包含 sql/schema.sql，向导会读取内置脚本执行建表、索引、视图、触发器和存储过程，不要求老师手动找到源码目录里的 SQL 文件。")
+    add_para(doc, "默认连接配置位于 src/main/resources/config/database.properties：db.url=jdbc:postgresql://localhost:5432/image_manager，db.username=postgres，db.password 留空，不提交真实密码。打包后的 JAR 会优先读取本机外部配置：Windows 为 %LOCALAPPDATA%\\DigitalImageManager\\database.properties；其他系统为 ~/.dims/database.properties。向导里的“保存配置”按钮会写入该位置，也可通过 DIMS_DB_PASSWORD 环境变量覆盖。")
     add_heading(doc, "4 启动方式", 1)
     add_code_block(doc, """
 java -jar 面向对象程序设计实践目标代码.JAR
 """)
-    add_para(doc, "目标代码支持直接双击运行；上方命令主要用于排查环境问题。若使用源码运行，可在工程根目录执行 mvn javafx:run。首次进入程序建议选择一个较小的图片目录，AI识别单批上限默认100(max)，可在设置页调整，也可在主界面停止扫描或清理AI标签。")
+    add_para(doc, "目标代码支持直接双击运行；上方命令主要用于排查环境问题。若使用源码运行，可在工程根目录执行 mvn javafx:run。首次进入程序建议选择一个较小的图片目录，AI识别单批上限默认100(max)，可在设置页调整，也可在主界面补打AI标签、停止扫描或清理AI标签。")
     add_heading(doc, "5 双击 JAR 无反应的原因", 1)
     add_para(doc, "本项目目标 JAR 是 JavaFX 桌面程序，双击时 Windows 通常用 javaw.exe 启动，错误信息不会显示在命令行窗口里，所以看起来像“没反应”。本次用命令行启动过同一个 JAR，日志显示数据库连接池启动、主界面初始化并成功启动应用，说明 JAR 本身不是空包。")
-    add_para(doc, "如果双击仍无窗口，优先检查三点：第一，系统 .jar 文件关联的 Java 版本是否为 Java 21 或更高版本；第二，本地 PostgreSQL 的 image_manager 数据库是否已创建并能按 database.properties 连接；第三，当前 Windows 用户的环境变量中是否已有 AI 密钥。命令行启动只是排错手段，正常验收可以双击 JAR。")
+    add_para(doc, "如果双击后能看到主界面但底部显示数据库未连接，说明 Java 程序已经启动，只是 PostgreSQL 未安装、服务未启动、端口不是 5432、数据库未创建或密码不正确。此时请点击底部“数据库向导”，按向导检测连接并一键初始化。AI 密钥不是基础功能必须项，没有密钥时只是不启用 AI 标签。")
     add_code_block(doc, """
 java -jar 面向对象程序设计实践目标代码.JAR
 """)
@@ -872,10 +928,13 @@ java -jar 面向对象程序设计实践目标代码.JAR
     add_table(doc, [
         ("mvn -q -DskipTests compile", "通过", "确认当前 JavaFX、FXML、CSS 和控制器代码能完成编译。"),
         ("mvn -q test", "通过", "执行现有测试，确认本次界面风格改造没有破坏构建。"),
-        ("UiSnapshotSmoke", "通过", "直接加载当前 FXML 与 style.css，生成全部主要界面的多尺寸真实截图。"),
+        ("mvn -q package", "通过", "生成包含依赖和内置 SQL 的 target/image-manager-1.0.0.jar。"),
+        ("UiSnapshotSmoke", "通过", "直接加载当前 FXML、style.css 和数据库向导，生成全部主要界面的多尺寸真实截图。"),
         ("FXML/CSS 静态检查", "通过", "FXML 可解析，新增 styleClass 均有 CSS 定义，未保留关键内联颜色样式。"),
         ("psql -v ON_ERROR_STOP=1 -U postgres -d image_manager -f sql/schema.sql", "通过", "脚本执行成功，表和视图创建正常。"),
         ("数据库对象检查", "通过", "public schema 基础表 13 张，视图 4 个。"),
+        ("数据库连接自检", "通过", "正常配置返回 connected=true、schemaReady=true；无效端口约 3 秒返回连接失败，不阻塞启动。"),
+        ("JAR 内容检查", "通过", "确认 JAR 内含 sql/schema.sql、sql/data.sql、DatabaseSetupDialog、DatabaseBootstrapService。"),
     ], headers=["检查项", "结果", "说明"], widths=[7.0, 2.0, 6.5])
     add_heading(doc, "7 与老师模板的格式对照", 1)
     add_table(doc, [

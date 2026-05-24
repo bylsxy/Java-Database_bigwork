@@ -3,6 +3,7 @@ package com.imagemanager;
 import com.imagemanager.controller.MainController;
 import com.imagemanager.controller.WelcomeDialogController;
 import com.imagemanager.dao.DatabaseConnection;
+import com.imagemanager.service.DatabaseBootstrapService;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Rectangle2D;
@@ -31,11 +32,17 @@ public class App extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        Throwable databaseStartupError = null;
         try {
             // 1. 初始化数据库连接池
             logger.info("正在初始化数据库连接...");
-            DatabaseConnection.initialize();
-            logger.info("数据库连接初始化成功");
+            try {
+                DatabaseConnection.initialize();
+                logger.info("数据库连接初始化成功");
+            } catch (Exception e) {
+                databaseStartupError = e;
+                logger.warn("数据库连接初始化失败，应用将以离线模式启动: {}", e.getMessage());
+            }
 
             // 2. 加载主界面 FXML
             FXMLLoader loader = new FXMLLoader(
@@ -65,8 +72,17 @@ public class App extends Application {
             primaryStage.show();
             logger.info("应用程序启动成功");
 
-            // 5. v2.0: 首次启动向导 — 在主窗口显示后弹出
-            showWelcomeDialogIfNeeded(primaryStage, mainController);
+            boolean databaseReady = DatabaseConnection.isInitialized()
+                    && new DatabaseBootstrapService().check().schemaReady();
+            if (databaseReady) {
+                // 5. v2.0: 首次启动向导 — 在主窗口显示后弹出
+                showWelcomeDialogIfNeeded(primaryStage, mainController);
+            } else {
+                mainController.showDatabaseSetupIfDisconnected(primaryStage);
+                if (databaseStartupError != null) {
+                    logger.info("数据库向导已显示，启动时错误: {}", databaseStartupError.getMessage());
+                }
+            }
 
         } catch (Exception e) {
             logger.error("应用程序启动失败", e);

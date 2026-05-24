@@ -2,6 +2,7 @@ package com.imagemanager.controller;
 
 import com.imagemanager.dao.SettingsDao;
 import com.imagemanager.dao.SettingsDaoImpl;
+import com.imagemanager.dao.DatabaseConnection;
 import com.imagemanager.dao.TagDao;
 import com.imagemanager.dao.TagDaoImpl;
 import com.imagemanager.model.ImageFile;
@@ -9,6 +10,7 @@ import com.imagemanager.model.Tag;
 import com.imagemanager.model.TagCategory;
 import com.imagemanager.scanner.ScanTask;
 import com.imagemanager.service.AiTagStorageService;
+import com.imagemanager.service.DatabaseBootstrapService;
 import com.imagemanager.service.ImageService;
 import com.imagemanager.service.ImageServiceImpl;
 import com.imagemanager.service.SearchService;
@@ -84,6 +86,10 @@ public class MainController {
     @FXML
     private Label statusLabel;
     @FXML
+    private Label databaseStatusLabel;
+    @FXML
+    private Button databaseSetupButton;
+    @FXML
     private Label selectionLabel;
     @FXML
     private Button slideshowButton;
@@ -95,6 +101,7 @@ public class MainController {
     private ImageView themeBackgroundImageView;
     @FXML
     private BorderPane mainContentPane;
+    private Stage settingsStage;
 
     // v2.0 新增：搜索栏
     @FXML
@@ -111,6 +118,8 @@ public class MainController {
     private ProgressBar scanProgressBar;
     @FXML
     private Button stopScanButton;
+    @FXML
+    private Button rescanAiButton;
     @FXML
     private Button cleanupAiButton;
 
@@ -175,6 +184,7 @@ public class MainController {
         // v2.0: 初始化搜索栏
         initSearchBar();
         setImageCountText("");
+        refreshDatabaseStatus();
 
         // 应用全局主题背景
         applyTheme();
@@ -183,7 +193,11 @@ public class MainController {
     }
 
     private void applyTheme() {
-        ThemeUtil.applyThemeBackground(appRoot, themeBackgroundImageView, settingsDao);
+        if (DatabaseConnection.isInitialized()) {
+            ThemeUtil.applyThemeBackground(appRoot, themeBackgroundImageView, settingsDao);
+        } else {
+            ThemeUtil.applyThemeBackground(appRoot, themeBackgroundImageView, "");
+        }
         ThemeUtil.markThemedSurface(mainContentPane);
     }
 
@@ -220,7 +234,9 @@ public class MainController {
                     }
                 });
 
-        String scanDirectory = settingsDao.getValueOrDefault("scan_directory", "");
+        String scanDirectory = DatabaseConnection.isInitialized()
+                ? settingsDao.getValueOrDefault("scan_directory", "")
+                : "";
         if (!scanDirectory.isBlank() && new File(scanDirectory).isDirectory()) {
             showScanDirectoryRoot(scanDirectory, true);
         } else {
@@ -386,6 +402,7 @@ public class MainController {
             }
             logger.error("加载图片失败", loadTask.getException());
             statusLabel.setText("加载失败: " + loadTask.getException().getMessage());
+            refreshDatabaseStatus();
         });
 
         // 显示加载提示
@@ -647,7 +664,7 @@ public class MainController {
 
         MenuItem editItem = new MenuItem("编辑图片");
         editItem.setOnAction(e -> onEditImage());
-        editItem.setDisable(selectedImages.size() != 1);
+        editItem.setDisable(selectedImages.size() != 1 || !isDatabaseReady());
 
         MenuItem playFromHereItem = new MenuItem("从此处播放幻灯片");
         playFromHereItem.setOnAction(e -> onPlayFromSelected());
@@ -655,7 +672,7 @@ public class MainController {
 
         MenuItem tagItem = new MenuItem("管理标签");
         tagItem.setOnAction(e -> onManageTags());
-        tagItem.setDisable(selectedImages.size() != 1);
+        tagItem.setDisable(selectedImages.size() != 1 || !isDatabaseReady());
 
         MenuItem infoItem = new MenuItem("查看图片信息");
         infoItem.setOnAction(e -> onShowImageInfo());
@@ -925,6 +942,11 @@ public class MainController {
     }
 
     private void openImageEditor(ImageFile image) {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，图片编辑版本管理不可用");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
         try {
             FXMLLoader loader = new FXMLLoader(
                     getClass().getResource("/fxml/ImageEditorView.fxml"));
@@ -970,6 +992,11 @@ public class MainController {
      * 查看并编辑单张图片的标签。手动添加的标签会立即进入搜索索引。
      */
     private void onManageTags() {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，标签管理不可用");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
         if (selectedImages.size() != 1) {
             AlertUtil.showWarning("无法管理标签", "请只选择一张图片");
             return;
@@ -1237,6 +1264,18 @@ public class MainController {
             statusLabel.setText("请先选择一个文件夹再搜索");
             return;
         }
+        if (!DatabaseConnection.isInitialized()) {
+            List<ImageFile> matches = currentImages.stream()
+                    .filter(image -> image.fileName().toLowerCase().contains(query.toLowerCase()))
+                    .toList();
+            selectedImages.clear();
+            currentImages = new ArrayList<>(matches);
+            displayThumbnails(currentImages);
+            directoryNameLabel.setText("离线文件名搜索: \"" + query + "\"");
+            statusLabel.setText("数据库未连接，仅按当前目录已加载文件名搜索");
+            slideshowButton.setDisable(currentImages.isEmpty());
+            return;
+        }
         String searchDirectoryPath = currentDirectoryPath;
 
         // 判断搜索模式
@@ -1341,33 +1380,105 @@ public class MainController {
      */
     @FXML
     private void onOpenSettings() {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，先打开数据库向导");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
         openSettingsWindow(thumbnailPane.getScene().getWindow());
     }
 
+    @FXML
+    private void onOpenDatabaseSetup() {
+        openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+    }
+
+    public void showDatabaseSetupIfDisconnected(Window ownerWindow) {
+        refreshDatabaseStatus();
+        if (!isDatabaseReady()) {
+            openDatabaseSetupWindow(ownerWindow);
+        }
+    }
+
+    public void refreshDatabaseStatus() {
+        boolean connected = DatabaseConnection.isInitialized();
+        boolean ready = connected && new DatabaseBootstrapService().check().schemaReady();
+        if (databaseStatusLabel != null) {
+            databaseStatusLabel.setText(ready ? "数据库已连接" : connected ? "数据库待初始化" : "数据库未连接");
+            databaseStatusLabel.getStyleClass().remove("disconnected");
+            if (!ready) {
+                databaseStatusLabel.getStyleClass().add("disconnected");
+            }
+        }
+        if (databaseSetupButton != null) {
+            databaseSetupButton.setText(ready ? "数据库" : "数据库向导");
+        }
+        if (!ready) {
+            setRescanAiButtonDisabled(true);
+            if (cleanupAiButton != null) {
+                cleanupAiButton.setDisable(true);
+            }
+        } else {
+            setRescanAiButtonDisabled(activeScanTask != null && activeScanTask.isRunning());
+            if (cleanupAiButton != null) {
+                cleanupAiButton.setDisable(false);
+            }
+        }
+    }
+
+    private void openDatabaseSetupWindow(Window ownerWindow) {
+        DatabaseSetupDialog.show(ownerWindow, () -> {
+            if (!DatabaseConnection.isInitialized()) {
+                DatabaseConnection.tryInitialize();
+            }
+            refreshDatabaseStatus();
+            if (isDatabaseReady() && currentDirectoryPath != null) {
+                onDirectorySelected(currentDirectoryPath);
+            }
+        });
+    }
+
+    private boolean isDatabaseReady() {
+        return DatabaseConnection.isInitialized() && new DatabaseBootstrapService().check().schemaReady();
+    }
+
     public void openSettingsWindow(Window ownerWindow) {
+        if (settingsStage != null && settingsStage.isShowing()) {
+            settingsStage.setIconified(false);
+            settingsStage.toFront();
+            settingsStage.requestFocus();
+            return;
+        }
+
         try {
             FXMLLoader loader = new FXMLLoader(
                     getClass().getResource("/fxml/SettingsView.fxml"));
             Parent settingsRoot = loader.load();
             SettingsController controller = loader.getController();
 
-            Stage settingsStage = new Stage();
-            settingsStage.setTitle("系统设置 - 数字图像管理系统");
+            Stage newSettingsStage = new Stage();
+            newSettingsStage.setTitle("系统设置 - 数字图像管理系统");
             Rectangle2D screenBounds = ownerVisualBounds(ownerWindow);
             double sceneWidth = Math.min(720, Math.max(560, screenBounds.getWidth() - 96));
             double sceneHeight = Math.min(760, Math.max(520, screenBounds.getHeight() - 96));
             Scene scene = new Scene(settingsRoot, sceneWidth, sceneHeight);
             scene.getStylesheets().add(
                     getClass().getResource("/css/style.css").toExternalForm());
-            settingsStage.setScene(scene);
-            settingsStage.initOwner(ownerWindow);
-            settingsStage.setResizable(true);
-            settingsStage.setMinWidth(Math.min(560, sceneWidth));
-            settingsStage.setMinHeight(Math.min(480, sceneHeight));
-            settingsStage.setMaxWidth(screenBounds.getWidth());
-            settingsStage.setMaxHeight(screenBounds.getHeight());
-            settingsStage.setOnShown(event -> keepStageInsideScreen(settingsStage, screenBounds));
-            settingsStage.showAndWait();
+            newSettingsStage.setScene(scene);
+            newSettingsStage.initOwner(ownerWindow);
+            newSettingsStage.setResizable(true);
+            newSettingsStage.setMinWidth(Math.min(560, sceneWidth));
+            newSettingsStage.setMinHeight(Math.min(480, sceneHeight));
+            newSettingsStage.setMaxWidth(screenBounds.getWidth());
+            newSettingsStage.setMaxHeight(screenBounds.getHeight());
+            newSettingsStage.setOnShown(event -> keepStageInsideScreen(newSettingsStage, screenBounds));
+            newSettingsStage.setOnHidden(event -> {
+                if (settingsStage == newSettingsStage) {
+                    settingsStage = null;
+                }
+            });
+            settingsStage = newSettingsStage;
+            newSettingsStage.showAndWait();
 
             if (controller.isSaved()) {
                 applyTheme();
@@ -1380,6 +1491,9 @@ public class MainController {
                 }
             }
         } catch (Exception e) {
+            if (settingsStage != null && !settingsStage.isShowing()) {
+                settingsStage = null;
+            }
             logger.error("打开设置页面失败", e);
             AlertUtil.showError("错误", "无法打开设置页面: " + e.getMessage());
         }
@@ -1429,6 +1543,11 @@ public class MainController {
      * 启动后台AI扫描任务。在首次启动向导确认后被 App.java 调用。
      */
     public void startScanTask(String directoryPath) {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，AI扫描不可用");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
         File scanDir = new File(directoryPath);
         if (!scanDir.exists() || !scanDir.isDirectory()) {
             logger.warn("扫描目录不存在: {}", directoryPath);
@@ -1458,6 +1577,7 @@ public class MainController {
                 stopScanButton.setManaged(true);
                 stopScanButton.setDisable(true);
             }
+            setRescanAiButtonDisabled(true);
             logger.info("扫描任务正在运行，取消旧任务后切换到新目录: {}", scanDirectoryPath);
             activeScanTask.cancel();
             return;
@@ -1480,6 +1600,7 @@ public class MainController {
                 stopScanButton.setManaged(true);
                 stopScanButton.setDisable(false);
             }
+            setRescanAiButtonDisabled(true);
 
             scanProgressLabel.textProperty().bind(scanTask.messageProperty());
             scanProgressBar.progressProperty().bind(scanTask.progressProperty());
@@ -1493,6 +1614,7 @@ public class MainController {
                 if (startQueuedScanIfAny()) {
                     return;
                 }
+                setRescanAiButtonDisabled(false);
                 hideStopScanButton();
                 if (currentDirectoryPath != null && isInsideDirectory(currentDirectoryPath, scanDirectoryPath)) {
                     onDirectorySelected(currentDirectoryPath);
@@ -1508,6 +1630,7 @@ public class MainController {
                 if (startQueuedScanIfAny()) {
                     return;
                 }
+                setRescanAiButtonDisabled(false);
                 hideStopScanButton();
                 logger.error("扫描任务失败", scanTask.getException());
             });
@@ -1520,6 +1643,7 @@ public class MainController {
                 if (startQueuedScanIfAny()) {
                     return;
                 }
+                setRescanAiButtonDisabled(false);
                 hideStopScanButton();
                 if (promptCleanupAfterStop) {
                     promptCleanupAfterStop = false;
@@ -1554,6 +1678,12 @@ public class MainController {
         statusLabel.setText("旧扫描已停止，开始扫描新目录...");
         startScanTask(nextDirectory);
         return true;
+    }
+
+    private void setRescanAiButtonDisabled(boolean disabled) {
+        if (rescanAiButton != null) {
+            rescanAiButton.setDisable(disabled);
+        }
     }
 
     private void hideScanProgressLater() {
@@ -1608,6 +1738,37 @@ public class MainController {
     }
 
     @FXML
+    private void onRescanAiTags() {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，无法补打AI标签");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
+        if (activeScanTask != null && activeScanTask.isRunning()) {
+            statusLabel.setText("当前已有扫描任务在运行");
+            return;
+        }
+
+        String targetDirectory = currentDirectoryPath;
+        if (targetDirectory == null || targetDirectory.isBlank()) {
+            targetDirectory = settingsDao.getValueOrDefault("scan_directory", "");
+        }
+        if (targetDirectory == null || targetDirectory.isBlank()) {
+            AlertUtil.showInfo("补打 AI 标签", "请先在设置中选择图片目录，或先在左侧目录树中选中一个目录。");
+            return;
+        }
+
+        File targetDir = new File(targetDirectory);
+        if (!targetDir.isDirectory()) {
+            AlertUtil.showError("补打 AI 标签", "目录不存在或不可访问: " + targetDirectory);
+            return;
+        }
+
+        statusLabel.setText("开始补打当前目录的 AI 标签...");
+        startScanTask(targetDir.getAbsolutePath());
+    }
+
+    @FXML
     private void onStopScan() {
         if (activeScanTask == null || !activeScanTask.isRunning()) {
             statusLabel.setText("当前没有正在运行的扫描任务");
@@ -1636,6 +1797,11 @@ public class MainController {
 
     @FXML
     private void onCleanupAiData() {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，无法清理AI标签");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
         if (activeScanTask != null && activeScanTask.isRunning()) {
             boolean stopFirst = AlertUtil.showConfirmation(
                     "清理AI标签",

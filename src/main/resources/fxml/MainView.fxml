@@ -76,6 +76,10 @@
         <HBox styleClass="status-bar" alignment="CENTER_LEFT" spacing="12">
             <padding><Insets top="6" right="15" bottom="6" left="15"/></padding>
             <Label fx:id="statusLabel" text="就绪" styleClass="status-text"/>
+            <Separator orientation="VERTICAL" prefHeight="20"/>
+            <Label fx:id="databaseStatusLabel" text="数据库检测中" styleClass="database-status-label"/>
+            <Button fx:id="databaseSetupButton" text="数据库向导" onAction="#onOpenDatabaseSetup"
+                    styleClass="database-setup-button"/>
 
             <Pane HBox.hgrow="ALWAYS"/>
 
@@ -87,6 +91,8 @@
                          styleClass="scan-progress-bar" visible="false" managed="false"/>
             <Button fx:id="stopScanButton" text="停止扫描" onAction="#onStopScan"
                     styleClass="scan-stop-button" visible="false" managed="false"/>
+            <Button fx:id="rescanAiButton" text="补打 AI 标签" onAction="#onRescanAiTags"
+                    styleClass="scan-rescan-button"/>
             <Button fx:id="cleanupAiButton" text="清理 AI 标签" onAction="#onCleanupAiData"
                     styleClass="scan-cleanup-button"/>
 

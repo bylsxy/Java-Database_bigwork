@@ -122,6 +122,18 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>sql</directory>
+                <targetPath>sql</targetPath>
+                <includes>
+                    <include>*.sql</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <!-- Maven 编译器插件：指定 Java 21 LTS 编译，确保双击 JAR 时兼容常见 OpenJDK 21 运行环境 -->
             <plugin>

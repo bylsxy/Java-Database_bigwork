@@ -60,52 +60,60 @@ public class ImageServiceImpl implements ImageService {
     @Override
     public List<ImageFile> loadImagesFromDirectory(String directoryPath) {
         logger.info("扫描目录: {}", directoryPath);
-
-        // 1. 确保目录在数据库中存在
-        DirectoryNode dirNode = directoryDao.findOrCreate(directoryPath);
-
-        // 2. 扫描磁盘上的图片文件
-        List<File> diskFiles = FileUtil.listImageFiles(directoryPath, SUPPORTED_FORMATS);
-
-        // 3. 读取数据库中当前目录的图片记录
-        List<ImageFile> dbImages = imageDao.findByDirectoryId(dirNode.id());
-
-        // 4. 同步：磁盘有但数据库没有的 → 新增
-        var dbPaths = new java.util.HashSet<String>();
-        for (var img : dbImages) {
-            dbPaths.add(img.filePath());
+        if (!DatabaseConnection.isInitialized()) {
+            return loadImagesFromDiskOnly(directoryPath);
         }
 
-        var newImages = new ArrayList<ImageFile>();
-        for (var file : diskFiles) {
-            String filePath = file.getAbsolutePath();
-            if (!dbPaths.contains(filePath)) {
-                // 磁盘上有，数据库没有 → 创建新记录
-                var imageFile = createImageFileFromDisk(file, dirNode.id());
-                newImages.add(imageFile);
+        try {
+            // 1. 确保目录在数据库中存在
+            DirectoryNode dirNode = directoryDao.findOrCreate(directoryPath);
+
+            // 2. 扫描磁盘上的图片文件
+            List<File> diskFiles = FileUtil.listImageFiles(directoryPath, SUPPORTED_FORMATS);
+
+            // 3. 读取数据库中当前目录的图片记录
+            List<ImageFile> dbImages = imageDao.findByDirectoryId(dirNode.id());
+
+            // 4. 同步：磁盘有但数据库没有的 → 新增
+            var dbPaths = new java.util.HashSet<String>();
+            for (var img : dbImages) {
+                dbPaths.add(img.filePath());
             }
-        }
 
-        // 批量插入新发现的图片
-        if (!newImages.isEmpty()) {
-            imageDao.batchInsert(newImages);
-            logger.info("新增 {} 张图片到数据库", newImages.size());
-        }
-
-        // 5. 同步：数据库有但磁盘没有的 → 标记删除
-        var diskPaths = new java.util.HashSet<String>();
-        for (var file : diskFiles) {
-            diskPaths.add(file.getAbsolutePath());
-        }
-        for (var img : dbImages) {
-            if (!diskPaths.contains(img.filePath())) {
-                imageDao.softDelete(img.id());
-                logger.debug("磁盘文件不存在，标记删除: {}", img.filePath());
+            var newImages = new ArrayList<ImageFile>();
+            for (var file : diskFiles) {
+                String filePath = file.getAbsolutePath();
+                if (!dbPaths.contains(filePath)) {
+                    // 磁盘上有，数据库没有 → 创建新记录
+                    var imageFile = createImageFileFromDisk(file, dirNode.id());
+                    newImages.add(imageFile);
+                }
             }
-        }
 
-        // 6. 重新查询并返回最新列表
-        return imageDao.findByDirectoryId(dirNode.id());
+            // 批量插入新发现的图片
+            if (!newImages.isEmpty()) {
+                imageDao.batchInsert(newImages);
+                logger.info("新增 {} 张图片到数据库", newImages.size());
+            }
+
+            // 5. 同步：数据库有但磁盘没有的 → 标记删除
+            var diskPaths = new java.util.HashSet<String>();
+            for (var file : diskFiles) {
+                diskPaths.add(file.getAbsolutePath());
+            }
+            for (var img : dbImages) {
+                if (!diskPaths.contains(img.filePath())) {
+                    imageDao.softDelete(img.id());
+                    logger.debug("磁盘文件不存在，标记删除: {}", img.filePath());
+                }
+            }
+
+            // 6. 重新查询并返回最新列表
+            return imageDao.findByDirectoryId(dirNode.id());
+        } catch (RuntimeException e) {
+            logger.warn("数据库同步不可用，改用离线文件浏览: {}", e.getMessage());
+            return loadImagesFromDiskOnly(directoryPath);
+        }
     }
 
     @Override
@@ -115,7 +123,9 @@ public class ImageServiceImpl implements ImageService {
         for (var image : images) {
             try {
                 // 1. 数据库逻辑删除（触发器会自动记录日志）
-                imageDao.softDelete(image.id());
+                if (DatabaseConnection.isInitialized() && image.id() > 0) {
+                    imageDao.softDelete(image.id());
+                }
 
                 // 2. 磁盘物理删除
                 Path path = Path.of(image.filePath());
@@ -134,7 +144,9 @@ public class ImageServiceImpl implements ImageService {
     public void copyImages(List<ImageFile> images) {
         this.clipboard = new ArrayList<>(images);
         for (var image : images) {
-            logOperation(image.id(), "COPY", image.filePath(), "复制到应用剪贴板");
+            if (DatabaseConnection.isInitialized() && image.id() > 0) {
+                logOperation(image.id(), "COPY", image.filePath(), "复制到应用剪贴板");
+            }
         }
         logger.info("已复制 {} 张图片到剪贴板", images.size());
     }
@@ -148,6 +160,10 @@ public class ImageServiceImpl implements ImageService {
     public void pasteImages(String targetDirectoryPath) {
         if (clipboard.isEmpty()) {
             logger.warn("剪贴板为空，无法粘贴");
+            return;
+        }
+        if (!DatabaseConnection.isInitialized()) {
+            pasteImagesWithoutDatabase(targetDirectoryPath);
             return;
         }
 
@@ -198,7 +214,9 @@ public class ImageServiceImpl implements ImageService {
             Files.move(oldPath, newPath, StandardCopyOption.ATOMIC_MOVE);
 
             // 2. 数据库更新（触发器自动记录日志）
-            imageDao.updateFileName(image.id(), newFileName, newPath.toString());
+            if (DatabaseConnection.isInitialized() && image.id() > 0) {
+                imageDao.updateFileName(image.id(), newFileName, newPath.toString());
+            }
 
             logger.info("重命名: {} → {}", image.fileName(), newFileName);
 
@@ -290,7 +308,8 @@ public class ImageServiceImpl implements ImageService {
         byte[] thumbnailData = ImageUtil.generateThumbnailBytes(image.filePath(), maxWidth, maxHeight);
 
         // 缓存到数据库
-        if (thumbnailData != null && thumbnailData.length > 0) {
+        if (thumbnailData != null && thumbnailData.length > 0
+                && DatabaseConnection.isInitialized() && image.id() > 0) {
             imageDao.updateThumbnail(image.id(), thumbnailData);
         }
 
@@ -318,6 +337,30 @@ public class ImageServiceImpl implements ImageService {
         );
     }
 
+    private List<ImageFile> loadImagesFromDiskOnly(String directoryPath) {
+        List<File> diskFiles = FileUtil.listImageFiles(directoryPath, SUPPORTED_FORMATS);
+        List<ImageFile> images = new ArrayList<>();
+        for (File file : diskFiles) {
+            images.add(createImageFileFromDisk(file, 0));
+        }
+        return images;
+    }
+
+    private void pasteImagesWithoutDatabase(String targetDirectoryPath) {
+        logger.info("离线粘贴 {} 张图片到 {}", clipboard.size(), targetDirectoryPath);
+        for (var image : clipboard) {
+            try {
+                String targetFileName = resolveConflictNameOnDisk(targetDirectoryPath, image.fileName());
+                Path sourcePath = Path.of(image.filePath());
+                Path targetPath = Path.of(targetDirectoryPath, targetFileName);
+                Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                logger.error("离线粘贴文件失败: {} - {}", image.fileName(), e.getMessage());
+                throw new RuntimeException("粘贴文件失败: " + image.fileName(), e);
+            }
+        }
+    }
+
     /**
      * 解决文件名冲突：如果目标目录已有同名文件，自动添加序号。
      * 例如：photo.jpg → photo(1).jpg → photo(2).jpg → ...
@@ -337,6 +380,21 @@ public class ImageServiceImpl implements ImageService {
             }
         }
 
+        throw new RuntimeException("无法为 " + fileName + " 生成唯一文件名");
+    }
+
+    private String resolveConflictNameOnDisk(String directoryPath, String fileName) {
+        if (!Files.exists(Path.of(directoryPath, fileName))) {
+            return fileName;
+        }
+        String baseName = FileUtil.getBaseName(fileName);
+        String extension = FileUtil.getExtension(fileName);
+        for (int i = 1; i <= 9999; i++) {
+            String candidate = baseName + "(" + i + ")." + extension;
+            if (!Files.exists(Path.of(directoryPath, candidate))) {
+                return candidate;
+            }
+        }
         throw new RuntimeException("无法为 " + fileName + " 生成唯一文件名");
     }
 
@@ -362,6 +420,9 @@ public class ImageServiceImpl implements ImageService {
     }
 
     private void logOperation(int imageId, String operationType, String oldValue, String newValue) {
+        if (!DatabaseConnection.isInitialized() || imageId <= 0) {
+            return;
+        }
         String sql = """
                 INSERT INTO operation_logs (image_id, operation_type, old_value, new_value)
                 VALUES (?, ?, ?, ?)

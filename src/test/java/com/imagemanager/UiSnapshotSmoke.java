@@ -1,5 +1,6 @@
 package com.imagemanager;
 
+import com.imagemanager.controller.DatabaseSetupDialog;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.fxml.FXMLLoader;
@@ -23,6 +24,7 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 
 import javax.imageio.ImageIO;
 import java.io.ByteArrayInputStream;
@@ -113,6 +115,8 @@ public class UiSnapshotSmoke {
             ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", out.resolve(fileName).toFile());
             stage.hide();
         }
+
+        captureDatabaseSetupDialog(out);
     }
 
     private static LoadedFxml loadStaticFxml(Path fxmlPath) throws Exception {
@@ -148,6 +152,7 @@ public class UiSnapshotSmoke {
         Label imageCountLabel = fx(namespace, "imageCountLabel", Label.class);
         Label statusLabel = fx(namespace, "statusLabel", Label.class);
         Label selectionLabel = fx(namespace, "selectionLabel", Label.class);
+        Label databaseStatusLabel = fx(namespace, "databaseStatusLabel", Label.class);
         if (pathLabel != null) {
             pathLabel.setText("D:\\Pictures\\课程设计样例");
         }
@@ -162,6 +167,9 @@ public class UiSnapshotSmoke {
         }
         if (selectionLabel != null) {
             selectionLabel.setText("已选择 2 张");
+        }
+        if (databaseStatusLabel != null) {
+            databaseStatusLabel.setText("数据库已连接");
         }
 
         TreeView<String> tree = fx(namespace, "directoryTree", TreeView.class);
@@ -189,6 +197,31 @@ public class UiSnapshotSmoke {
                 thumbnailPane.getChildren().add(createThumbnailCard(i, i == 2 || i == 5, i == 2 || i == 4 || i == 8));
             }
         }
+    }
+
+    private static void captureDatabaseSetupDialog(Path out) throws Exception {
+        DatabaseSetupDialog.show(null, () -> {
+        });
+        Stage stage = Window.getWindows().stream()
+                .filter(Window::isShowing)
+                .filter(window -> window instanceof Stage dialogStage
+                        && "数据库连接与初始化向导".equals(dialogStage.getTitle()))
+                .map(window -> (Stage) window)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("数据库连接与初始化向导未显示"));
+
+        stage.setOpacity(0);
+        stage.setWidth(760);
+        stage.setHeight(680);
+        stage.getScene().getRoot().applyCss();
+        stage.getScene().getRoot().layout();
+
+        WritableImage image = new WritableImage(760, 680);
+        stage.getScene().snapshot(image);
+        ImageIO.write(SwingFXUtils.fromFXImage(image, null),
+                "png",
+                out.resolve("DatabaseSetupDialog-760x680.png").toFile());
+        stage.hide();
     }
 
     private static void decorateImageViewer(Map<String, Object> namespace, int width, int height) {

@@ -465,6 +465,8 @@
 
 .settings-button,
 .secondary-button,
+.database-setup-button,
+.scan-rescan-button,
 .scan-cleanup-button,
 .cancel-button,
 .viewer-button,
@@ -478,6 +480,8 @@
 
 .settings-button:hover,
 .secondary-button:hover,
+.database-setup-button:hover,
+.scan-rescan-button:hover,
 .scan-cleanup-button:hover,
 .cancel-button:hover,
 .viewer-button:hover,
@@ -497,6 +501,17 @@
 .warning-button:hover {
     -fx-background-color: #FDE68A;
     -fx-border-color: #FBBF24;
+}
+
+.scan-rescan-button {
+    -fx-background-color: #E0F2FE;
+    -fx-border-color: #BAE6FD;
+    -fx-text-fill: #0C4A6E;
+}
+
+.scan-rescan-button:hover {
+    -fx-background-color: #BAE6FD;
+    -fx-border-color: #7DD3FC;
 }
 
 .scan-stop-button,
@@ -727,6 +742,20 @@
     -fx-font-size: 12px;
 }
 
+.database-status-label {
+    -fx-text-fill: #166534;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.database-status-label.disconnected {
+    -fx-text-fill: #B91C1C;
+}
+
+.database-setup-button {
+    -fx-padding: 5 10 5 10;
+}
+
 .selection-text {
     -fx-text-fill: #020617;
     -fx-font-size: 12px;
@@ -784,7 +813,9 @@
 .secondary-button,
 .success-button,
 .warning-button,
+.database-setup-button,
 .scan-stop-button,
+.scan-rescan-button,
 .scan-cleanup-button,
 .slideshow-button,
 .dialog-button,

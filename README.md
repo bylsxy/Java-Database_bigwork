@@ -1,4 +1,4 @@
-﻿# 基于 PostgreSQL 的数字图像集成管理系统
+# 基于 PostgreSQL 的数字图像集成管理系统
 
 > 本项目结合《面向对象程序设计》（Java）和《数据库系统》课程要求，使用 JavaFX + PostgreSQL 开发的数字图片管理桌面应用。
 
@@ -29,7 +29,11 @@
 
 下载 [PostgreSQL 18](https://www.postgresql.org/download/)，安装后确保服务已启动。
 
-### 3. 创建数据库
+> 如果直接运行课程 JAR 时检测不到数据库，应用会正常打开主界面，并弹出“数据库连接与初始化向导”。
+> 向导内置 PostgreSQL 官方下载链接和 `sql/schema.sql`，可保存本机连接配置，并一键创建 `image_manager` 数据库及表结构。
+> 未连接数据库时仍可浏览本机图片，但标签、搜索、AI 识别、缩略图缓存和设置保存等数据库功能不可用。
+
+### 3. 创建数据库（可由应用内向导一键执行）
 
 ```bash
 # 创建数据库
@@ -44,12 +48,15 @@ psql -U postgres -d image_manager -f sql/data.sql
 
 ### 4. 配置数据库连接
 
-编辑 `src/main/resources/config/database.properties`：
+开发环境可编辑 `src/main/resources/config/database.properties`；打包后的 JAR 会优先读取本机外部配置：
+
+- Windows: `%LOCALAPPDATA%\DigitalImageManager\database.properties`
+- 其他系统: `~/.dims/database.properties`
 
 ```properties
 db.url=jdbc:postgresql://localhost:5432/image_manager
 db.username=postgres
-db.password=1234
+db.password=
 ```
 
 ## 构建与运行
@@ -65,7 +72,7 @@ mvn javafx:run
 mvn package
 
 # 双击使用的课程提交 JAR
-docs/面向对象程序与设计/我们的实际写作/面向对象程序设计实践目标代码.JAR
+docs/面向对象程序与设计/面向对象程序设计实践/2024级软件工程R5班/第07组/面向对象程序设计实践目标代码.JAR
 ```
 
 ## 版本管理说明
@@ -114,3 +121,7 @@ docs/面向对象程序与设计/我们的实际写作/面向对象程序设计�
 - ✅ 存储过程报表（按月统计、目录空间分析）
 - ✅ AI 识别配置（默认 CPA 代理节点，密钥优先读取环境变量，模型从 `/models` 下拉选择）
 - ✅ AI 扫描安全控制（单批上限可在设置页调整，界面统一显示为 N(max)，可停止扫描并清理数据库中的 AI 标签）
+- ✅ AI 标签补打（自动识别遗漏时可在当前目录手动重新触发）
+- ✅ 数据库连接与初始化向导（检测连接、保存本机配置、一键创建数据库并执行内置 schema.sql）
+- ✅ 离线浏览降级（未安装 PostgreSQL 时仍可打开主界面体验基础图片管理）
+- ✅ 设置窗口单实例保护（重复点击设置只置顶已有窗口，避免配置互相覆盖）
