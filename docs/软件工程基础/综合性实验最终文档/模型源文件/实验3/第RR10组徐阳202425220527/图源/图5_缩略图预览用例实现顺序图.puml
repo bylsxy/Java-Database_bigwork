@@ -1,0 +1,19 @@
+@startuml
+title 缩略图预览用例实现顺序图
+participant "机主" as P0
+participant "MainController" as P1
+participant "ImageServiceImpl" as P2
+participant "FileUtil/ImageUtil" as P3
+participant "ImageDao/DirectoryDao" as P4
+participant "PostgreSQL" as P5
+P0 -> P1: 在目录树选择文件夹
+P1 -> P2: loadImagesFromDirectory(path)
+P2 -> P4: findOrCreate(path)
+P4 -> P5: INSERT/SELECT directories
+P2 -> P3: listImageFiles + generateThumbnail
+P2 -> P4: batchInsert(newImages)
+P4 -> P5: 写入 images.thumbnail/metadata
+P4 -> P2: 返回 ImageFile 列表
+P2 -> P1: 返回带ID和缩略图的模型
+P1 -> P0: 渲染缩略图网格和状态栏
+@enduml

@@ -55,11 +55,65 @@
             <VBox styleClass="preview-container">
                 <HBox styleClass="directory-info-bar" alignment="CENTER_LEFT" spacing="12">
                     <padding><Insets top="12" right="18" bottom="10" left="18"/></padding>
-                    <VBox HBox.hgrow="ALWAYS" spacing="2">
-                        <Label fx:id="directoryNameLabel" text="" styleClass="directory-name"/>
+                    <VBox HBox.hgrow="ALWAYS" spacing="2" minWidth="0">
+                        <Label fx:id="directoryNameLabel" text="" styleClass="directory-name"
+                               maxWidth="Infinity" textOverrun="CENTER_ELLIPSIS"/>
                     </VBox>
-                    <Label fx:id="imageCountLabel" text="" styleClass="image-count"/>
+                    <HBox styleClass="directory-action-bar" alignment="CENTER_RIGHT" spacing="8">
+                        <Label fx:id="imageCountLabel" text="" styleClass="image-count"/>
+                        <Button fx:id="rescanAiButton" text="补打 AI 标签" onAction="#onRescanAiTags"
+                                styleClass="scan-rescan-button"/>
+                        <Button fx:id="cleanupAiButton" text="清理 AI 标签" onAction="#onCleanupAiData"
+                                styleClass="scan-cleanup-button"/>
+                    </HBox>
                 </HBox>
+
+                <VBox fx:id="scanStatusPane" styleClass="scan-status-pane" spacing="10"
+                      visible="false" managed="false">
+                    <padding><Insets top="12" right="18" bottom="12" left="18"/></padding>
+                    <BorderPane>
+                        <center>
+                            <VBox spacing="4" minWidth="0" BorderPane.alignment="CENTER_LEFT">
+                                <HBox alignment="CENTER_LEFT" spacing="8">
+                                    <Label fx:id="scanPhaseLabel" text="" styleClass="scan-phase-label"/>
+                                    <Label fx:id="scanSummaryLabel" text="" styleClass="scan-summary-label"
+                                           minWidth="0" maxWidth="Infinity" HBox.hgrow="ALWAYS"
+                                           textOverrun="CENTER_ELLIPSIS"/>
+                                </HBox>
+                                <Label fx:id="scanDetailLabel" text="" styleClass="scan-detail-label"
+                                       minWidth="0" wrapText="true" textOverrun="CLIP" maxWidth="Infinity"/>
+                            </VBox>
+                        </center>
+                        <right>
+                            <Button fx:id="stopScanButton" text="停止扫描" onAction="#onStopScan"
+                                    styleClass="scan-stop-button" visible="false" managed="false"
+                                    BorderPane.alignment="CENTER_RIGHT"/>
+                        </right>
+                    </BorderPane>
+
+                    <ProgressBar fx:id="scanProgressBar" prefHeight="12" maxWidth="Infinity"
+                                 styleClass="scan-progress-bar"/>
+
+                    <FlowPane styleClass="scan-metrics-flow" alignment="CENTER_LEFT" hgap="12" vgap="8"
+                              prefWrapLength="720">
+                        <HBox styleClass="scan-metric-chip" alignment="CENTER_LEFT" spacing="6">
+                            <Label text="开始于" styleClass="scan-metric-caption"/>
+                            <Label fx:id="scanStartedAtLabel" text="--" styleClass="scan-metric-value"/>
+                        </HBox>
+                        <HBox styleClass="scan-metric-chip" alignment="CENTER_LEFT" spacing="6">
+                            <Label text="已耗时" styleClass="scan-metric-caption"/>
+                            <Label fx:id="scanElapsedLabel" text="--" styleClass="scan-metric-value"/>
+                        </HBox>
+                        <HBox styleClass="scan-metric-chip" alignment="CENTER_LEFT" spacing="6">
+                            <Label text="预计剩余" styleClass="scan-metric-caption"/>
+                            <Label fx:id="scanRemainingLabel" text="估算中" styleClass="scan-metric-value"/>
+                        </HBox>
+                        <HBox styleClass="scan-metric-chip" alignment="CENTER_LEFT" spacing="6">
+                            <Label text="平均速度" styleClass="scan-metric-caption"/>
+                            <Label fx:id="scanRateLabel" text="计算中" styleClass="scan-metric-value"/>
+                        </HBox>
+                    </FlowPane>
+                </VBox>
 
                 <ScrollPane fx:id="thumbnailScroll" fitToWidth="true" VBox.vgrow="ALWAYS"
                             styleClass="thumbnail-scroll" pannable="true">
@@ -75,30 +129,16 @@
     <bottom>
         <HBox styleClass="status-bar" alignment="CENTER_LEFT" spacing="12">
             <padding><Insets top="6" right="15" bottom="6" left="15"/></padding>
-            <Label fx:id="statusLabel" text="就绪" styleClass="status-text"/>
+            <Label fx:id="statusLabel" text="就绪" styleClass="status-text"
+                   minWidth="0" maxWidth="Infinity" HBox.hgrow="ALWAYS"
+                   textOverrun="CENTER_ELLIPSIS"/>
             <Separator orientation="VERTICAL" prefHeight="20"/>
             <Label fx:id="databaseStatusLabel" text="数据库检测中" styleClass="database-status-label"/>
             <Button fx:id="databaseSetupButton" text="数据库向导" onAction="#onOpenDatabaseSetup"
                     styleClass="database-setup-button"/>
 
             <Pane HBox.hgrow="ALWAYS"/>
-
-            <Label fx:id="scanProgressLabel" text="" styleClass="scan-progress-label"
-                   minWidth="240" prefWidth="560" maxWidth="560"
-                   textOverrun="CENTER_ELLIPSIS"
-                   visible="false" managed="false"/>
-            <ProgressBar fx:id="scanProgressBar" prefWidth="180" prefHeight="14"
-                         styleClass="scan-progress-bar" visible="false" managed="false"/>
-            <Button fx:id="stopScanButton" text="停止扫描" onAction="#onStopScan"
-                    styleClass="scan-stop-button" visible="false" managed="false"/>
-            <Button fx:id="rescanAiButton" text="补打 AI 标签" onAction="#onRescanAiTags"
-                    styleClass="scan-rescan-button"/>
-            <Button fx:id="cleanupAiButton" text="清理 AI 标签" onAction="#onCleanupAiData"
-                    styleClass="scan-cleanup-button"/>
-
-            <Separator orientation="VERTICAL" prefHeight="20"/>
             <Label fx:id="selectionLabel" text="" styleClass="selection-text"/>
-            <Separator orientation="VERTICAL" prefHeight="20"/>
             <Button fx:id="slideshowButton" text="幻灯片" onAction="#onSlideshow"
                     styleClass="slideshow-button" disable="true"/>
         </HBox>

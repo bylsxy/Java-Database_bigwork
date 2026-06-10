@@ -16,9 +16,6 @@ import java.util.Optional;
 public class SettingsDaoImpl implements SettingsDao {
 
     private static final Logger logger = LoggerFactory.getLogger(SettingsDaoImpl.class);
-    private static final String DEFAULT_CPA_BASE_URL = "https://cpa.ystone.top/v1";
-    private static final String LEGACY_ALIYUN_BASE_URL = "https://" + "dash" + "scope.aliyuncs.com/compatible-mode/v1";
-    private static final String LEGACY_QWEN_MODEL = "q" + "wen-vl-plus";
     private static volatile boolean schemaReady = false;
 
     @Override
@@ -111,44 +108,19 @@ public class SettingsDaoImpl implements SettingsDao {
             String defaultsSql = """
                     INSERT INTO app_settings (key, value) VALUES
                         ('scan_directory', ''),
-                        ('ai_base_url', '%s'),
-                        ('ai_api_key', ''),
-                        ('ai_model', ''),
                         ('show_welcome', 'true'),
                         ('thumbnail_storage', 'database'),
                         ('slideshow_interval', '3'),
                         ('slideshow_order', 'SEQUENTIAL'),
                         ('slideshow_music', 'none'),
                         ('theme_background_path', ''),
-                        ('theme_background_opacity', '0.35'),
-                        ('ai_request_delay', '1500'),
-                        ('ai_batch_limit', '100'),
-                        ('ai_max_retries', '3')
+                        ('theme_background_opacity', '0.35')
                     ON CONFLICT (key) DO NOTHING
-                    """.formatted(DEFAULT_CPA_BASE_URL);
+                    """;
             try (Connection conn = DatabaseConnection.getConnection();
                  Statement stmt = conn.createStatement()) {
                 stmt.execute(createSql);
                 stmt.execute(defaultsSql);
-                try (PreparedStatement ps = conn.prepareStatement("""
-                        UPDATE app_settings
-                        SET value = ?, updated_at = NOW()
-                        WHERE key = 'ai_base_url'
-                          AND value = ?
-                        """)) {
-                    ps.setString(1, DEFAULT_CPA_BASE_URL);
-                    ps.setString(2, LEGACY_ALIYUN_BASE_URL);
-                    ps.executeUpdate();
-                }
-                try (PreparedStatement ps = conn.prepareStatement("""
-                        UPDATE app_settings
-                        SET value = '', updated_at = NOW()
-                        WHERE key = 'ai_model'
-                          AND value = ?
-                        """)) {
-                    ps.setString(1, LEGACY_QWEN_MODEL);
-                    ps.executeUpdate();
-                }
                 schemaReady = true;
             } catch (SQLException e) {
                 logger.error("初始化设置表失败", e);
@@ -165,7 +137,7 @@ public class SettingsDaoImpl implements SettingsDao {
     }
 
     private String safeLogValue(String key, String value) {
-        if ("ai_api_key".equals(key)) {
+        if (key != null && key.toLowerCase().contains("key")) {
             return value == null || value.isBlank() ? "" : "******";
         }
         return value;

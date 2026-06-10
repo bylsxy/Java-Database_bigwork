@@ -12,7 +12,7 @@
 | Java | Java 21 编译目标，JDK 21+ 可运行；当前 Windows 双击 JAR 关联到 JDK 26 |
 | Maven | 3.9.14 |
 | JavaFX | 21.0.6 (org.openjfx) |
-| PostgreSQL | 18.3, localhost:5432, DB=image_manager, user=postgres, pwd=1234 |
+| PostgreSQL | 18.3, localhost:5432, DB=image_manager, user=postgres, pwd=本机私有配置 |
 | 架构 | 纯 JavaFX + JDBC（三层架构：DAO → Service → Controller） |
 | 连接池 | HikariCP |
 
@@ -34,7 +34,7 @@
 - [x] Phase 5: 集成测试与 UI 校验
 
 ### 2026-05-21 稳定性与体验修复
-- [x] AI 默认 Base URL 统一为 `https://cpa.ystone.top/v1`，API Key 优先读取环境变量，源码和提交包不保存密钥。
+- [x] AI 配置改为本机私有 fallback 列表，源码、文档和提交包不保存端点密钥；运行时失败后自动降级并按阈值熔断。
 - [x] 设置页模型改为从兼容 `/models` 接口自动获取并下拉选择，不再要求手填模型名称。
 - [x] 首次向导中的“打开设置页面配置 AI API”已接入主窗口设置页，不再只打印日志。
 - [x] 首次向导改为可滚动、可动态限高，选择目录后底部确定/取消按钮不会被挤出屏幕。

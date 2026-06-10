@@ -1,0 +1,14 @@
+@startuml
+node "用户PC" {
+  artifact "image-manager.jar"
+  node "JavaFX应用进程" {
+    component "Controller/Service/DAO"
+  }
+  database "PostgreSQL 18.3\nimage_manager"
+  folder "本地图片目录"
+}
+cloud "OpenAI兼容API"
+"JavaFX应用进程" --> "PostgreSQL 18.3\nimage_manager" : JDBC
+"JavaFX应用进程" --> "本地图片目录" : Files API
+"JavaFX应用进程" --> "OpenAI兼容API" : HTTPS
+@enduml

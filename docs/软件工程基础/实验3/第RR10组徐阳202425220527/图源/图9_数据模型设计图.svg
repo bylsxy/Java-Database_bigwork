@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1050" height="610" viewBox="0 0 1050 610">
+
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L10,4 L0,8 z" fill="#274C77"/>
+      </marker>
+      <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="0" dy="1.6" stdDeviation="1.5" flood-color="#6B7280" flood-opacity="0.20"/>
+      </filter>
+    </defs>
+    
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="525.0" y="34" text-anchor="middle" font-size="24" font-weight="700" font-family="Microsoft YaHei, SimHei, Arial" fill="#0B2545">数据模型设计图</text>
+<text x="525.0" y="60" text-anchor="middle" font-size="13" font-family="Microsoft YaHei, SimSun, Arial" fill="#5B677A">对应本地课件 SE10：数据设计明确持久数据、表、关键字、外键和操作</text>
+<rect x="60" y="110" width="230" height="95" rx="8" fill="#FFFDF7" stroke="#8A5A00" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="175.0" y="137.5" font-size="13" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="175.0" dy="0.0">directories</tspan><tspan x="175.0" dy="16.2">id PK</tspan><tspan x="175.0" dy="16.2">dir_path UNIQUE</tspan><tspan x="175.0" dy="16.2">parent_id FK</tspan></text>
+<rect x="355" y="110" width="230" height="95" rx="8" fill="#FFFDF7" stroke="#8A5A00" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="470.0" y="121.2" font-size="13" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="470.0" dy="0.0">images</tspan><tspan x="470.0" dy="16.2">id PK</tspan><tspan x="470.0" dy="16.2">directory_id FK</tspan><tspan x="470.0" dy="16.2">file_hash</tspan><tspan x="470.0" dy="16.2">thumbnail</tspan><tspan x="470.0" dy="16.2">is_deleted</tspan></text>
+<rect x="680" y="110" width="230" height="95" rx="8" fill="#FFFDF7" stroke="#8A5A00" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="795.0" y="129.3" font-size="13" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="795.0" dy="0.0">operation_logs</tspan><tspan x="795.0" dy="16.2">id PK</tspan><tspan x="795.0" dy="16.2">image_id FK</tspan><tspan x="795.0" dy="16.2">operation_type</tspan><tspan x="795.0" dy="16.2">old/new_value</tspan></text>
+<rect x="60" y="315" width="230" height="95" rx="8" fill="#FFFDF7" stroke="#8A5A00" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="175.0" y="350.6" font-size="13" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="175.0" dy="0.0">tag_categories</tspan><tspan x="175.0" dy="16.2">id PK</tspan><tspan x="175.0" dy="16.2">name UNIQUE</tspan></text>
+<rect x="300" y="315" width="230" height="95" rx="8" fill="#FFFDF7" stroke="#8A5A00" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="415.0" y="342.5" font-size="13" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="415.0" dy="0.0">tags</tspan><tspan x="415.0" dy="16.2">id PK</tspan><tspan x="415.0" dy="16.2">category_id FK</tspan><tspan x="415.0" dy="16.2">name</tspan></text>
+<rect x="540" y="315" width="230" height="95" rx="8" fill="#FFFDF7" stroke="#8A5A00" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="655.0" y="342.5" font-size="13" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="655.0" dy="0.0">image_tags</tspan><tspan x="655.0" dy="16.2">image_id FK</tspan><tspan x="655.0" dy="16.2">tag_id FK</tspan><tspan x="655.0" dy="16.2">confidence</tspan></text>
+<rect x="780" y="315" width="230" height="95" rx="8" fill="#FFFDF7" stroke="#8A5A00" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="895.0" y="342.5" font-size="13" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="895.0" dy="0.0">ai_analysis_results</tspan><tspan x="895.0" dy="16.2">image_id UNIQUE</tspan><tspan x="895.0" dy="16.2">raw_response</tspan><tspan x="895.0" dy="16.2">description</tspan></text>
+<rect x="280" y="470" width="230" height="95" rx="8" fill="#FFFDF7" stroke="#8A5A00" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="395.0" y="497.5" font-size="13" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="395.0" dy="0.0">app_settings /</tspan><tspan x="395.0" dy="16.2">search_history</tspan><tspan x="395.0" dy="16.2">key-value配置</tspan><tspan x="395.0" dy="16.2">搜索审计</tspan></text>
+<rect x="620" y="470" width="230" height="95" rx="8" fill="#FFFDF7" stroke="#8A5A00" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="735.0" y="497.5" font-size="13" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="735.0" dy="0.0">image_versions /</tspan><tspan x="735.0" dy="16.2">edit_operations</tspan><tspan x="735.0" dy="16.2">版本快照</tspan><tspan x="735.0" dy="16.2">编辑参数JSON</tspan></text>
+<line x1="290" y1="157" x2="355" y2="157" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="246.5" y="134.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="322.5" y="151.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="322.5" dy="0.0">1:n</tspan></text>
+<line x1="585" y1="157" x2="680" y2="157" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="556.5" y="134.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="632.5" y="151.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="632.5" dy="0.0">1:n</tspan></text>
+<line x1="175" y1="410" x2="300" y2="363" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="161.5" y="363.5" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="237.5" y="380.5" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="237.5" dy="0.0">1:n</tspan></text>
+<line x1="530" y1="363" x2="540" y2="363" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="459.0" y="340.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="535.0" y="357.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="535.0" dy="0.0">n:m</tspan></text>
+<line x1="770" y1="363" x2="780" y2="363" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="699.0" y="340.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="775.0" y="357.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="775.0" dy="0.0">1:1</tspan></text>
+<line x1="470" y1="205" x2="735" y2="470" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="526.5" y="314.5" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="602.5" y="331.5" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="602.5" dy="0.0">版本</tspan></text>
+<line x1="470" y1="205" x2="395" y2="470" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="356.5" y="314.5" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="432.5" y="331.5" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="432.5" dy="0.0">配置/搜索</tspan></text>
+</svg>

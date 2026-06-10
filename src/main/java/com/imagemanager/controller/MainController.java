@@ -9,6 +9,7 @@ import com.imagemanager.model.ImageFile;
 import com.imagemanager.model.Tag;
 import com.imagemanager.model.TagCategory;
 import com.imagemanager.scanner.ScanTask;
+import com.imagemanager.scanner.ScanProgressEstimator;
 import com.imagemanager.service.AiTagStorageService;
 import com.imagemanager.service.DatabaseBootstrapService;
 import com.imagemanager.service.ImageService;
@@ -18,6 +19,9 @@ import com.imagemanager.util.AlertUtil;
 import com.imagemanager.util.FileUtil;
 import com.imagemanager.util.ImageUtil;
 import com.imagemanager.util.ThemeUtil;
+import javafx.animation.KeyFrame;
+import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
@@ -40,6 +44,7 @@ import javafx.scene.layout.*;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+import javafx.util.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -113,7 +118,21 @@ public class MainController {
 
     // v2.0 新增：AI扫描进度
     @FXML
-    private Label scanProgressLabel;
+    private VBox scanStatusPane;
+    @FXML
+    private Label scanPhaseLabel;
+    @FXML
+    private Label scanSummaryLabel;
+    @FXML
+    private Label scanDetailLabel;
+    @FXML
+    private Label scanStartedAtLabel;
+    @FXML
+    private Label scanElapsedLabel;
+    @FXML
+    private Label scanRemainingLabel;
+    @FXML
+    private Label scanRateLabel;
     @FXML
     private ProgressBar scanProgressBar;
     @FXML
@@ -154,6 +173,11 @@ public class MainController {
     private long directoryLoadRequestId = 0;
     private long searchRequestId = 0;
     private boolean promptCleanupAfterStop = false;
+    private final Timeline scanSnapshotTimeline = new Timeline(
+            new KeyFrame(Duration.ZERO, event -> refreshScanSnapshot()),
+            new KeyFrame(Duration.seconds(1))
+    );
+    private final PauseTransition scanStatusHideTransition = new PauseTransition(Duration.seconds(6));
 
     private record TagViewItem(Tag tag, String categoryLabel) {
         @Override
@@ -172,6 +196,9 @@ public class MainController {
     public void initialize() {
         logger.info("初始化主界面...");
 
+        scanSnapshotTimeline.setCycleCount(Timeline.INDEFINITE);
+        scanStatusHideTransition.setOnFinished(event -> hideScanStatusPanel());
+
         // 构建目录树
         initDirectoryTree();
 
@@ -188,6 +215,7 @@ public class MainController {
 
         // 应用全局主题背景
         applyTheme();
+        hideScanStatusPanel();
 
         logger.info("主界面初始化完成");
     }
@@ -1537,6 +1565,114 @@ public class MainController {
         stage.setY(Math.max(bounds.getMinY(), y));
     }
 
+    private void refreshScanSnapshot() {
+        if (activeScanTask == null) {
+            return;
+        }
+        applyScanSnapshot(activeScanTask.getProgressSnapshot());
+    }
+
+    private void startScanSnapshotTimeline(ScanTask scanTask) {
+        if (scanTask == null) {
+            return;
+        }
+        cancelHideScanStatusPanel();
+        showScanStatusPanel();
+        applyScanSnapshot(scanTask.getProgressSnapshot());
+        scanSnapshotTimeline.playFromStart();
+    }
+
+    private void stopScanSnapshotTimeline() {
+        scanSnapshotTimeline.stop();
+    }
+
+    private void applyScanSnapshot(ScanProgressEstimator.Snapshot snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        showScanStatusPanel();
+        if (scanPhaseLabel != null) {
+            scanPhaseLabel.setText(snapshot.phaseText());
+        }
+        if (scanSummaryLabel != null) {
+            scanSummaryLabel.setText(snapshot.summaryText());
+        }
+        if (scanDetailLabel != null) {
+            scanDetailLabel.setText(snapshot.detailText());
+        }
+        if (scanStartedAtLabel != null) {
+            scanStartedAtLabel.setText(snapshot.startedAtText());
+        }
+        if (scanElapsedLabel != null) {
+            scanElapsedLabel.setText(snapshot.elapsedText());
+        }
+        if (scanRemainingLabel != null) {
+            scanRemainingLabel.setText(snapshot.remainingText());
+        }
+        if (scanRateLabel != null) {
+            scanRateLabel.setText(snapshot.rateText());
+        }
+        if (scanProgressBar != null && !scanProgressBar.progressProperty().isBound()) {
+            scanProgressBar.setProgress(snapshot.progress());
+        }
+    }
+
+    private void showManualScanStatus(String phaseText, String summaryText, String detailText,
+                                      boolean showStop, boolean disableStop, Double progress) {
+        showScanStatusPanel();
+        if (scanPhaseLabel != null) {
+            scanPhaseLabel.setText(phaseText);
+        }
+        if (scanSummaryLabel != null) {
+            scanSummaryLabel.setText(summaryText);
+        }
+        if (scanDetailLabel != null) {
+            scanDetailLabel.setText(detailText);
+        }
+        if (scanProgressBar != null && !scanProgressBar.progressProperty().isBound() && progress != null) {
+            scanProgressBar.setProgress(progress);
+        }
+        setStopScanButtonVisible(showStop);
+        if (stopScanButton != null) {
+            stopScanButton.setDisable(disableStop);
+        }
+    }
+
+    private void showScanStatusPanel() {
+        cancelHideScanStatusPanel();
+        if (scanStatusPane != null) {
+            scanStatusPane.setVisible(true);
+            scanStatusPane.setManaged(true);
+        }
+    }
+
+    private void hideScanStatusPanel() {
+        cancelHideScanStatusPanel();
+        if (scanStatusPane != null) {
+            scanStatusPane.setVisible(false);
+            scanStatusPane.setManaged(false);
+        }
+        setStopScanButtonVisible(false);
+    }
+
+    private void scheduleHideScanStatusPanel() {
+        if (activeScanTask != null && activeScanTask.isRunning()) {
+            return;
+        }
+        scanStatusHideTransition.playFromStart();
+    }
+
+    private void cancelHideScanStatusPanel() {
+        scanStatusHideTransition.stop();
+    }
+
+    private void setStopScanButtonVisible(boolean visible) {
+        if (stopScanButton != null) {
+            stopScanButton.setVisible(visible);
+            stopScanButton.setManaged(visible);
+        }
+    }
+
     // ==================== AI扫描 (v2.0新增) ====================
 
     /**
@@ -1559,6 +1695,7 @@ public class MainController {
         if (activeScanTask != null && activeScanTask.isRunning()) {
             if (sameDirectoryPath(activeScanDirectoryPath, scanDirectoryPath)) {
                 statusLabel.setText("当前目录正在扫描中");
+                startScanSnapshotTimeline(activeScanTask);
                 logger.info("扫描任务已在运行，当前目录不重复启动: {}", scanDirectoryPath);
                 return;
             }
@@ -1566,17 +1703,16 @@ public class MainController {
             queuedScanDirectoryPath = scanDirectoryPath;
             promptCleanupAfterStop = false;
             statusLabel.setText("正在切换扫描目录，先停止旧任务...");
+            stopScanSnapshotTimeline();
             unbindScanProgress();
-            if (scanProgressLabel != null) {
-                scanProgressLabel.setVisible(true);
-                scanProgressLabel.setManaged(true);
-                scanProgressLabel.setText("正在切换扫描目录，先停止旧任务...");
-            }
-            if (stopScanButton != null) {
-                stopScanButton.setVisible(true);
-                stopScanButton.setManaged(true);
-                stopScanButton.setDisable(true);
-            }
+            showManualScanStatus(
+                    "准备切换",
+                    "正在切换扫描目录",
+                    "先停止旧任务，完成后会自动开始新目录的 AI 标签任务。",
+                    true,
+                    true,
+                    scanProgressBar == null ? null : scanProgressBar.getProgress()
+            );
             setRescanAiButtonDisabled(true);
             logger.info("扫描任务正在运行，取消旧任务后切换到新目录: {}", scanDirectoryPath);
             activeScanTask.cancel();
@@ -1588,69 +1724,75 @@ public class MainController {
         activeScanDirectoryPath = scanDirectoryPath;
         promptCleanupAfterStop = false;
 
-        // 绑定进度到UI
-        if (scanProgressLabel != null && scanProgressBar != null) {
-            unbindScanProgress();
-            scanProgressLabel.setVisible(true);
-            scanProgressLabel.setManaged(true);
-            scanProgressBar.setVisible(true);
-            scanProgressBar.setManaged(true);
-            if (stopScanButton != null) {
-                stopScanButton.setVisible(true);
-                stopScanButton.setManaged(true);
-                stopScanButton.setDisable(false);
-            }
-            setRescanAiButtonDisabled(true);
-
-            scanProgressLabel.textProperty().bind(scanTask.messageProperty());
-            scanProgressBar.progressProperty().bind(scanTask.progressProperty());
-
-            scanTask.setOnSucceeded(e -> {
-                unbindScanProgress();
-                scanProgressLabel.setText("扫描完成");
-                scanProgressBar.setProgress(1.0);
-                activeScanTask = null;
-                activeScanDirectoryPath = "";
-                if (startQueuedScanIfAny()) {
-                    return;
-                }
-                setRescanAiButtonDisabled(false);
-                hideStopScanButton();
-                if (currentDirectoryPath != null && isInsideDirectory(currentDirectoryPath, scanDirectoryPath)) {
-                    onDirectorySelected(currentDirectoryPath);
-                }
-                hideScanProgressLater();
-            });
-
-            scanTask.setOnFailed(e -> {
-                unbindScanProgress();
-                scanProgressLabel.setText("扫描失败");
-                activeScanTask = null;
-                activeScanDirectoryPath = "";
-                if (startQueuedScanIfAny()) {
-                    return;
-                }
-                setRescanAiButtonDisabled(false);
-                hideStopScanButton();
-                logger.error("扫描任务失败", scanTask.getException());
-            });
-
-            scanTask.setOnCancelled(e -> {
-                unbindScanProgress();
-                scanProgressLabel.setText("扫描已取消");
-                activeScanTask = null;
-                activeScanDirectoryPath = "";
-                if (startQueuedScanIfAny()) {
-                    return;
-                }
-                setRescanAiButtonDisabled(false);
-                hideStopScanButton();
-                if (promptCleanupAfterStop) {
-                    promptCleanupAfterStop = false;
-                    Platform.runLater(this::onCleanupAiData);
-                }
-            });
+        unbindScanProgress();
+        showScanStatusPanel();
+        setStopScanButtonVisible(true);
+        if (stopScanButton != null) {
+            stopScanButton.setDisable(false);
         }
+        setRescanAiButtonDisabled(true);
+        applyScanSnapshot(scanTask.getProgressSnapshot());
+        if (scanProgressBar != null) {
+            scanProgressBar.progressProperty().bind(scanTask.progressProperty());
+        }
+        startScanSnapshotTimeline(scanTask);
+
+        scanTask.setOnSucceeded(e -> {
+            stopScanSnapshotTimeline();
+            unbindScanProgress();
+            applyScanSnapshot(scanTask.getProgressSnapshot());
+            if (scanProgressBar != null) {
+                scanProgressBar.setProgress(1.0);
+            }
+            activeScanTask = null;
+            activeScanDirectoryPath = "";
+            if (startQueuedScanIfAny()) {
+                return;
+            }
+            statusLabel.setText("AI 标签处理完成");
+            setRescanAiButtonDisabled(false);
+            hideStopScanButton();
+            if (currentDirectoryPath != null && isInsideDirectory(currentDirectoryPath, scanDirectoryPath)) {
+                onDirectorySelected(currentDirectoryPath);
+            }
+            scheduleHideScanStatusPanel();
+        });
+
+        scanTask.setOnFailed(e -> {
+            stopScanSnapshotTimeline();
+            unbindScanProgress();
+            applyScanSnapshot(scanTask.getProgressSnapshot());
+            activeScanTask = null;
+            activeScanDirectoryPath = "";
+            if (startQueuedScanIfAny()) {
+                return;
+            }
+            statusLabel.setText("扫描失败");
+            setRescanAiButtonDisabled(false);
+            hideStopScanButton();
+            logger.error("扫描任务失败", scanTask.getException());
+            scheduleHideScanStatusPanel();
+        });
+
+        scanTask.setOnCancelled(e -> {
+            stopScanSnapshotTimeline();
+            unbindScanProgress();
+            applyScanSnapshot(scanTask.getProgressSnapshot());
+            activeScanTask = null;
+            activeScanDirectoryPath = "";
+            if (startQueuedScanIfAny()) {
+                return;
+            }
+            statusLabel.setText("扫描已取消");
+            setRescanAiButtonDisabled(false);
+            hideStopScanButton();
+            if (promptCleanupAfterStop) {
+                promptCleanupAfterStop = false;
+                Platform.runLater(this::onCleanupAiData);
+            } else {
+                scheduleHideScanStatusPanel();
+            }
+        });
 
         Thread scanThread = new Thread(scanTask);
         scanThread.setDaemon(true);
@@ -1660,9 +1802,6 @@ public class MainController {
     }
 
     private void unbindScanProgress() {
-        if (scanProgressLabel != null && scanProgressLabel.textProperty().isBound()) {
-            scanProgressLabel.textProperty().unbind();
-        }
         if (scanProgressBar != null && scanProgressBar.progressProperty().isBound()) {
             scanProgressBar.progressProperty().unbind();
         }
@@ -1684,27 +1823,6 @@ public class MainController {
         if (rescanAiButton != null) {
             rescanAiButton.setDisable(disabled);
         }
-    }
-
-    private void hideScanProgressLater() {
-        Thread hideThread = new Thread(() -> {
-            try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
-            Platform.runLater(() -> {
-                if (activeScanTask != null && activeScanTask.isRunning()) {
-                    return;
-                }
-                if (scanProgressLabel != null) {
-                    scanProgressLabel.setVisible(false);
-                    scanProgressLabel.setManaged(false);
-                }
-                if (scanProgressBar != null) {
-                    scanProgressBar.setVisible(false);
-                    scanProgressBar.setManaged(false);
-                }
-            });
-        }, "Scan-Progress-Hide");
-        hideThread.setDaemon(true);
-        hideThread.start();
     }
 
     private String normalizeDirectoryPath(File dir) {
@@ -1781,13 +1899,16 @@ public class MainController {
         );
         promptCleanupAfterStop = viewCleanup;
         statusLabel.setText("正在停止扫描...");
+        stopScanSnapshotTimeline();
         unbindScanProgress();
-        if (scanProgressLabel != null) {
-            scanProgressLabel.setText("正在停止扫描...");
-        }
-        if (stopScanButton != null) {
-            stopScanButton.setDisable(true);
-        }
+        showManualScanStatus(
+                "正在停止",
+                "正在停止扫描",
+                "当前请求中的一张图片可能会先完成，随后自动结束任务。",
+                true,
+                true,
+                scanProgressBar == null ? null : scanProgressBar.getProgress()
+        );
         activeScanTask.cancel();
 
         if (!viewCleanup) {
@@ -1810,9 +1931,16 @@ public class MainController {
             if (stopFirst) {
                 promptCleanupAfterStop = true;
                 statusLabel.setText("正在停止扫描，稍后打开清理窗口...");
-                if (stopScanButton != null) {
-                    stopScanButton.setDisable(true);
-                }
+                stopScanSnapshotTimeline();
+                unbindScanProgress();
+                showManualScanStatus(
+                        "正在停止",
+                        "正在停止扫描",
+                        "扫描结束后会自动打开 AI 标签清理窗口。",
+                        true,
+                        true,
+                        scanProgressBar == null ? null : scanProgressBar.getProgress()
+                );
                 activeScanTask.cancel();
             }
             return;
@@ -1883,9 +2011,8 @@ public class MainController {
     }
 
     private void hideStopScanButton() {
+        setStopScanButtonVisible(false);
         if (stopScanButton != null) {
-            stopScanButton.setVisible(false);
-            stopScanButton.setManaged(false);
             stopScanButton.setDisable(false);
         }
     }

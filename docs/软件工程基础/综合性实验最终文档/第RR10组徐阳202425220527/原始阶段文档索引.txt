@@ -1,0 +1,7 @@
+综合性实验最终文档已按22级师兄示例格式重新排版。
+实验1、实验2、实验3构成综合文档主线，实验4作为选做加分证据放入附录。
+原始阶段材料位置：
+D:\AAAWorkSpace\java project\super_big_homework\Java＆Database_bigwork\docs\软件工程基础\实验1
+D:\AAAWorkSpace\java project\super_big_homework\Java＆Database_bigwork\docs\软件工程基础\实验2
+D:\AAAWorkSpace\java project\super_big_homework\Java＆Database_bigwork\docs\软件工程基础\实验3
+D:\AAAWorkSpace\java project\super_big_homework\Java＆Database_bigwork\docs\软件工程基础\实验4

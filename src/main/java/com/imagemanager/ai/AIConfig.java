@@ -1,175 +1,180 @@
 package com.imagemanager.ai;
 
-import com.imagemanager.dao.SettingsDao;
-import com.imagemanager.dao.SettingsDaoImpl;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
- * AI 服务配置 — 管理 OpenAI 兼容 API 的连接参数。
- * <p>
- * 从数据库 app_settings 表读取配置，支持动态切换模型和API端点。
- * 默认连接 CPA 代理节点，兼容 OpenAI API 格式。
+ * AI service configuration loaded from one machine-private local file.
  */
-public class AIConfig {
+public final class AIConfig {
 
-    private static final SettingsDao settingsDao = new SettingsDaoImpl();
+    private static final Logger logger = LoggerFactory.getLogger(AIConfig.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper()
+            .enable(SerializationFeature.INDENT_OUTPUT);
+    private static final ThreadLocal<AISettings> RUNTIME_SETTINGS = new ThreadLocal<>();
 
-    // 默认值
-    public static final String DEFAULT_BASE_URL = "https://cpa.ystone.top/v1";
-    public static final String DEFAULT_MODEL = "";
     public static final String DEFAULT_DELAY = "1500";
     public static final String DEFAULT_MAX_RETRIES = "3";
     public static final String DEFAULT_BATCH_LIMIT = "100";
+    public static final int DEFAULT_CIRCUIT_BREAKER_THRESHOLD = 5;
     public static final int MIN_BATCH_LIMIT = 1;
     public static final int MAX_BATCH_LIMIT = 500;
-    private static final ThreadLocal<RuntimeConfig> RUNTIME_CONFIG = new ThreadLocal<>();
 
-    public record RuntimeConfig(String baseUrl, String apiKey, String model,
-                                String requestDelay, String maxRetries) {}
+    private AIConfig() {
+    }
 
-    /**
-     * 获取 API Base URL。
-     */
+    public static Path getConfigPath() {
+        String appData = System.getenv("APPDATA");
+        if (appData != null && !appData.isBlank()) {
+            return Path.of(appData, "ImageManager", "ai-fallbacks.json")
+                    .toAbsolutePath()
+                    .normalize();
+        }
+        return Path.of(System.getProperty("user.home"), ".image-manager", "ai-fallbacks.json")
+                .toAbsolutePath()
+                .normalize();
+    }
+
+    public static AISettings loadSettings() {
+        AISettings runtime = RUNTIME_SETTINGS.get();
+        if (runtime != null) {
+            return normalize(runtime.copy());
+        }
+
+        Path configPath = getConfigPath();
+        if (!Files.isRegularFile(configPath)) {
+            return new AISettings();
+        }
+        try {
+            return normalize(objectMapper.readValue(configPath.toFile(), AISettings.class));
+        } catch (IOException e) {
+            logger.error("读取本机 AI 配置失败: {}", configPath, e);
+            return new AISettings();
+        }
+    }
+
+    public static void saveSettings(AISettings settings) throws IOException {
+        AISettings normalized = normalize(settings == null ? new AISettings() : settings.copy());
+        Path configPath = getConfigPath();
+        Path parent = configPath.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        objectMapper.writeValue(configPath.toFile(), normalized);
+    }
+
+    public static List<AIEndpointConfig> getConfiguredEndpoints() {
+        return configuredEndpoints(loadSettings());
+    }
+
+    public static List<AIEndpointConfig> configuredEndpoints(AISettings settings) {
+        List<AIEndpointConfig> endpoints = new ArrayList<>();
+        for (AIEndpointConfig endpoint : normalize(settings).getEndpoints()) {
+            if (endpoint != null && endpoint.isEnabled() && endpoint.isComplete()
+                    && !AIFallbackManager.isCircuitOpen(endpoint)) {
+                endpoints.add(endpoint.copy());
+            }
+        }
+        return endpoints;
+    }
+
+    public static Optional<AIEndpointConfig> firstConfiguredEndpoint() {
+        List<AIEndpointConfig> endpoints = getConfiguredEndpoints();
+        return endpoints.isEmpty() ? Optional.empty() : Optional.of(endpoints.get(0));
+    }
+
     public static String getBaseUrl() {
-        RuntimeConfig config = RUNTIME_CONFIG.get();
-        if (config != null && config.baseUrl() != null && !config.baseUrl().isBlank()) {
-            return config.baseUrl();
-        }
-        String envValue = firstEnv("DIMS_AI_BASE_URL", "CPA_BASE_URL", "OPENAI_BASE_URL");
-        if (!envValue.isBlank()) {
-            return envValue;
-        }
-        return settingsDao.getValueOrDefault("ai_base_url", DEFAULT_BASE_URL);
+        return firstConfiguredEndpoint().map(AIEndpointConfig::getBaseUrl).orElse("");
     }
 
-    /**
-     * 获取 API Key。
-     */
     public static String getApiKey() {
-        RuntimeConfig config = RUNTIME_CONFIG.get();
-        if (config != null && config.apiKey() != null) {
-            return config.apiKey();
-        }
-        String envValue = getEnvironmentApiKey();
-        if (!envValue.isBlank()) {
-            return envValue;
-        }
-        return settingsDao.getValueOrDefault("ai_api_key", "");
+        return firstConfiguredEndpoint().map(AIEndpointConfig::getApiKey).orElse("");
     }
 
-    /**
-     * 获取模型名称。未保存时会尝试从兼容 /models 接口取第一个可用模型。
-     */
     public static String getModel() {
-        RuntimeConfig config = RUNTIME_CONFIG.get();
-        if (config != null && config.model() != null && !config.model().isBlank()) {
-            return config.model();
-        }
-        String envValue = firstEnv("DIMS_AI_MODEL", "CPA_MODEL", "OPENAI_MODEL");
-        if (!envValue.isBlank()) {
-            return envValue;
-        }
-        String savedModel = settingsDao.getValueOrDefault("ai_model", DEFAULT_MODEL);
-        if (!savedModel.isBlank()) {
-            return savedModel;
-        }
-        if (isConfigured()) {
-            return AIModelClient.firstAvailableModel(getBaseUrl(), getApiKey()).orElse(DEFAULT_MODEL);
-        }
-        return DEFAULT_MODEL;
+        return firstConfiguredEndpoint().map(AIEndpointConfig::getModel).orElse("");
     }
 
-    /**
-     * 获取请求间隔（毫秒），防止限流。
-     */
     public static long getRequestDelay() {
         try {
-            long delay;
-            RuntimeConfig config = RUNTIME_CONFIG.get();
-            if (config != null && config.requestDelay() != null && !config.requestDelay().isBlank()) {
-                delay = Long.parseLong(config.requestDelay());
-            } else {
-                delay = Long.parseLong(settingsDao.getValueOrDefault("ai_request_delay", DEFAULT_DELAY));
-            }
+            long delay = Long.parseLong(loadSettings().getRequestDelay());
             return Math.max(0, Math.min(delay, 60000));
         } catch (NumberFormatException e) {
             return Long.parseLong(DEFAULT_DELAY);
         }
     }
 
-    /**
-     * 获取最大重试次数。
-     */
     public static int getMaxRetries() {
         try {
-            int retries;
-            RuntimeConfig config = RUNTIME_CONFIG.get();
-            if (config != null && config.maxRetries() != null && !config.maxRetries().isBlank()) {
-                retries = Integer.parseInt(config.maxRetries());
-            } else {
-                retries = Integer.parseInt(settingsDao.getValueOrDefault("ai_max_retries", DEFAULT_MAX_RETRIES));
-            }
+            int retries = Integer.parseInt(loadSettings().getMaxRetries());
             return Math.max(1, Math.min(retries, 10));
         } catch (NumberFormatException e) {
             return Integer.parseInt(DEFAULT_MAX_RETRIES);
         }
     }
 
-    /**
-     * 获取单次 AI 识别批处理上限。界面展示时统一写作 N(max)。
-     */
     public static int getBatchLimit() {
-        try {
-            int limit = Integer.parseInt(settingsDao.getValueOrDefault("ai_batch_limit", DEFAULT_BATCH_LIMIT));
-            return Math.max(MIN_BATCH_LIMIT, Math.min(limit, MAX_BATCH_LIMIT));
-        } catch (NumberFormatException e) {
-            return Integer.parseInt(DEFAULT_BATCH_LIMIT);
-        }
+        int limit = loadSettings().getBatchLimit();
+        return Math.max(MIN_BATCH_LIMIT, Math.min(limit, MAX_BATCH_LIMIT));
     }
 
-    /**
-     * 检查 API 是否已配置（有 key 且不为空）。
-     */
+    public static int getCircuitBreakerThreshold() {
+        int threshold = loadSettings().getCircuitBreakerThreshold();
+        return Math.max(1, Math.min(threshold, 20));
+    }
+
     public static boolean isConfigured() {
-        String key = getApiKey();
-        return key != null && !key.isBlank();
+        return !getConfiguredEndpoints().isEmpty();
     }
 
-    /**
-     * 保存配置到数据库。
-     */
-    public static void saveConfig(String baseUrl, String apiKey, String model) {
-        settingsDao.upsert("ai_base_url", baseUrl);
-        settingsDao.upsert("ai_api_key", apiKey);
-        settingsDao.upsert("ai_model", model);
+    public static void saveConfig(String baseUrl, String apiKey, String model) throws IOException {
+        AISettings settings = loadSettings();
+        settings.setEndpoints(List.of(new AIEndpointConfig("主端点", baseUrl, apiKey, model, true)));
+        saveSettings(settings);
     }
 
-    public static String getEnvironmentApiKey() {
-        return firstEnv("DIMS_AI_API_KEY", "CPA_API_KEY", "HAJIMI", "OPENAI_API_KEY");
-    }
-
-    public static <T> T withTemporaryConfig(RuntimeConfig config, Supplier<T> action) {
-        RuntimeConfig previous = RUNTIME_CONFIG.get();
-        RUNTIME_CONFIG.set(config);
+    public static <T> T withTemporarySettings(AISettings settings, Supplier<T> action) {
+        AISettings previous = RUNTIME_SETTINGS.get();
+        RUNTIME_SETTINGS.set(settings == null ? new AISettings() : settings.copy());
         try {
             return action.get();
         } finally {
             if (previous == null) {
-                RUNTIME_CONFIG.remove();
+                RUNTIME_SETTINGS.remove();
             } else {
-                RUNTIME_CONFIG.set(previous);
+                RUNTIME_SETTINGS.set(previous);
             }
         }
     }
 
-    private static String firstEnv(String... names) {
-        for (String name : names) {
-            String value = System.getenv(name);
-            if (value != null && !value.isBlank()) {
-                return value.trim();
-            }
+    static AISettings normalize(AISettings settings) {
+        AISettings normalized = settings == null ? new AISettings() : settings;
+        List<AIEndpointConfig> endpointCopies = new ArrayList<>();
+        for (AIEndpointConfig endpoint : normalized.getEndpoints()) {
+            endpointCopies.add(endpoint == null ? new AIEndpointConfig() : endpoint.copy());
         }
-        return "";
+        normalized.setEndpoints(endpointCopies);
+
+        if (normalized.getRequestDelay().isBlank()) {
+            normalized.setRequestDelay(DEFAULT_DELAY);
+        }
+        if (normalized.getMaxRetries().isBlank()) {
+            normalized.setMaxRetries(DEFAULT_MAX_RETRIES);
+        }
+        normalized.setBatchLimit(Math.max(MIN_BATCH_LIMIT,
+                Math.min(normalized.getBatchLimit(), MAX_BATCH_LIMIT)));
+        normalized.setCircuitBreakerThreshold(Math.max(1,
+                Math.min(normalized.getCircuitBreakerThreshold(), 20)));
+        return normalized;
     }
 }

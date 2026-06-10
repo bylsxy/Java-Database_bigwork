@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1220" height="560" viewBox="0 0 1220 560">
+
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L10,4 L0,8 z" fill="#274C77"/>
+      </marker>
+      <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="0" dy="1.6" stdDeviation="1.5" flood-color="#6B7280" flood-opacity="0.20"/>
+      </filter>
+    </defs>
+    
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="610.0" y="34" text-anchor="middle" font-size="24" font-weight="700" font-family="Microsoft YaHei, SimHei, Arial" fill="#0B2545">体系结构分层包图</text>
+<text x="610.0" y="60" text-anchor="middle" font-size="13" font-family="Microsoft YaHei, SimSun, Arial" fill="#5B677A">对应本地课件 SE8：包图可描述系统高层结构和包间依赖关系</text>
+<rect x="80" y="90" width="820" height="58" rx="8" fill="#EAF4FF" stroke="#2B5C8A" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="490.0" y="114.6" font-size="15" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="490.0" dy="0.0">表示层 Controller/FXML/CSS</tspan><tspan x="490.0" dy="18.8">MainView、SettingsView、SlideshowView</tspan></text>
+<rect x="80" y="180" width="820" height="58" rx="8" fill="#EDF8F0" stroke="#2B5C8A" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="490.0" y="204.6" font-size="15" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="490.0" dy="0.0">业务服务层 Service/Scanner/AI</tspan><tspan x="490.0" dy="18.8">ImageService、SearchService、ScanTask、EditService</tspan></text>
+<rect x="80" y="270" width="820" height="58" rx="8" fill="#FFF7E6" stroke="#2B5C8A" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="490.0" y="294.6" font-size="15" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="490.0" dy="0.0">数据访问层 DAO</tspan><tspan x="490.0" dy="18.8">ImageDao、DirectoryDao、TagDao、VersionDao、SettingsDao</tspan></text>
+<rect x="80" y="360" width="820" height="58" rx="8" fill="#F7F2FF" stroke="#2B5C8A" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="490.0" y="384.6" font-size="15" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="490.0" dy="0.0">模型与工具层 Model/Util</tspan><tspan x="490.0" dy="18.8">ImageFile、DirectoryNode、Tag、ImageVersion、ImageUtil</tspan></text>
+<rect x="80" y="450" width="820" height="58" rx="8" fill="#F2F4F7" stroke="#2B5C8A" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="490.0" y="484.0" font-size="15" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="490.0" dy="0.0">基础设施层 PostgreSQL + 文件系统 + OpenAI兼容API</tspan></text>
+<line x1="490" y1="148" x2="490" y2="180" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="414.0" y="141.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="490.0" y="158.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="490.0" dy="0.0">单向依赖</tspan></text>
+<line x1="490" y1="238" x2="490" y2="270" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="414.0" y="231.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="490.0" y="248.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="490.0" dy="0.0">单向依赖</tspan></text>
+<line x1="490" y1="328" x2="490" y2="360" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="414.0" y="321.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="490.0" y="338.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="490.0" dy="0.0">单向依赖</tspan></text>
+<line x1="490" y1="418" x2="490" y2="450" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="414.0" y="411.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="490.0" y="428.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="490.0" dy="0.0">单向依赖</tspan></text>
+<rect x="940" y="130" width="220" height="270" rx="8" fill="#FFFFFF" stroke="#8A5A00" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="1050.0" y="234.7" font-size="14" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="1050.0" dy="0.0">设计原则</tspan><tspan x="1050.0" dy="17.5">高内聚低耦合</tspan><tspan x="1050.0" dy="17.5">信息隐藏</tspan><tspan x="1050.0" dy="17.5">可追踪到需求</tspan><tspan x="1050.0" dy="17.5">可离线降级</tspan></text>
+</svg>

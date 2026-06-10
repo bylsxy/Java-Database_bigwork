@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1020" height="590" viewBox="0 0 1020 590">
+
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L10,4 L0,8 z" fill="#274C77"/>
+      </marker>
+      <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="0" dy="1.6" stdDeviation="1.5" flood-color="#6B7280" flood-opacity="0.20"/>
+      </filter>
+    </defs>
+    
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="510.0" y="34" text-anchor="middle" font-size="24" font-weight="700" font-family="Microsoft YaHei, SimHei, Arial" fill="#0B2545">缩略图预览用例实现顺序图</text>
+<text x="510.0" y="60" text-anchor="middle" font-size="13" font-family="Microsoft YaHei, SimSun, Arial" fill="#5B677A">顺序图由分析阶段交互模型进一步细化到设计类、DAO、文件系统和数据库方法</text>
+<rect x="8.0" y="92" width="124" height="44" rx="8" fill="#EAF4FF" stroke="#274C77" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="70.0" y="118.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="70.0" dy="0.0">机主</tspan></text>
+<line x1="70.0" y1="136" x2="70.0" y2="532" stroke="#9AA4B2" stroke-width="1.7" stroke-dasharray="6 5"/>
+<rect x="184.0" y="92" width="124" height="44" rx="8" fill="#EAF4FF" stroke="#274C77" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="246.0" y="118.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="246.0" dy="0.0">MainController</tspan></text>
+<line x1="246.0" y1="136" x2="246.0" y2="532" stroke="#9AA4B2" stroke-width="1.7" stroke-dasharray="6 5"/>
+<rect x="360.0" y="92" width="124" height="44" rx="8" fill="#EAF4FF" stroke="#274C77" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="422.0" y="118.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="422.0" dy="0.0">ImageServiceImpl</tspan></text>
+<line x1="422.0" y1="136" x2="422.0" y2="532" stroke="#9AA4B2" stroke-width="1.7" stroke-dasharray="6 5"/>
+<rect x="536.0" y="92" width="124" height="44" rx="8" fill="#EAF4FF" stroke="#274C77" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="598.0" y="118.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="598.0" dy="0.0">FileUtil/ImageUtil</tspan></text>
+<line x1="598.0" y1="136" x2="598.0" y2="532" stroke="#9AA4B2" stroke-width="1.7" stroke-dasharray="6 5"/>
+<rect x="712.0" y="92" width="124" height="44" rx="8" fill="#EAF4FF" stroke="#274C77" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="774.0" y="118.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="774.0" dy="0.0">ImageDao/DirectoryDao</tspan></text>
+<line x1="774.0" y1="136" x2="774.0" y2="532" stroke="#9AA4B2" stroke-width="1.7" stroke-dasharray="6 5"/>
+<rect x="888.0" y="92" width="124" height="44" rx="8" fill="#EAF4FF" stroke="#274C77" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="950.0" y="118.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="950.0" dy="0.0">PostgreSQL</tspan></text>
+<line x1="950.0" y1="136" x2="950.0" y2="532" stroke="#9AA4B2" stroke-width="1.7" stroke-dasharray="6 5"/>
+<line x1="70.0" y1="178" x2="246.0" y2="178" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="82.0" y="155.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="158.0" y="172.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="158.0" dy="0.0">在目录树选择文件夹</tspan></text>
+<line x1="246.0" y1="220" x2="422.0" y2="220" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="258.0" y="197.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="334.0" y="214.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="334.0" dy="0.0">loadImagesFromDirectory(path)</tspan></text>
+<line x1="422.0" y1="262" x2="774.0" y2="262" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="522.0" y="239.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="598.0" y="256.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="598.0" dy="0.0">findOrCreate(path)</tspan></text>
+<line x1="774.0" y1="304" x2="950.0" y2="304" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="786.0" y="281.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="862.0" y="290.5" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="862.0" dy="0.0">INSERT/SELECT</tspan><tspan x="862.0" dy="15.0">directories</tspan></text>
+<line x1="422.0" y1="346" x2="598.0" y2="346" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="434.0" y="323.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="510.0" y="332.5" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="510.0" dy="0.0">listImageFiles +</tspan><tspan x="510.0" dy="15.0">generateThumbnail</tspan></text>
+<line x1="422.0" y1="388" x2="774.0" y2="388" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="522.0" y="365.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="598.0" y="382.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="598.0" dy="0.0">batchInsert(newImages)</tspan></text>
+<line x1="774.0" y1="430" x2="950.0" y2="430" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="786.0" y="407.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="862.0" y="416.5" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="862.0" dy="0.0">写入</tspan><tspan x="862.0" dy="15.0">images.thumbnail/metadata</tspan></text>
+<line x1="774.0" y1="472" x2="422.0" y2="472" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="522.0" y="449.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="598.0" y="466.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="598.0" dy="0.0">返回 ImageFile 列表</tspan></text>
+<line x1="422.0" y1="514" x2="246.0" y2="514" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="258.0" y="491.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="334.0" y="508.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="334.0" dy="0.0">返回带ID和缩略图的模型</tspan></text>
+<line x1="246.0" y1="556" x2="70.0" y2="556" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="82.0" y="533.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="158.0" y="550.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="158.0" dy="0.0">渲染缩略图网格和状态栏</tspan></text>
+</svg>

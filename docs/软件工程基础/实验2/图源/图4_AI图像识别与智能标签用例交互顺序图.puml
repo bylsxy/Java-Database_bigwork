@@ -1,0 +1,27 @@
+@startuml
+title "AI图像识别与智能标签"用例交互顺序图
+actor "机主/调度器" as Trigger
+boundary "主界面\nMainView" as MainView
+control "AI服务控制器\nAIServiceControl" as AICtrl
+control "数据库控制器\nDatabaseManagerControl" as DBCtrl
+boundary "外部AI服务\nOpenAICompatibleAPI" as API
+entity "图片实体\nImageFile" as ImageFile
+entity "图像标签\nImageTag" as ImageTag
+
+Trigger -> MainView : 1. 启动扫描或补打AI标签
+MainView -> AICtrl : 2. analyzePendingImages(directory)
+AICtrl -> DBCtrl : 3. queryPendingImages(directory)
+DBCtrl --> AICtrl : 4. 返回待识别图片列表
+loop 每一张待识别图片
+    AICtrl -> ImageFile : 5. readImageBytes()
+    ImageFile --> AICtrl : 6. 返回图片内容
+    AICtrl -> API : 7. HTTP POST image + prompt
+    API --> AICtrl : 8. 返回JSON识别结果
+    AICtrl -> ImageTag : 9. parseAndRankTags(result)
+    ImageTag --> AICtrl : 10. 返回标签集合
+    AICtrl -> DBCtrl : 11. saveTagsAndAnalysis(image, tags)
+    DBCtrl --> AICtrl : 12. 保存成功
+end
+AICtrl --> MainView : 13. reportProgressAndSummary()
+MainView --> Trigger : 14. 刷新标签、搜索和扫描进度
+@enduml

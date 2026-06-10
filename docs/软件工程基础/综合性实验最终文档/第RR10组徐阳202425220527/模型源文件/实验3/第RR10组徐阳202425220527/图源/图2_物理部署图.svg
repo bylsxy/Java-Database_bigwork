@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1140" height="540" viewBox="0 0 1140 540">
+
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L10,4 L0,8 z" fill="#274C77"/>
+      </marker>
+      <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="0" dy="1.6" stdDeviation="1.5" flood-color="#6B7280" flood-opacity="0.20"/>
+      </filter>
+    </defs>
+    
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="570.0" y="34" text-anchor="middle" font-size="24" font-weight="700" font-family="Microsoft YaHei, SimHei, Arial" fill="#0B2545">物理部署图</text>
+<text x="570.0" y="60" text-anchor="middle" font-size="13" font-family="Microsoft YaHei, SimSun, Arial" fill="#5B677A">对应本地课件 SE8：部署图描述工件在物理运行环境中的分布</text>
+<rect x="70" y="115" width="270" height="220" rx="8" fill="#EAF4FF" stroke="#274C77" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="205.0" y="211.2" font-size="15" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="205.0" dy="0.0">用户PC</tspan><tspan x="205.0" dy="18.8">Windows 10/11</tspan><tspan x="205.0" dy="18.8">JDK 21+ / JDK 26</tspan></text>
+<rect x="390" y="95" width="310" height="260" rx="8" fill="#EDF8F0" stroke="#274C77" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="545.0" y="211.2" font-size="15" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="545.0" dy="0.0">JavaFX应用进程</tspan><tspan x="545.0" dy="18.8">image-manager.jar</tspan><tspan x="545.0" dy="18.8">FXML/CSS/Controller/Service/DAO</tspan></text>
+<rect x="760" y="95" width="310" height="260" rx="8" fill="#FFF7E6" stroke="#274C77" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="915.0" y="211.2" font-size="15" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="915.0" dy="0.0">本机PostgreSQL 18.3</tspan><tspan x="915.0" dy="18.8">image_manager数据库</tspan><tspan x="915.0" dy="18.8">表/索引/视图/触发器/存储过程</tspan></text>
+<rect x="390" y="405" width="310" height="85" rx="8" fill="#F2F4F7" stroke="#274C77" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="545.0" y="443.1" font-size="15" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="545.0" dy="0.0">本地图片文件系统</tspan><tspan x="545.0" dy="18.8">JPG/PNG/GIF/BMP</tspan></text>
+<rect x="760" y="405" width="310" height="85" rx="8" fill="#F7F2FF" stroke="#274C77" stroke-width="1.4" filter="url(#shadow)"/>
+<text x="915.0" y="443.1" font-size="15" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="915.0" dy="0.0">外部OpenAI兼容API</tspan><tspan x="915.0" dy="18.8">图像识别/NL2SQL</tspan></text>
+<line x1="340" y1="210" x2="390" y2="210" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="289.0" y="187.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="365.0" y="204.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="365.0" dy="0.0">启动/操作</tspan></text>
+<line x1="700" y1="210" x2="760" y2="210" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="654.0" y="187.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="730.0" y="204.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="730.0" dy="0.0">JDBC/HikariCP</tspan></text>
+<line x1="545" y1="355" x2="545" y2="405" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="469.0" y="357.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="545.0" y="374.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="545.0" dy="0.0">Files API</tspan></text>
+<line x1="915" y1="355" x2="915" y2="405" stroke="#274C77" stroke-width="1.7" marker-end="url(#arrow)"/>
+<rect x="839.0" y="357.0" width="152" height="20" rx="5" fill="#FFFFFF" opacity="0.88"/>
+<text x="915.0" y="374.0" font-size="12" text-anchor="middle" font-family="Microsoft YaHei, SimSun, Arial" fill="#17202A"><tspan x="915.0" dy="0.0">HTTPS</tspan></text>
+</svg>

@@ -9,7 +9,9 @@ import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
@@ -163,13 +165,57 @@ public class UiSnapshotSmoke {
             imageCountLabel.setText("12 张图片");
         }
         if (statusLabel != null) {
-            statusLabel.setText("就绪：目录扫描完成，缩略图缓存已同步。");
+            statusLabel.setText("AI 标签处理中：当前目录仍可浏览，预计 8 分 30 秒完成本批任务。");
         }
         if (selectionLabel != null) {
-            selectionLabel.setText("已选择 2 张");
+            selectionLabel.setText("已选择 2 张 · 24.3 MB");
         }
         if (databaseStatusLabel != null) {
             databaseStatusLabel.setText("数据库已连接");
+        }
+
+        VBox scanStatusPane = fx(namespace, "scanStatusPane", VBox.class);
+        Label scanPhaseLabel = fx(namespace, "scanPhaseLabel", Label.class);
+        Label scanSummaryLabel = fx(namespace, "scanSummaryLabel", Label.class);
+        Label scanDetailLabel = fx(namespace, "scanDetailLabel", Label.class);
+        Label scanStartedAtLabel = fx(namespace, "scanStartedAtLabel", Label.class);
+        Label scanElapsedLabel = fx(namespace, "scanElapsedLabel", Label.class);
+        Label scanRemainingLabel = fx(namespace, "scanRemainingLabel", Label.class);
+        Label scanRateLabel = fx(namespace, "scanRateLabel", Label.class);
+        ProgressBar scanProgressBar = fx(namespace, "scanProgressBar", ProgressBar.class);
+        Button stopScanButton = fx(namespace, "stopScanButton", Button.class);
+        if (scanStatusPane != null) {
+            scanStatusPane.setVisible(true);
+            scanStatusPane.setManaged(true);
+        }
+        if (scanPhaseLabel != null) {
+            scanPhaseLabel.setText("AI 打标签");
+        }
+        if (scanSummaryLabel != null) {
+            scanSummaryLabel.setText("AI 打标签 18/50 张（36%）");
+        }
+        if (scanDetailLabel != null) {
+            scanDetailLabel.setText("当前文件：IMG_2026_0018_海边长曝光夜景样片.jpg；成功 17，失败 1，本批上限 50(max)。");
+        }
+        if (scanStartedAtLabel != null) {
+            scanStartedAtLabel.setText("14:26:08");
+        }
+        if (scanElapsedLabel != null) {
+            scanElapsedLabel.setText("3分24秒");
+        }
+        if (scanRemainingLabel != null) {
+            scanRemainingLabel.setText("8分30秒");
+        }
+        if (scanRateLabel != null) {
+            scanRateLabel.setText("5.3 张/分");
+        }
+        if (scanProgressBar != null) {
+            scanProgressBar.setProgress(0.36);
+        }
+        if (stopScanButton != null) {
+            stopScanButton.setVisible(true);
+            stopScanButton.setManaged(true);
+            stopScanButton.setDisable(false);
         }
 
         TreeView<String> tree = fx(namespace, "directoryTree", TreeView.class);

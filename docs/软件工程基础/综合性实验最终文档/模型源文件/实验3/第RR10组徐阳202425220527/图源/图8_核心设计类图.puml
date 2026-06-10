@@ -1,0 +1,16 @@
+@startuml
+class MainController { -ImageService imageService; -SearchService searchService; +onDirectorySelected(); +displayThumbnails(); }
+class ImageServiceImpl { -ImageDao imageDao; -DirectoryDao directoryDao; +loadImagesFromDirectory(); +batchRename(); }
+class SearchService { -TagDao tagDao; -AIService aiService; +search(); +searchByAI(); }
+class ImageDaoImpl { +findByDirectoryId(); +insert(); +updateFileName(); }
+class TagDaoImpl { +batchInsertTags(); +searchImagesByKeyword(); }
+class DatabaseConnection { +getConnection(); +reinitialize(); }
+record ImageFile
+record DirectoryNode
+MainController --> ImageServiceImpl
+MainController --> SearchService
+ImageServiceImpl --> ImageDaoImpl
+SearchService --> TagDaoImpl
+ImageDaoImpl --> DatabaseConnection
+TagDaoImpl --> DatabaseConnection
+@enduml

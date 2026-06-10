@@ -16,7 +16,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
- * OpenAI 兼容 API 实现 — 支持 CPA 代理节点及其他 OpenAI-compatible 服务。
+ * OpenAI 兼容 API 实现 — 使用本机 fallback 列表中的 OpenAI-compatible 服务。
  * <p>
  * 通过标准的 OpenAI Chat Completions API 格式进行图像识别（图生文）
  * 和自然语言转SQL（文生文）。
@@ -99,10 +99,6 @@ public class OpenAICompatibleService implements AIService {
             logger.warn("AI API 未配置，跳过图像分析");
             return Optional.empty();
         }
-        if (AIConfig.getModel().isBlank()) {
-            logger.warn("AI 模型未选择，跳过图像分析");
-            return Optional.empty();
-        }
 
         try {
             // 1. 将图片转为 Base64
@@ -110,17 +106,15 @@ public class OpenAICompatibleService implements AIService {
             String base64Image = Base64.getEncoder().encodeToString(imageBytes);
             String mimeType = guessMimeType(imageFile.getName());
 
-            // 2. 构建请求JSON
-            String requestBody = buildVisionRequest(base64Image, mimeType);
-
-            // 3. 发送请求（带重试）
-            String responseJson = sendRequestWithRetry(requestBody);
-            if (responseJson == null) {
+            // 2. 构建并发送请求（带 fallback）
+            ApiResponse response = sendRequestWithFallback(
+                    endpoint -> buildVisionRequest(base64Image, mimeType, endpoint.getModel()));
+            if (response == null) {
                 return Optional.empty();
             }
 
-            // 4. 解析响应
-            return parseImageAnalysisResponse(responseJson, imageId);
+            // 3. 解析响应
+            return parseImageAnalysisResponse(response.body(), imageId, response.model());
 
         } catch (IOException e) {
             logger.error("读取图片文件失败: {}", imageFile.getAbsolutePath(), e);
@@ -137,20 +131,16 @@ public class OpenAICompatibleService implements AIService {
             logger.warn("AI API 未配置，无法进行NL→SQL转换");
             return Optional.empty();
         }
-        if (AIConfig.getModel().isBlank()) {
-            logger.warn("AI 模型未选择，无法进行NL→SQL转换");
-            return Optional.empty();
-        }
 
         try {
-            String requestBody = buildTextRequest(NL_TO_SQL_PROMPT, naturalLanguageQuery);
-            String responseJson = sendRequestWithRetry(requestBody);
-            if (responseJson == null) {
+            ApiResponse response = sendRequestWithFallback(
+                    endpoint -> buildTextRequest(NL_TO_SQL_PROMPT, naturalLanguageQuery, endpoint.getModel()));
+            if (response == null) {
                 return Optional.empty();
             }
 
             // 从响应中提取SQL
-            String content = extractContentFromResponse(responseJson);
+            String content = extractContentFromResponse(response.body());
             if (content != null) {
                 // 清理可能的 markdown 标记
                 String sql = content.replaceAll("```sql\\s*", "")
@@ -170,9 +160,6 @@ public class OpenAICompatibleService implements AIService {
         if (!AIConfig.isConfigured()) {
             return "失败：API Key 未配置";
         }
-        if (AIConfig.getModel().isBlank()) {
-            return "失败：请先从模型下拉列表中选择一个模型";
-        }
 
         try {
             long startTime = System.currentTimeMillis();
@@ -186,7 +173,7 @@ public class OpenAICompatibleService implements AIService {
 
                 StringBuilder sb = new StringBuilder();
                 sb.append("成功：连接正常\n");
-                sb.append("  模型: ").append(AIConfig.getModel()).append("\n");
+                sb.append("  模型: ").append(r.modelUsed()).append("\n");
                 sb.append("  耗时: ").append(elapsed).append("ms\n");
                 sb.append("  描述: ").append(r.description()).append("\n");
                 sb.append("  人数: ").append(r.peopleCount()).append("\n");
@@ -214,9 +201,9 @@ public class OpenAICompatibleService implements AIService {
     /**
      * 构建图像识别请求（Vision API格式）。
      */
-    private String buildVisionRequest(String base64Image, String mimeType) throws Exception {
+    private String buildVisionRequest(String base64Image, String mimeType, String model) throws Exception {
         ObjectNode root = objectMapper.createObjectNode();
-        root.put("model", AIConfig.getModel());
+        root.put("model", model);
         root.put("max_tokens", 2000);
 
         ArrayNode messages = root.putArray("messages");
@@ -246,9 +233,9 @@ public class OpenAICompatibleService implements AIService {
     /**
      * 构建纯文本请求（文生文）。
      */
-    private String buildTextRequest(String systemPrompt, String userMessage) throws Exception {
+    private String buildTextRequest(String systemPrompt, String userMessage, String model) throws Exception {
         ObjectNode root = objectMapper.createObjectNode();
-        root.put("model", AIConfig.getModel());
+        root.put("model", model);
         root.put("max_tokens", 1000);
 
         ArrayNode messages = root.putArray("messages");
@@ -267,53 +254,67 @@ public class OpenAICompatibleService implements AIService {
     /**
      * 发送HTTP请求并带指数退避重试。
      */
-    private String sendRequestWithRetry(String requestBody) {
+    private ApiResponse sendRequestWithFallback(RequestBodyFactory requestBodyFactory) {
         int maxRetries = AIConfig.getMaxRetries();
-        String baseUrl = AIConfig.getBaseUrl();
-        String apiKey = AIConfig.getApiKey();
+        List<AIEndpointConfig> endpoints = AIConfig.getConfiguredEndpoints();
+        if (endpoints.isEmpty()) {
+            logger.warn("AI fallback 列表为空或均已熔断");
+            return null;
+        }
 
-        // 确保 URL 以 /chat/completions 结尾
-        String url = baseUrl.endsWith("/")
-                ? baseUrl + "chat/completions"
-                : baseUrl + "/chat/completions";
+        for (int cycle = 1; cycle <= maxRetries; cycle++) {
+            boolean attempted = false;
+            for (AIEndpointConfig endpoint : endpoints) {
+                if (AIFallbackManager.isCircuitOpen(endpoint)) {
+                    continue;
+                }
+                attempted = true;
+                try {
+                    String requestBody = requestBodyFactory.build(endpoint);
+                    Request request = new Request.Builder()
+                            .url(buildChatCompletionsUrl(endpoint.getBaseUrl()))
+                            .addHeader("Authorization", "Bearer " + endpoint.getApiKey())
+                            .addHeader("Content-Type", "application/json")
+                            .post(RequestBody.create(requestBody, MediaType.parse("application/json")))
+                            .build();
 
-        for (int attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                Request request = new Request.Builder()
-                        .url(url)
-                        .addHeader("Authorization", "Bearer " + apiKey)
-                        .addHeader("Content-Type", "application/json")
-                        .post(RequestBody.create(requestBody, MediaType.parse("application/json")))
-                        .build();
+                    try (Response response = httpClient.newCall(request).execute()) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            AIFallbackManager.reportSuccess(endpoint);
+                            return new ApiResponse(response.body().string(), endpoint.getModel());
+                        } else {
+                            String errorBody = response.body() != null ? response.body().string() : "无响应体";
+                            String shortBody = errorBody.length() > 300
+                                    ? errorBody.substring(0, 300) + "..."
+                                    : errorBody;
+                            AIFallbackManager.reportFailure(endpoint,
+                                    "HTTP " + response.code() + " " + shortBody);
 
-                try (Response response = httpClient.newCall(request).execute()) {
-                    if (response.isSuccessful() && response.body() != null) {
-                        return response.body().string();
-                    } else {
-                        String errorBody = response.body() != null ? response.body().string() : "无响应体";
-                        logger.warn("AI API 响应异常 (尝试 {}/{}): HTTP {}, body={}",
-                                attempt, maxRetries, response.code(), errorBody);
-
-                        // 429 限流：增加等待时间
-                        if (response.code() == 429) {
-                            long waitMs = AIConfig.getRequestDelay() * attempt * 2;
-                            logger.info("遭遇限流，等待 {}ms 后重试...", waitMs);
-                            Thread.sleep(waitMs);
-                            continue;
+                            if (response.code() == 429) {
+                                long waitMs = AIConfig.getRequestDelay() * cycle * 2;
+                                logger.info("遭遇限流，等待 {}ms 后尝试下一个可用端点...", waitMs);
+                                Thread.sleep(waitMs);
+                            }
                         }
                     }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                } catch (Exception e) {
+                    AIFallbackManager.reportFailure(endpoint, e.getMessage());
                 }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return null;
-            } catch (Exception e) {
-                logger.error("AI API 请求失败 (尝试 {}/{}): {}", attempt, maxRetries, e.getMessage());
-            }
 
-            // 指数退避
-            if (attempt < maxRetries) {
+                if (AIFallbackManager.isCircuitOpen(endpoint)) {
+                    logger.warn("AI 端点达到熔断阈值，本次会话将跳过: {}", endpoint.getName());
+                }
+            }
+            if (!attempted) {
+                logger.error("所有 AI fallback 端点均已熔断");
+                return null;
+            }
+            if (cycle < maxRetries) {
                 try {
-                    long waitMs = AIConfig.getRequestDelay() * attempt;
+                    long waitMs = AIConfig.getRequestDelay() * cycle;
                     Thread.sleep(waitMs);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -322,14 +323,23 @@ public class OpenAICompatibleService implements AIService {
             }
         }
 
-        logger.error("AI API 请求在 {} 次重试后仍然失败", maxRetries);
+        logger.error("AI API 请求在 fallback 列表和 {} 个重试周期后仍然失败", maxRetries);
         return null;
+    }
+
+    private String buildChatCompletionsUrl(String baseUrl) {
+        String trimmed = baseUrl == null ? "" : baseUrl.trim();
+        if (trimmed.endsWith("/chat/completions")) {
+            return trimmed;
+        }
+        return trimmed.endsWith("/") ? trimmed + "chat/completions" : trimmed + "/chat/completions";
     }
 
     /**
      * 解析图像分析响应JSON，提取结构化标签。
      */
-    private Optional<ImageAnalysisResult> parseImageAnalysisResponse(String responseJson, int imageId) {
+    private Optional<ImageAnalysisResult> parseImageAnalysisResponse(String responseJson, int imageId,
+                                                                     String modelUsed) {
         try {
             String content = extractContentFromResponse(responseJson);
             if (content == null) {
@@ -367,7 +377,7 @@ public class OpenAICompatibleService implements AIService {
 
             return Optional.of(new ImageAnalysisResult(
                     imageId, content, description, peopleCount,
-                    AIConfig.getModel(), tagsByCategory
+                    modelUsed, tagsByCategory
             ));
 
         } catch (Exception e) {
@@ -419,5 +429,13 @@ public class OpenAICompatibleService implements AIService {
         if (lower.endsWith(".bmp")) return "image/bmp";
         if (lower.endsWith(".webp")) return "image/webp";
         return "image/jpeg"; // 默认JPEG
+    }
+
+    private record ApiResponse(String body, String model) {
+    }
+
+    @FunctionalInterface
+    private interface RequestBodyFactory {
+        String build(AIEndpointConfig endpoint) throws Exception;
     }
 }

@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 public final class AIModelClient {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final String NON_CODEX_PREFIX = "non-codex/";
     private static final OkHttpClient httpClient = new OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
@@ -73,10 +74,27 @@ public final class AIModelClient {
 
     public static Optional<String> firstAvailableModel(String baseUrl, String apiKey) {
         try {
-            return fetchModelIds(baseUrl, apiKey).stream().findFirst();
+            return preferredModel(fetchModelIds(baseUrl, apiKey));
         } catch (IOException e) {
             return Optional.empty();
         }
+    }
+
+    public static Optional<String> preferredModel(List<String> models) {
+        if (models == null || models.isEmpty()) {
+            return Optional.empty();
+        }
+        for (String model : models) {
+            if (model != null && model.startsWith(NON_CODEX_PREFIX)) {
+                return Optional.of(model);
+            }
+        }
+        for (String model : models) {
+            if (model != null && !model.isBlank()) {
+                return Optional.of(model.trim());
+            }
+        }
+        return Optional.empty();
     }
 
     private static String buildModelsUrl(String baseUrl) {

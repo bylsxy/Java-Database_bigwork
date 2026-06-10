@@ -1,0 +1,17 @@
+@startuml
+start
+:校验前缀/编号/扩展名;
+:开启数据库事务;
+repeat
+  :生成新文件名;
+  :Files.move原子重命名;
+  :UPDATE images;
+  :触发器写operation_logs;
+repeat while (还有图片?)
+if (全部成功?) then (是)
+  :commit并刷新界面;
+else (否)
+  :rollback并恢复已改名文件;
+endif
+stop
+@enduml

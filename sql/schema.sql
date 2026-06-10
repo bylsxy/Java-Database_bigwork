@@ -171,22 +171,16 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated_at  TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE app_settings IS '应用设置表 — 键值对存储，包括AI配置、扫描目录、显示偏好等';
+COMMENT ON TABLE app_settings IS '应用设置表 — 键值对存储扫描目录、显示偏好等非敏感配置';
 
 -- 预插入默认设置
 INSERT INTO app_settings (key, value) VALUES
     ('scan_directory',     ''),                                   -- 用户首次启动时选择
-    ('ai_base_url',        'https://cpa.ystone.top/v1'),          -- 默认 CPA 代理节点
-    ('ai_api_key',         ''),                                   -- 用户自行填写
-    ('ai_model',           ''),                                   -- 模型由 /models 接口获取后选择
     ('show_welcome',       'true'),                               -- 是否显示首次启动向导
     ('thumbnail_storage',  'database'),                            -- database / none
     ('slideshow_interval', '3'),                                   -- 幻灯片播放间隔（秒）
     ('slideshow_order',    'SEQUENTIAL'),                          -- SEQUENTIAL / RANDOM
-    ('slideshow_music',    'none'),                                -- none / music_1 / music_2 / music_3
-    ('ai_request_delay',   '1500'),                                -- AI请求间隔（毫秒），防限流
-    ('ai_batch_limit',     '100'),                                 -- 单次AI识别批处理上限，界面显示为 N(max)
-    ('ai_max_retries',     '3')                                    -- AI请求最大重试次数
+    ('slideshow_music',    'none')                                 -- none / music_1 / music_2 / music_3
 ON CONFLICT (key) DO NOTHING;
 
 -- 搜索历史表

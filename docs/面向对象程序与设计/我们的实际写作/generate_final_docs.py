@@ -340,7 +340,7 @@ def make_ui_images():
     d = ImageDraw.Draw(img)
     d.text((48, 42), "系统设置", fill=colors["text"], font=f26)
     sections = [
-        ("AI 图像识别 API 配置", ["Base URL  https://cpa.ystone.top/v1", "模型     从 /models 自动获取后下拉选择", "API Key   优先读取系统环境变量", "请求间隔   1500 ms"]),
+        ("AI 图像识别 API 配置", ["Fallback 列表  本机私有保存", "模型     从 /models 自动获取后下拉选择", "API Key   不写入源码和提交包", "请求间隔   1500 ms"]),
         ("扫描目录", [r"D:\Pictures\课程设计样例", "AI识别单批上限 100(max)，可在设置页调整", "可停止扫描并清理AI标签"]),
         ("幻灯片偏好", ["播放间隔 3 秒", "播放顺序 顺序播放", "背景音乐 无音乐"]),
         ("界面主题", ["背景图片 可选", "透明度 35%"]),
@@ -478,7 +478,7 @@ def make_report_docx():
         ("主题与设置", "设置页统一管理扫描目录、播放间隔、主题背景和透明度。", "SettingsController / ThemeUtil / app_settings"),
         ("数据库状态与向导", "启动时检测 PostgreSQL 连接；未连接时主界面照常打开，并弹出数据库连接与初始化向导。", "App / DatabaseSetupDialog / DatabaseBootstrapService"),
         ("离线浏览降级", "老师电脑没有 PostgreSQL 时仍能选择目录、加载缩略图、查看和播放图片，数据库功能显示未连接。", "ImageServiceImpl.loadOfflineImages"),
-        ("AI识别安全控制", "默认连接 CPA 代理节点，密钥从环境变量读取，模型从 /models 下拉选择；单批上限可在设置页调整，显示为 N(max)，可停止并清理AI标签。", "AIConfig / ScanTask / AiTagStorageService"),
+        ("AI识别安全控制", "端点和密钥只保存在本机私有 fallback 配置中，模型从 /models 下拉选择；单批上限可在设置页调整，显示为 N(max)，可停止并清理AI标签。", "AIConfig / ScanTask / AiTagStorageService"),
         ("手动补打AI标签", "若子目录未及时自动识别，可在主界面点击“补打 AI 标签”，只对当前目录重新触发待识别图片。", "MainController.onRescanAiTags"),
         ("设置单窗口保护", "连续点击设置按钮时不会再打开两个设置页，只会把已有窗口置顶，避免配置被重复窗口覆盖。", "MainController.openSettingsWindow"),
     ]
@@ -494,7 +494,7 @@ def make_report_docx():
         ("AI 标签补打入口", "主界面新增“补打 AI 标签”，当自动扫描遗漏或子目录刚同步完成时，可手动重新触发当前目录识别。", "解决自动任务未刷新、文件刚同步、网络波动后的补救问题。"),
         ("设置窗口单实例", "设置页保存 Stage 引用，重复点击只置顶已有窗口，不再创建两个相同窗口。", "避免两个设置窗口互相覆盖配置，属于真实使用中会遇到的细节修复。"),
         ("AI 成本控制", "识别只限定当前目录，单批上限可配置并显示为 N(max)，支持停止扫描和清理数据库 AI 标签。", "防止误选大目录产生过量请求，也让数据库占用可解释、可清理。"),
-        ("安全配置路径", "API Key 优先从环境变量读取；数据库连接可写入本机外部配置，不把个人密码和密钥写死到源码。", "交付给老师或同学时，不泄露本机私密配置。"),
+        ("安全配置路径", "AI端点、AI密钥和数据库连接均写入本机外部配置，不把个人密码和密钥写死到源码。", "交付给老师或同学时，不泄露本机私密配置。"),
         ("界面真实快照验证", "用 JavaFX 快照测试生成主界面、设置、向导、数据库向导、查看器、幻灯片、编辑器、重命名等多尺寸截图。", "报告截图和当前代码一致，避免用旧图或示意图充数。"),
     ], headers=["创新点", "实现方式", "展示价值"], widths=[3.7, 7.0, 4.8])
 
@@ -705,7 +705,7 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
     return new SearchResult(images, keyword, images.size(), message);
 }
 """)
-    add_para(doc, "AI 图像识别默认连接 CPA 代理节点，Base URL 为 https://cpa.ystone.top/v1。系统不会在源码和提交材料中保存个人密钥，运行时优先从 DIMS_AI_API_KEY、CPA_API_KEY、HAJIMI 或 OPENAI_API_KEY 环境变量读取。模型名称不再要求用户手填，而是由设置页调用兼容 /models 接口后通过下拉菜单选择。")
+    add_para(doc, "AI 图像识别不在源码和提交材料中保存默认端点或个人密钥。运行时由机主在设置页维护本机私有 fallback 列表，系统按顺序尝试端点，失败后临时降级，连续失败达到阈值后在本次会话中熔断。模型名称不再要求用户手填，而是由设置页调用兼容 /models 接口后通过下拉菜单选择。")
     add_para(doc, "为了避免误选大目录造成过多 token 消耗，ScanTask 将 AI 识别限制在当前扫描根目录下，单次批处理上限由设置页保存，默认 100(max)，界面中凡是上限都按 N(max) 显示。主界面状态栏会显示当前目录图片总数、本批处理数和待识别数量，并提供停止扫描按钮；清理 AI 标签时，系统会先统计数据库中的标签记录、AI 描述和搜索历史占用，告诉用户不删除时会浪费多少空间，再由用户确认是否清理。")
     add_para(doc, "针对“子目录文件刚同步、自动标签没有打好、或者界面尚未刷新”的实际问题，主界面新增“补打 AI 标签”按钮。它会优先使用当前选中的目录，若未选中则回退到设置中的扫描目录，只把该目录内 ai_processed=false 或未完成识别的图片重新送入扫描任务。这样用户不用重启软件，也不用清空全部标签后从头识别。")
     add_para(doc, "设置页也做了单窗口保护。MainController 保存 settingsStage 引用，第二次点击设置按钮时只把已有设置页取消最小化、置顶并请求焦点，而不会创建两个一模一样的设置窗口。这个细节避免了两个窗口分别保存旧值和新值导致配置被误覆盖。")
@@ -721,7 +721,7 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
         ("JDK", "Java 21 编译目标，JDK 21+ 可运行", "当前开发机将 .jar 双击关联到 JDK 26 的 javaw.exe。"),
         ("数据库", "PostgreSQL 18.3；另模拟未连接环境", "本地 image_manager 数据库；同时用无效端口验证离线启动和数据库向导。"),
         ("构建工具", "Maven 3.9.14", "执行 mvn -DskipTests package 生成 shaded JAR。"),
-        ("网络/API", "CPA代理节点，可选密钥", "支持环境变量读取密钥；未配置时不影响基础图片管理功能。"),
+        ("网络/API", "OpenAI兼容端点，可选密钥", "支持本机私有fallback；未配置时不影响基础图片管理功能。"),
     ], headers=["项目", "版本/配置", "说明"], widths=[3.5, 4.5, 7.5])
     add_para(doc, "本次更新后重新执行 Maven 编译、单元测试、FXML/CSS 静态检查、JavaFX 界面快照测试、JAR 内容检查、数据库连通性自检和无效端口降级测试。界面快照测试直接加载当前 FXML 与 style.css，在不同窗口尺寸下生成 PNG，用于检查控件截断、文字重叠、滚动区域、选中状态和按钮可见性。数据库脚本执行后 public schema 中基础表、视图、触发器和函数均能创建，目标 JAR 为包含依赖的 shaded JAR。")
 
@@ -758,7 +758,7 @@ private SearchResult searchByKeyword(String keyword, Optional<Integer> directory
 
     add_heading(doc, "4.3 系统完整测试", 2)
     add_para(doc, "完整流程测试从启动程序开始：选择扫描目录，展开目录树，点击目录加载缩略图，使用单选和多选分别执行复制、粘贴、重命名、删除，随后进入幻灯片窗口进行前后切换、放大缩小和自动播放。完成后检查数据库 images、directories、operation_logs 与 app_settings 等表，确认文件系统和数据库状态一致。")
-    add_para(doc, "扩展接口的测试口径为：在设置页填写 base url、api key 和 model 后，只验证配置保存和接口调用入口是否能被正常触发；若验收环境没有密钥或网络条件，则直接使用关键词搜索。系统不在源码中保存密钥，避免提交材料泄露个人配置。")
+    add_para(doc, "扩展接口的测试口径为：在设置页维护本机私有 fallback 列表后，优先验证 /models 模型列表能否获取；若验收环境没有密钥或网络条件，则直接使用关键词搜索。系统不在源码中保存密钥，避免提交材料泄露个人配置。")
 
     add_heading(doc, "4.4 打包测试", 2)
     add_code_block(doc, """

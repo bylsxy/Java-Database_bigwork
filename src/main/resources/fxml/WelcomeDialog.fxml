@@ -67,7 +67,7 @@
                 <VBox spacing="6" styleClass="info-callout">
                     <Label text="AI 图像识别配置"
                            styleClass="section-label"/>
-                    <Label text="系统默认连接 CPA 代理节点进行图像识别。您可以在「设置」中确认 API 地址、环境变量密钥和模型下拉列表，也可稍后配置。"
+                    <Label text="AI 图像识别使用本机私有配置文件中的端点列表。您可以在「设置」中维护 fallback 顺序、密钥和模型，也可稍后配置。"
                            wrapText="true" styleClass="helper-text"/>
                     <Hyperlink fx:id="settingsLink" text="打开设置页面配置 AI API" onAction="#onOpenSettings"
                                />

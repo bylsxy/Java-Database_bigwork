@@ -1,0 +1,19 @@
+@startuml
+component "Main UI" as UI
+component "Viewer/Slideshow" as VS
+component "Settings/Bootstrap" as SB
+component "Image Management Service" as IMS
+component "AI/Search Service" as AIS
+component "DAO Component" as DAO
+database "PostgreSQL"
+folder "Local Files"
+cloud "OpenAI API"
+UI --> IMS
+VS --> IMS
+SB --> IMS
+IMS --> DAO
+AIS --> DAO
+IMS --> "Local Files"
+AIS --> "OpenAI API"
+DAO --> "PostgreSQL"
+@enduml

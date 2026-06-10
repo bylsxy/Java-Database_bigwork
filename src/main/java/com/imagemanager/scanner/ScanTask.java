@@ -35,6 +35,9 @@ public class ScanTask extends Task<Void> {
     private final DirectoryDao directoryDao;
     private final TagDao tagDao;
     private final AIService aiService;
+    private final ScanProgressEstimator progressEstimator;
+    private final long requestDelayMillis;
+    private final int batchLimit;
 
     /**
      * @param rootDirectory 要扫描的根目录
@@ -45,12 +48,19 @@ public class ScanTask extends Task<Void> {
         this.directoryDao = new DirectoryDaoImpl();
         this.tagDao = new TagDaoImpl();
         this.aiService = new OpenAICompatibleService();
+        this.requestDelayMillis = AIConfig.getRequestDelay();
+        this.batchLimit = AIConfig.getBatchLimit();
+        this.progressEstimator = new ScanProgressEstimator(requestDelayMillis, batchLimit);
+    }
+
+    public ScanProgressEstimator.Snapshot getProgressSnapshot() {
+        return progressEstimator.snapshot();
     }
 
     @Override
     protected Void call() throws Exception {
         logger.info("扫描任务启动: {}", rootDirectory.getAbsolutePath());
-        updateMessage("正在扫描目录结构...");
+        publishSnapshot();
         ensureScanSchema();
 
         // ==================== Phase 1: 文件系统扫描 & 入库 ====================
@@ -64,16 +74,17 @@ public class ScanTask extends Task<Void> {
 
         int totalImages = scannedImages.size();
         logger.info("Phase 1: 发现 {} 张图片，开始入库...", totalImages);
-        updateMessage("发现 " + totalImages + " 张图片，正在入库...");
+        progressEstimator.beginImportPhase(totalImages);
+        publishSnapshot();
 
         int insertedCount = 0;
         for (int i = 0; i < totalImages; i++) {
             if (isCancelled()) return null;
 
             DirectoryScanner.ScannedImage img = scannedImages.get(i);
-            updateMessage("正在入库: " + img.fileName() + "  [" + (i + 1) + "/" + totalImages + "]");
-            updateProgress(i, totalImages * 2L); // Phase1占前半段进度
+            progressEstimator.onImportItemStarted(img.fileName());
 
+            long itemStart = System.nanoTime();
             try {
                 // 检查是否已存在（通过哈希）
                 // 如果存在就跳过
@@ -94,6 +105,10 @@ public class ScanTask extends Task<Void> {
                 }
             } catch (Exception e) {
                 logger.warn("入库失败，跳过: {} - {}", img.fileName(), e.getMessage());
+            } finally {
+                long itemDurationMillis = Math.max(1L, (System.nanoTime() - itemStart) / 1_000_000L);
+                progressEstimator.onImportItemCompleted(itemDurationMillis);
+                publishSnapshot();
             }
         }
 
@@ -101,14 +116,13 @@ public class ScanTask extends Task<Void> {
 
         // ==================== Phase 2: AI 图像识别 ====================
         if (!AIConfig.isConfigured()) {
-            updateMessage("AI API 未配置，跳过图像识别。扫描完成。");
+            progressEstimator.markCompleted("AI API 未配置，已完成目录扫描与入库。");
+            publishSnapshot();
             logger.info("AI API 未配置，跳过 Phase 2");
-            updateProgress(1, 1);
             return null;
         }
 
         // 只处理本次扫描根目录下的图片，避免切换目录后继续消费旧目录。
-        int batchLimit = AIConfig.getBatchLimit();
         int pendingTotal = countPendingAIImages();
         List<ImageFile> pendingImages = getPendingAIImages(batchLimit);
         int pendingCount = pendingImages.size();
@@ -116,16 +130,14 @@ public class ScanTask extends Task<Void> {
                 totalImages, pendingTotal, pendingCount, batchLimit);
 
         if (pendingCount == 0) {
-            updateMessage("本目录共 " + totalImages + " 张图片，所有图片已完成AI识别。扫描完成。");
-            updateProgress(1, 1);
+            progressEstimator.markCompleted("本目录共 " + totalImages + " 张图片，所有图片都已完成 AI 识别。");
+            publishSnapshot();
             return null;
         }
 
-        updateMessage("本目录共 " + totalImages + " 张图片，待AI识别 " + pendingTotal
-                + " 张；本次最多处理 " + batchLimit + "(max) 张。");
-        updateProgress(0, pendingCount);
+        progressEstimator.beginAiPhase(pendingTotal, pendingCount);
+        publishSnapshot();
 
-        long requestDelay = AIConfig.getRequestDelay();
         int successCount = 0;
         int failedCount = 0;
 
@@ -136,69 +148,69 @@ public class ScanTask extends Task<Void> {
             }
 
             ImageFile img = pendingImages.get(i);
-            String progressText = String.format(
-                    "AI批次进度 %d/%d（%.1f%%），正在识别: %s，本次上限%d(max)，目录%d张，待识别%d张",
-                    (i + 1), pendingCount,
-                    (i + 1.0) / pendingCount * 100, img.fileName(), batchLimit, totalImages, pendingTotal);
-            updateMessage(progressText);
-            updateProgress(i + 1, pendingCount);
+            progressEstimator.onAiItemStarted(img.fileName());
+            publishSnapshot();
 
+            long aiStart = System.nanoTime();
+            boolean success = false;
             try {
                 File imageFile = new File(img.filePath());
                 if (!imageFile.exists()) {
                     logger.warn("图片文件不存在，跳过: {}", img.filePath());
-                    continue;
-                }
-
-                Optional<ImageAnalysisResult> result = aiService.analyzeImage(imageFile, img.id());
-                if (result.isPresent()) {
-                    ImageAnalysisResult analysis = result.get();
-
-                    // 保存AI分析结果
-                    tagDao.saveAnalysisResult(analysis);
-
-                    // 批量插入标签
-                    Map<String, List<String>> tagsByCategory = analysis.tagsByCategory();
-                    if (tagsByCategory != null) {
-                        List<String> categories = new ArrayList<>();
-                        List<String> tagNames = new ArrayList<>();
-                        List<Float> confidences = new ArrayList<>();
-
-                        tagsByCategory.forEach((category, tagList) -> {
-                            for (String tagName : tagList) {
-                                categories.add(category);
-                                tagNames.add(tagName);
-                                confidences.add(1.0f);
-                            }
-                        });
-
-                        if (!categories.isEmpty()) {
-                            float[] confArray = new float[confidences.size()];
-                            for (int j = 0; j < confidences.size(); j++) {
-                                confArray[j] = confidences.get(j);
-                            }
-                            tagDao.batchInsertTags(
-                                    img.id(),
-                                    categories.toArray(new String[0]),
-                                    tagNames.toArray(new String[0]),
-                                    confArray
-                            );
-                        }
-                    }
-
-                    logger.info("AI识别完成: {} (标签数: {})", img.fileName(),
-                            tagsByCategory != null ? tagsByCategory.values().stream()
-                                    .mapToInt(List::size).sum() : 0);
-                    markAiProcessed(img.id(), true);
-                    successCount++;
-                } else {
                     markAiProcessed(img.id(), false);
                     failedCount++;
+                } else {
+                    Optional<ImageAnalysisResult> result = aiService.analyzeImage(imageFile, img.id());
+                    if (result.isPresent()) {
+                        ImageAnalysisResult analysis = result.get();
+
+                        // 保存AI分析结果
+                        tagDao.saveAnalysisResult(analysis);
+
+                        // 批量插入标签
+                        Map<String, List<String>> tagsByCategory = analysis.tagsByCategory();
+                        if (tagsByCategory != null) {
+                            List<String> categories = new ArrayList<>();
+                            List<String> tagNames = new ArrayList<>();
+                            List<Float> confidences = new ArrayList<>();
+
+                            tagsByCategory.forEach((category, tagList) -> {
+                                for (String tagName : tagList) {
+                                    categories.add(category);
+                                    tagNames.add(tagName);
+                                    confidences.add(1.0f);
+                                }
+                            });
+
+                            if (!categories.isEmpty()) {
+                                float[] confArray = new float[confidences.size()];
+                                for (int j = 0; j < confidences.size(); j++) {
+                                    confArray[j] = confidences.get(j);
+                                }
+                                tagDao.batchInsertTags(
+                                        img.id(),
+                                        categories.toArray(new String[0]),
+                                        tagNames.toArray(new String[0]),
+                                        confArray
+                                );
+                            }
+                        }
+
+                        logger.info("AI识别完成: {} (标签数: {})", img.fileName(),
+                                tagsByCategory != null ? tagsByCategory.values().stream()
+                                        .mapToInt(List::size).sum() : 0);
+                        markAiProcessed(img.id(), true);
+                        successCount++;
+                        success = true;
+                    } else {
+                        markAiProcessed(img.id(), false);
+                        failedCount++;
+                    }
                 }
 
                 // 限流保护：请求间隔
                 if (i < pendingCount - 1) {
-                    sleepWithCancellation(requestDelay);
+                    sleepWithCancellation(requestDelayMillis);
                 }
 
             } catch (InterruptedException e) {
@@ -209,17 +221,49 @@ public class ScanTask extends Task<Void> {
                 logger.error("AI识别失败: {} - {}", img.fileName(), e.getMessage());
                 markAiProcessed(img.id(), false);
                 failedCount++;
+            } finally {
+                long aiDurationMillis = Math.max(1L, (System.nanoTime() - aiStart) / 1_000_000L);
+                progressEstimator.onAiItemCompleted(aiDurationMillis, success);
+                publishSnapshot();
             }
         }
 
         String limitNotice = pendingTotal > batchLimit
                 ? " 本次达到 " + batchLimit + "(max)，剩余图片可再次扫描继续处理。"
                 : "";
-        updateMessage("扫描完成！本目录共 " + totalImages + " 张图片，本批成功 "
+        progressEstimator.markCompleted("本目录共 " + totalImages + " 张图片，本批成功 "
                 + successCount + " 张，失败 " + failedCount + " 张。" + limitNotice);
-        updateProgress(1, 1);
+        publishSnapshot();
         logger.info("扫描任务全部完成");
         return null;
+    }
+
+    @Override
+    protected void cancelled() {
+        super.cancelled();
+        progressEstimator.markCancelled("已停止当前扫描，已经写入数据库的 AI 标签会保留，可稍后继续补打。");
+        publishSnapshot();
+    }
+
+    @Override
+    protected void failed() {
+        super.failed();
+        Throwable error = getException();
+        String detail = error == null || error.getMessage() == null || error.getMessage().isBlank()
+                ? "后台扫描任务异常结束。"
+                : "后台扫描任务异常结束：" + error.getMessage();
+        progressEstimator.markFailed(detail);
+        publishSnapshot();
+    }
+
+    private void publishSnapshot() {
+        ScanProgressEstimator.Snapshot snapshot = progressEstimator.snapshot();
+        updateMessage(snapshot.summaryText());
+        if (snapshot.progress() < 0) {
+            updateProgress(-1, 1);
+        } else {
+            updateProgress(snapshot.progress(), 1);
+        }
     }
 
     /**
