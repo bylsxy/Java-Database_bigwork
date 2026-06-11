@@ -101,7 +101,7 @@ public class App extends Application {
     private void showWelcomeDialogIfNeeded(Stage owner, MainController mainController) {
         try {
             if (!WelcomeDialogController.shouldShowWelcome()) {
-                // 已配置扫描目录时，MainController 会显示该目录根节点。
+                // 已配置扫描目录时，MainController 会在完整目录树中自动展开到该目录。
                 // 不在每次启动时自动调用 AI 扫描，避免用户只是打开软件也产生 token 消耗。
                 return;
             }
@@ -131,6 +131,7 @@ public class App extends Application {
                 String selectedDir = welcomeController.getSelectedDirectory();
                 if (!selectedDir.isBlank()) {
                     logger.info("用户选择扫描目录: {}", selectedDir);
+                    mainController.syncScanDirectoryRoot(selectedDir);
                     mainController.startScanTask(selectedDir);
                 }
             } else {

@@ -46,24 +46,31 @@ public final class DatabaseSetupDialog {
             stage.initModality(Modality.NONE);
         }
 
-        Label title = new Label("PostgreSQL 18 数据库向导");
+        Label title = new Label("PostgreSQL 数据库向导");
         title.getStyleClass().add("settings-title");
 
         Label summary = new Label(
-                "未连接数据库时仍可浏览本机图片，但标签、搜索、AI识别、缩略图缓存和设置保存需要 PostgreSQL。");
+                "exe 便携包已捆绑 Java 运行时和程序依赖；新电脑通常只需要补 PostgreSQL。未连接数据库时仍可浏览本机图片，但标签、搜索、AI识别、缩略图缓存和设置保存需要 PostgreSQL。");
         summary.setWrapText(true);
         summary.getStyleClass().add("settings-description");
 
-        Hyperlink downloadLink = new Hyperlink("打开 PostgreSQL 官方下载页（PostgreSQL 18）");
+        Button installButton = new Button("一键打开 PostgreSQL 安装页");
+        installButton.getStyleClass().add("secondary-button");
+        installButton.setOnAction(event -> openDownloadPage());
+
+        Hyperlink downloadLink = new Hyperlink(POSTGRES_DOWNLOAD_URL);
         downloadLink.setOnAction(event -> openDownloadPage());
+        HBox installRow = new HBox(10, installButton, downloadLink);
+        installRow.setAlignment(Pos.CENTER_LEFT);
 
         TextArea guideArea = new TextArea("""
-                手动安装时按 README 的顺序操作：
+                首次搬到新电脑时按这个顺序操作：
 
-                1. 安装 PostgreSQL 18，并确保 PostgreSQL 服务已启动。
+                1. 点击上方按钮安装 PostgreSQL 16 或以上版本，并确保 PostgreSQL 服务已启动。
                    官方下载地址：https://www.postgresql.org/download/
-                2. 使用安装时设置的 postgres 用户密码。
-                3. 本向导可在应用内执行等价操作：
+                2. 在下方填写安装时设置的 postgres 用户密码。密码未知或错误时，重新填写后先点“保存配置”。
+                3. 点击“检测连接”确认账号密码可用。
+                4. 点击“一键创建数据库并初始化”，本向导会执行等价操作：
                    psql -U postgres -c "CREATE DATABASE image_manager ENCODING 'UTF8';"
                    psql -U postgres -d image_manager -f sql/schema.sql
 
@@ -115,7 +122,7 @@ public final class DatabaseSetupDialog {
 
         saveButton.setOnAction(event -> {
             saveConfig(jdbcUrlField, usernameField, passwordField);
-            resultArea.setText("配置已保存。点击“检测连接”或“一键创建数据库并初始化”继续。");
+            resultArea.setText("配置已保存。密码未知或刚改过时，请重新输入 PostgreSQL 的 postgres 密码，然后点击“检测连接”或“一键创建数据库并初始化”。");
             runCallback(onStatusChanged);
         });
         detectButton.setOnAction(event -> runDatabaseTask(
@@ -151,7 +158,7 @@ public final class DatabaseSetupDialog {
         HBox buttons = new HBox(10, progress, detectButton, initButton, saveButton, closeButton);
         buttons.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox root = new VBox(12, title, summary, downloadLink, guideArea, configGrid,
+        VBox root = new VBox(12, title, summary, installRow, guideArea, configGrid,
                 configPathLabel, resultArea, buttons);
         root.setPadding(new Insets(18));
         root.getStyleClass().add("settings-root");
@@ -208,7 +215,7 @@ public final class DatabaseSetupDialog {
             initButton.setDisable(false);
             saveButton.setDisable(false);
             Throwable error = task.getException();
-            resultArea.setText("操作失败：" + (error == null ? "未知错误" : error.getMessage()));
+            resultArea.setText("操作失败：" + DatabaseBootstrapService.describeFailure(error));
             runCallback(onStatusChanged);
         });
 
@@ -226,18 +233,34 @@ public final class DatabaseSetupDialog {
     }
 
     private static String currentStatusText() {
-        DatabaseBootstrapService.DatabaseCheck check = new DatabaseBootstrapService().check();
-        return check.message();
+        try {
+            DatabaseBootstrapService.DatabaseCheck check = new DatabaseBootstrapService().check();
+            Throwable startupError = DatabaseConnection.getLastInitializationError();
+            if (!check.connected() && startupError != null) {
+                return check.message() + "\n\n启动自检提示："
+                        + DatabaseBootstrapService.describeFailure(startupError);
+            }
+            return check.message();
+        } catch (RuntimeException e) {
+            return "读取数据库配置失败：" + DatabaseBootstrapService.describeFailure(e);
+        }
     }
 
     private static void openDownloadPage() {
         try {
-            if (Desktop.isDesktopSupported()) {
+            if (Desktop.isDesktopSupported()
+                    && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                 Desktop.getDesktop().browse(URI.create(POSTGRES_DOWNLOAD_URL));
+                return;
             }
         } catch (Exception ignored) {
-            // 用户仍可复制界面上的链接文本。
+            // 下面给出可复制地址，避免静默失败。
         }
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("无法自动打开浏览器");
+        alert.setHeaderText("请手动访问 PostgreSQL 官方下载页");
+        alert.setContentText(POSTGRES_DOWNLOAD_URL);
+        alert.showAndWait();
     }
 
     private static void runCallback(Runnable callback) {

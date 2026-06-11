@@ -4,6 +4,7 @@ import com.imagemanager.ai.AIConfig;
 import com.imagemanager.dao.SettingsDao;
 import com.imagemanager.dao.SettingsDaoImpl;
 import com.imagemanager.scanner.DirectoryScanner;
+import com.imagemanager.util.FileUtil;
 import javafx.application.Platform;
 import javafx.geometry.Rectangle2D;
 import javafx.fxml.FXML;
@@ -48,7 +49,7 @@ public class WelcomeDialogController {
         directoryField.textProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null && !newVal.isBlank()) {
                 File dir = new File(newVal);
-                if (dir.exists() && dir.isDirectory()) {
+                if (FileUtil.isUsableScanDirectory(dir)) {
                     selectedDirectory = newVal;
                     updateEstimate(dir);
                 }
@@ -81,7 +82,7 @@ public class WelcomeDialogController {
         }
 
         File dir = new File(path);
-        return dir.exists() && dir.isDirectory() ? dir : null;
+        return FileUtil.isUsableScanDirectory(dir) ? dir : null;
     }
 
     @FXML
@@ -101,6 +102,12 @@ public class WelcomeDialogController {
         Stage stage = (Stage) browseButton.getScene().getWindow();
         File chosen = chooser.showDialog(stage);
         if (chosen != null) {
+            if (!FileUtil.isUsableScanDirectory(chosen)) {
+                warningLabel.setVisible(true);
+                warningLabel.setManaged(true);
+                warningLabel.setText("请选择具体图片文件夹，不要直接选择磁盘根目录。");
+                return;
+            }
             directoryField.setText(chosen.getAbsolutePath());
             selectedDirectory = chosen.getAbsolutePath();
             updateEstimate(chosen);
@@ -233,7 +240,13 @@ public class WelcomeDialogController {
      */
     public void saveSettings() {
         if (!selectedDirectory.isBlank()) {
-            settingsDao.upsert("scan_directory", selectedDirectory);
+            File dir = new File(selectedDirectory);
+            if (!FileUtil.isUsableScanDirectory(dir)) {
+                logger.warn("向导目录不是安全的扫描目录，已忽略: {}", selectedDirectory);
+                selectedDirectory = "";
+            } else {
+                settingsDao.upsert("scan_directory", selectedDirectory);
+            }
         }
         if (dontShowAgainCheckBox.isSelected()) {
             settingsDao.upsert("show_welcome", "false");

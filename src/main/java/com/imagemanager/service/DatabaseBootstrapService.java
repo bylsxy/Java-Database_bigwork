@@ -12,6 +12,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -39,7 +40,7 @@ public class DatabaseBootstrapService {
             }
             return new DatabaseCheck(true, false, "数据库可以连接，但尚未初始化表结构。");
         } catch (SQLException e) {
-            return new DatabaseCheck(false, false, "数据库连接失败：" + conciseSqlError(e));
+            return new DatabaseCheck(false, false, "数据库连接失败：" + describeFailure(e));
         }
     }
 
@@ -60,7 +61,7 @@ public class DatabaseBootstrapService {
             return new BootstrapResult(true, "数据库 " + databaseName + " 已创建/确认存在，表结构已初始化。");
         } catch (Exception e) {
             logger.error("数据库一键初始化失败", e);
-            return new BootstrapResult(false, "数据库一键初始化失败：" + rootMessage(e));
+            return new BootstrapResult(false, "数据库一键初始化失败：" + describeFailure(e));
         }
     }
 
@@ -77,8 +78,20 @@ public class DatabaseBootstrapService {
             }
             logger.info("内置数据库 schema 初始化完成，执行 {} 条 SQL", statements.size());
         } catch (SQLException e) {
-            throw new RuntimeException("执行 schema.sql 失败: " + conciseSqlError(e), e);
+            throw new RuntimeException("执行 schema.sql 失败: " + describeFailure(e), e);
         }
+    }
+
+    public static String describeFailure(Throwable error) {
+        if (error == null) {
+            return "未知错误。";
+        }
+        String detail = rootMessage(error);
+        String hint = recoveryHint(error);
+        if (hint.isBlank()) {
+            return detail;
+        }
+        return detail + "\n\n处理建议：" + hint;
     }
 
     private void ensureDatabaseExists(DatabaseConnection.DatabaseConfig config, String databaseName) throws SQLException {
@@ -259,16 +272,70 @@ public class DatabaseBootstrapService {
         return "\"" + identifier.replace("\"", "\"\"") + "\"";
     }
 
-    private String conciseSqlError(SQLException e) {
+    private static String conciseSqlError(SQLException e) {
         String state = e.getSQLState() == null ? "" : " SQLState=" + e.getSQLState();
         return e.getMessage() + state;
     }
 
-    private String rootMessage(Throwable error) {
+    private static String rootMessage(Throwable error) {
         Throwable current = error;
         while (current.getCause() != null) {
             current = current.getCause();
         }
+        if (current instanceof SQLException sqlException) {
+            return conciseSqlError(sqlException);
+        }
         return current.getMessage() == null ? current.toString() : current.getMessage();
+    }
+
+    private static String recoveryHint(Throwable error) {
+        String message = collectMessages(error).toLowerCase(Locale.ROOT);
+        String sqlState = firstSqlState(error);
+
+        if ("28P01".equals(sqlState) || message.contains("password authentication failed")) {
+            return "数据库密码可能为空、未知或填写错误。请在向导的密码框重新输入安装 PostgreSQL 时设置的 postgres 密码，先点“保存配置”，再点“检测连接”或“一键创建数据库并初始化”。如果确实忘记了密码，需要先在 PostgreSQL/pgAdmin 中重置 postgres 用户密码。";
+        }
+        if ("3D000".equals(sqlState) || message.contains("database") && message.contains("does not exist")) {
+            return "目标数据库还不存在。确认 JDBC URL 最后一段是 image_manager，然后点击“一键创建数据库并初始化”。";
+        }
+        if (message.contains("connection refused")
+                || message.contains("connect timed out")
+                || message.contains("the connection attempt failed")
+                || message.contains("connection to") && message.contains("refused")) {
+            return "PostgreSQL 可能未安装、服务未启动，或端口不是 5432。请点击向导里的“一键打开 PostgreSQL 安装页”完成安装，或在 Windows 服务中启动 PostgreSQL 后重试。";
+        }
+        if ("42501".equals(sqlState) || message.contains("permission denied")) {
+            return "当前数据库用户权限不足。请使用 postgres 管理员账号，或给当前用户授予建库和 public schema 建表权限。";
+        }
+        if (message.contains("no suitable driver") || message.contains("org.postgresql.driver")) {
+            return "运行包缺少 PostgreSQL JDBC 驱动。请使用本次重新生成的便携版 exe 或 fat jar，不要只复制单个旧 jar。";
+        }
+        if (message.contains("unknownhostexception") || message.contains("name or service not known")) {
+            return "JDBC URL 中的主机名无法解析。新电脑本机数据库一般使用 jdbc:postgresql://localhost:5432/image_manager。";
+        }
+        return "请确认 PostgreSQL 已安装并正在运行，JDBC URL、用户名、密码和端口正确；密码不确定时可直接在向导中重新填写并保存。";
+    }
+
+    private static String firstSqlState(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof SQLException sqlException && sqlException.getSQLState() != null) {
+                return sqlException.getSQLState();
+            }
+            current = current.getCause();
+        }
+        return "";
+    }
+
+    private static String collectMessages(Throwable error) {
+        StringBuilder messages = new StringBuilder();
+        Throwable current = error;
+        while (current != null) {
+            if (current.getMessage() != null) {
+                messages.append(current.getMessage()).append('\n');
+            }
+            current = current.getCause();
+        }
+        return messages.toString();
     }
 }

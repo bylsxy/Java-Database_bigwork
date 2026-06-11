@@ -610,6 +610,14 @@
     -fx-background-color: #FFFFFF;
 }
 
+.directory-tree .tree-cell:selected:hover:filled {
+    -fx-background-color: #0F172A;
+}
+
+.directory-tree .tree-cell:selected:hover .label {
+    -fx-text-fill: #FFFFFF;
+}
+
 /* ==================== Preview surface / thumbnails ==================== */
 
 .preview-container,
@@ -776,6 +784,48 @@
 .thumbnail-meta {
     -fx-font-size: 11px;
     -fx-text-fill: #64748B;
+    -fx-alignment: center;
+    -fx-max-width: 148;
+    -fx-text-overrun: ellipsis;
+}
+
+.directory-card {
+    -fx-background-color: #F8FAFC;
+    -fx-border-color: #CBD5E1;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 10;
+    -fx-cursor: hand;
+}
+
+.directory-card:hover {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #94A3B8;
+}
+
+.directory-card-icon-container {
+    -fx-alignment: center;
+    -fx-background-color: #E2E8F0;
+    -fx-border-color: #CBD5E1;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-min-width: 148;
+    -fx-min-height: 112;
+    -fx-max-width: 148;
+    -fx-max-height: 112;
+}
+
+.directory-card-icon {
+    -fx-text-fill: #0F172A;
+    -fx-font-size: 28px;
+}
+
+.directory-card-name {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #020617;
     -fx-alignment: center;
     -fx-max-width: 148;
     -fx-text-overrun: ellipsis;

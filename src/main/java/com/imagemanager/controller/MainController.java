@@ -186,6 +186,9 @@ public class MainController {
         }
     }
 
+    private record DirectoryLoadResult(List<File> subDirectories, List<ImageFile> images) {
+    }
+
     // ==================== 初始化 ====================
 
     /**
@@ -248,7 +251,7 @@ public class MainController {
     // ==================== 目录树 ====================
 
     /**
-     * 初始化目录树。若已配置扫描目录，则以扫描目录作为图片库根节点。
+     * 初始化目录树。目录树始终以“我的电脑”为根，扫描目录只作为自动展开和选中的目标。
      */
     private void initDirectoryTree() {
         // 监听选中变化
@@ -262,14 +265,47 @@ public class MainController {
                     }
                 });
 
-        String scanDirectory = DatabaseConnection.isInitialized()
-                ? settingsDao.getValueOrDefault("scan_directory", "")
-                : "";
-        if (!scanDirectory.isBlank() && new File(scanDirectory).isDirectory()) {
-            showScanDirectoryRoot(scanDirectory, true);
-        } else {
-            showComputerRoot();
+        showInitialDirectoryRoot();
+    }
+
+    /**
+     * 启动时始终显示完整磁盘树，并优先展开到用户已保存的扫描目录。
+     * 如果没有配置扫描目录，再回退到 Pictures。
+     */
+    private void showInitialDirectoryRoot() {
+        showComputerRoot();
+
+        String scanDirectory = getConfiguredScanDirectory();
+        if (selectDirectoryIfAvailable(scanDirectory)) {
+            return;
         }
+
+        String defaultPictures = System.getProperty("user.home") + File.separator + "Pictures";
+        selectDirectoryIfAvailable(defaultPictures);
+    }
+
+    private String getConfiguredScanDirectory() {
+        if (!DatabaseConnection.isInitialized()) {
+            return "";
+        }
+        try {
+            return settingsDao.getValueOrDefault("scan_directory", "").trim();
+        } catch (Exception e) {
+            logger.warn("读取扫描目录失败，回退到默认目录", e);
+            return "";
+        }
+    }
+
+    private boolean selectDirectoryIfAvailable(String directoryPath) {
+        if (directoryPath == null || directoryPath.isBlank()) {
+            return false;
+        }
+        File targetDir = new File(directoryPath);
+        if (!FileUtil.isUsableScanDirectory(targetDir)) {
+            return false;
+        }
+        selectDirectoryInTree(normalizeDirectoryPath(targetDir));
+        return true;
     }
 
     /**
@@ -293,26 +329,24 @@ public class MainController {
 
         directoryTree.setRoot(rootItem);
         directoryTree.setShowRoot(true);
+        if (pathLabel != null) {
+            pathLabel.setText("我的电脑");
+        }
+        if (directoryNameLabel != null) {
+            directoryNameLabel.setText("我的电脑");
+        }
+        setImageCountText("");
     }
 
     /**
-     * 切换图片库根目录，让左侧树和右侧缩略图都跟随当前扫描目录。
+     * 同步左侧目录树到指定扫描目录。
+     * <p>
+     * 用于设置页保存后、首启向导确认后，以及后续需要把右侧目录卡片导航同步到左侧树时调用。
      */
-    private void showScanDirectoryRoot(String directoryPath, boolean selectRoot) {
-        File rootDir = new File(directoryPath);
-        if (!rootDir.isDirectory()) {
-            return;
-        }
-
-        String rootPath = normalizeDirectoryPath(rootDir);
-        String displayName = rootDir.getName().isBlank() ? rootPath : rootDir.getName();
-        TreeItem<String> rootItem = createLazyTreeItem(displayName, rootPath);
-        directoryTree.setRoot(rootItem);
-        directoryTree.setShowRoot(true);
-        rootItem.setExpanded(true);
-
-        if (selectRoot) {
-            directoryTree.getSelectionModel().select(rootItem);
+    public void syncScanDirectoryRoot(String directoryPath) {
+        showComputerRoot();
+        if (!selectDirectoryIfAvailable(directoryPath)) {
+            showInitialDirectoryRoot();
         }
     }
 
@@ -341,7 +375,7 @@ public class MainController {
         item.setValue(displayName);
         // 使用 graphic 的 userData 存储路径
         Label label = new Label("📁");
-        label.setUserData(path);
+        label.setUserData(normalizeDirectoryPath(new File(path)));
         item.setGraphic(label);
 
         return item;
@@ -365,7 +399,7 @@ public class MainController {
         parentItem.getChildren().clear();
 
         for (var subDir : subDirs) {
-            String childPath = subDir.getAbsolutePath();
+            String childPath = normalizeDirectoryPath(subDir);
             String childName = subDir.getName();
             TreeItem<String> childItem = createLazyTreeItem(childName, childPath);
             parentItem.getChildren().add(childItem);
@@ -406,11 +440,13 @@ public class MainController {
         directoryNameLabel.setText(dir.getName().isEmpty() ? directoryPath : dir.getName());
         setImageCountText("");
 
-        // 在后台线程加载图片（避免阻塞 UI）
-        Task<List<ImageFile>> loadTask = new Task<>() {
+        // 在后台线程加载子目录和图片（避免阻塞 UI）
+        Task<DirectoryLoadResult> loadTask = new Task<>() {
             @Override
-            protected List<ImageFile> call() {
-                return imageService.loadImagesFromDirectory(directoryPath);
+            protected DirectoryLoadResult call() {
+                List<File> subDirectories = FileUtil.listSubDirectories(directoryPath);
+                List<ImageFile> images = imageService.loadImagesFromDirectory(directoryPath);
+                return new DirectoryLoadResult(subDirectories, images);
             }
         };
 
@@ -418,8 +454,9 @@ public class MainController {
             if (loadRequestId != directoryLoadRequestId || !directoryPath.equals(currentDirectoryPath)) {
                 return;
             }
-            currentImages = loadTask.getValue();
-            displayThumbnails(currentImages);
+            DirectoryLoadResult content = loadTask.getValue();
+            currentImages = content.images();
+            displayDirectoryContents(content.subDirectories(), content.images());
             updateStatusBar();
             slideshowButton.setDisable(currentImages.isEmpty());
         });
@@ -444,15 +481,151 @@ public class MainController {
      * 在缩略图区域显示图片。
      */
     private void displayThumbnails(List<ImageFile> images) {
+        displayDirectoryContents(List.of(), images);
+    }
+
+    private void displayDirectoryContents(List<File> subDirectories, List<ImageFile> images) {
         thumbnailPane.getChildren().clear();
         cardMap.clear();
 
-        setImageCountText(images.size() + " 张图片");
+        int folderCount = subDirectories == null ? 0 : subDirectories.size();
+        int imageCount = images == null ? 0 : images.size();
+        setImageCountText(formatDirectorySummary(folderCount, imageCount));
+
+        if (subDirectories != null) {
+            for (var subDir : subDirectories) {
+                thumbnailPane.getChildren().add(createDirectoryCard(subDir));
+            }
+        }
+
+        if (images == null) {
+            return;
+        }
 
         for (var image : images) {
             VBox card = createThumbnailCard(image);
             cardMap.put(image, card);
             thumbnailPane.getChildren().add(card);
+        }
+    }
+
+    private String formatDirectorySummary(int folderCount, int imageCount) {
+        if (folderCount > 0 && imageCount > 0) {
+            return folderCount + " \u4E2A\u6587\u4EF6\u5939 / " + imageCount + " \u5F20\u56FE\u7247";
+        }
+        if (folderCount > 0) {
+            return folderCount + " \u4E2A\u6587\u4EF6\u5939";
+        }
+        if (imageCount > 0) {
+            return imageCount + " \u5F20\u56FE\u7247";
+        }
+        return "\u7A7A\u76EE\u5F55";
+    }
+
+    private VBox createDirectoryCard(File directory) {
+        String directoryPath = normalizeDirectoryPath(directory);
+        String directoryName = directory.getName().isBlank() ? directoryPath : directory.getName();
+
+        Label folderIcon = new Label("\uD83D\uDCC1");
+        folderIcon.getStyleClass().add("directory-card-icon");
+
+        StackPane iconContainer = new StackPane(folderIcon);
+        iconContainer.getStyleClass().add("directory-card-icon-container");
+        iconContainer.setPrefSize(148, 112);
+
+        Label nameLabel = new Label(directoryName);
+        nameLabel.getStyleClass().add("directory-card-name");
+        nameLabel.setMaxWidth(148);
+        nameLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
+        nameLabel.setTooltip(new Tooltip(directoryPath));
+
+        VBox card = new VBox(6, iconContainer, nameLabel);
+        card.setAlignment(Pos.CENTER);
+        card.getStyleClass().add("directory-card");
+        card.setPrefWidth(172);
+        card.setMinWidth(172);
+        card.setOnMouseClicked(event -> {
+            if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2) {
+                selectDirectoryInTree(directoryPath);
+            }
+        });
+
+        return card;
+    }
+
+    private void selectDirectoryInTree(String directoryPath) {
+        if (directoryTree == null || directoryTree.getRoot() == null || directoryPath == null || directoryPath.isBlank()) {
+            onDirectorySelected(directoryPath);
+            return;
+        }
+
+        String normalizedTarget = normalizeDirectoryPath(new File(directoryPath));
+        TreeItem<String> targetItem = findTreeItemByPath(directoryTree.getRoot(), normalizedTarget);
+        if (targetItem == null) {
+            onDirectorySelected(normalizedTarget);
+            return;
+        }
+
+        expandParentChain(targetItem);
+        targetItem.setExpanded(true);
+
+        TreeItem<String> selectedItem = directoryTree.getSelectionModel().getSelectedItem();
+        if (selectedItem == targetItem) {
+            onDirectorySelected(normalizedTarget);
+        } else {
+            directoryTree.getSelectionModel().select(targetItem);
+            int row = directoryTree.getRow(targetItem);
+            if (row >= 0) {
+                directoryTree.scrollTo(row);
+            }
+        }
+    }
+
+    private TreeItem<String> findTreeItemByPath(TreeItem<String> currentItem, String targetPath) {
+        if (currentItem == null || targetPath == null || targetPath.isBlank()) {
+            return null;
+        }
+
+        String currentPath = getPathFromTreeItem(currentItem);
+        if (currentPath != null && sameDirectoryPath(currentPath, targetPath)) {
+            return currentItem;
+        }
+        if (currentPath != null && !isInsideDirectory(targetPath, currentPath)) {
+            return null;
+        }
+
+        ensureTreeChildrenLoaded(currentItem);
+        for (TreeItem<String> child : currentItem.getChildren()) {
+            if (LOADING_TREE_ITEM_TEXT.equals(child.getValue())) {
+                continue;
+            }
+            TreeItem<String> found = findTreeItemByPath(child, targetPath);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    private void ensureTreeChildrenLoaded(TreeItem<String> item) {
+        if (item == null || item.getChildren().isEmpty()) {
+            return;
+        }
+
+        if (item.getChildren().size() == 1
+                && LOADING_TREE_ITEM_TEXT.equals(item.getChildren().getFirst().getValue())) {
+            String itemPath = getPathFromTreeItem(item);
+            if (itemPath != null && !itemPath.isBlank()) {
+                loadSubDirectories(item, itemPath);
+            }
+        }
+    }
+
+    private void expandParentChain(TreeItem<String> item) {
+        TreeItem<String> parent = item.getParent();
+        while (parent != null) {
+            parent.setExpanded(true);
+            parent = parent.getParent();
         }
     }
 
@@ -1510,6 +1683,7 @@ public class MainController {
 
             if (controller.isSaved()) {
                 applyTheme();
+                syncScanDirectoryRoot(controller.getSavedScanDirectory());
                 if (controller.isScanRequested()) {
                     String scanDirectory = controller.getSavedScanDirectory();
                     statusLabel.setText("设置已保存，开始扫描目录...");
@@ -1684,13 +1858,17 @@ public class MainController {
             openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
             return;
         }
+        if (directoryPath == null || directoryPath.isBlank()) {
+            AlertUtil.showWarning("扫描失败", "请选择具体图片文件夹，不要直接扫描磁盘根目录。");
+            return;
+        }
         File scanDir = new File(directoryPath);
-        if (!scanDir.exists() || !scanDir.isDirectory()) {
-            logger.warn("扫描目录不存在: {}", directoryPath);
+        if (!FileUtil.isUsableScanDirectory(scanDir)) {
+            logger.warn("扫描目录不合法: {}", directoryPath);
+            AlertUtil.showWarning("扫描失败", "请选择具体图片文件夹，不要直接扫描磁盘根目录。");
             return;
         }
         String scanDirectoryPath = normalizeDirectoryPath(scanDir);
-        showScanDirectoryRoot(scanDirectoryPath, true);
 
         if (activeScanTask != null && activeScanTask.isRunning()) {
             if (sameDirectoryPath(activeScanDirectoryPath, scanDirectoryPath)) {
@@ -1877,12 +2055,13 @@ public class MainController {
         }
 
         File targetDir = new File(targetDirectory);
-        if (!targetDir.isDirectory()) {
+        if (!FileUtil.isUsableScanDirectory(targetDir)) {
             AlertUtil.showError("补打 AI 标签", "目录不存在或不可访问: " + targetDirectory);
             return;
         }
 
         statusLabel.setText("开始补打当前目录的 AI 标签...");
+        syncScanDirectoryRoot(targetDir.getAbsolutePath());
         startScanTask(targetDir.getAbsolutePath());
     }
 

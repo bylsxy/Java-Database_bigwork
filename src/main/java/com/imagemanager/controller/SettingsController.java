@@ -9,6 +9,7 @@ import com.imagemanager.ai.OpenAICompatibleService;
 import com.imagemanager.dao.SettingsDao;
 import com.imagemanager.dao.SettingsDaoImpl;
 import com.imagemanager.util.AlertUtil;
+import com.imagemanager.util.FileUtil;
 import com.imagemanager.util.ThemeUtil;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -457,6 +458,10 @@ public class SettingsController {
         }
         File chosen = chooser.showDialog(scanDirField.getScene().getWindow());
         if (chosen != null) {
+            if (!FileUtil.isUsableScanDirectory(chosen)) {
+                AlertUtil.showWarning("选择失败", "请选择具体图片文件夹，不要直接选择磁盘根目录。");
+                return;
+            }
             scanDirField.setText(chosen.getAbsolutePath());
         }
     }
@@ -523,7 +528,7 @@ public class SettingsController {
         }
         if (!scanDirectory.isBlank()) {
             File scanDir = new File(scanDirectory);
-            if (!scanDir.exists() || !scanDir.isDirectory()) {
+            if (!FileUtil.isUsableScanDirectory(scanDir)) {
                 AlertUtil.showWarning("保存失败", "扫描目录不存在或不是文件夹");
                 return;
             }

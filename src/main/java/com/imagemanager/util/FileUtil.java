@@ -84,6 +84,18 @@ public final class FileUtil {
     }
 
     /**
+     * 判断目录是否适合作为图片扫描目录。
+     * <p>
+     * 这里明确排除磁盘根目录，避免用户把整块磁盘当成扫描根目录。
+     */
+    public static boolean isUsableScanDirectory(File dir) {
+        return dir != null
+                && dir.exists()
+                && dir.isDirectory()
+                && dir.getParentFile() != null;
+    }
+
+    /**
      * 获取文件的扩展名（不含点号）。
      * 例如 "photo.jpg" → "jpg"，无扩展名返回空字符串。
      */
