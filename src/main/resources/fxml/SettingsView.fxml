@@ -91,6 +91,8 @@
                                             styleClass="primary-button"/>
                                     <Button text="重置熔断" onAction="#onResetCircuitBreakers"
                                             styleClass="secondary-button"/>
+                                    <Button text="恢复默认 fallback" onAction="#onRestoreDefaultFallback"
+                                            styleClass="warning-button"/>
                                 </HBox>
                             </VBox>
                         </HBox>
@@ -127,6 +129,18 @@
                                 <Label text="张" styleClass="helper-text"/>
                             </HBox>
                         </GridPane>
+
+                        <VBox spacing="6">
+                            <Label text="实时连接测试" styleClass="section-label"/>
+                            <Label text="上传一张示例图片，验证 API 是否正确返回标签（会消耗一次图像识别请求）。"
+                                   wrapText="true" styleClass="helper-text"/>
+                            <HBox spacing="10" alignment="CENTER_LEFT">
+                                <Button text="选择图片并测试" onAction="#onTestWithImage"
+                                        styleClass="primary-button"/>
+                                <Label text="建议平时先用 /models 验证，答辩前再做图片测试。"
+                                       styleClass="helper-text"/>
+                            </HBox>
+                        </VBox>
 
                         <TextArea fx:id="testResultArea" prefRowCount="7" editable="false" wrapText="true"
                                   promptText="验证结果将显示在此处..."

@@ -745,6 +745,6 @@ COMMENT ON PROCEDURE sp_batch_insert_tags IS '存储过程 — 为一张图片�
 DO $$
 BEGIN
     RAISE NOTICE '数据库 schema v2.0 初始化完成！';
-    RAISE NOTICE '已创建: 11 张表, 19 个索引, 4 个视图, 5 个触发器, 5 个存储过程';
+    RAISE NOTICE '已创建: 13 张表, 19 个索引, 4 个视图, 5 个触发器, 5 个存储过程';
     RAISE NOTICE '新增功能: AI标签体系, 版本历史, 搜索历史, 云服务集成, 应用设置';
 END $$;

@@ -5,6 +5,7 @@ import com.imagemanager.ai.AIEndpointConfig;
 import com.imagemanager.ai.AIFallbackManager;
 import com.imagemanager.ai.AIModelClient;
 import com.imagemanager.ai.AISettings;
+import com.imagemanager.ai.OpenAICompatibleService;
 import com.imagemanager.dao.SettingsDao;
 import com.imagemanager.dao.SettingsDaoImpl;
 import com.imagemanager.util.AlertUtil;
@@ -319,6 +320,57 @@ public class SettingsController {
         modelStatusLabel.setText("已重置本次会话中的熔断状态");
     }
 
+    @FXML
+    private void onRestoreDefaultFallback() {
+        try {
+            AISettings settings = AIConfig.restoreRecoverableSettings();
+            applyAiSettings(settings);
+            AIFallbackManager.resetAll();
+            testResultArea.setText("已恢复本机默认 fallback 配置。\n配置文件：" + AIConfig.getConfigPath()
+                    + "\n默认来源：" + AIConfig.getDefaultConfigPath());
+            AlertUtil.showInfo("已恢复", "已从本机默认/last-good 配置恢复 fallback 列表。");
+        } catch (IOException e) {
+            logger.error("恢复本机默认 AI fallback 失败", e);
+            AlertUtil.showError("恢复失败", "没有可恢复的本机默认 fallback，或配置文件无法读取：" + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void onTestWithImage() {
+        saveCurrentEndpointForm();
+        String delay = delayField.getText().trim();
+        String circuitBreaker = circuitBreakerField.getText().trim();
+        int batchLimit = getBatchLimitOrWarn();
+        if (batchLimit < 0 || !validateAiConfig(delay, circuitBreaker) || !validateEndpointList()) {
+            return;
+        }
+        AISettings testSettings = buildAiSettings(delay, circuitBreaker, batchLimit);
+        if (AIConfig.configuredEndpoints(testSettings).isEmpty()) {
+            AlertUtil.showWarning("无法测试", "没有启用且完整的 fallback 端点，请先恢复默认或新增端点。");
+            return;
+        }
+
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("选择用于 AI 测试的图片");
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("图片文件", "*.jpg", "*.jpeg", "*.png", "*.gif", "*.bmp", "*.webp")
+        );
+        File chosen = chooser.showOpenDialog(testResultArea.getScene().getWindow());
+        if (chosen == null) {
+            return;
+        }
+
+        testResultArea.setText("正在发送测试图片，请稍候...\n" + chosen.getAbsolutePath());
+        Thread testThread = new Thread(() -> {
+            String result = AIConfig.withTemporarySettings(testSettings,
+                    () -> new OpenAICompatibleService().testConnection(chosen));
+            Platform.runLater(() -> testResultArea.setText(result));
+        });
+        testThread.setDaemon(true);
+        testThread.setName("AI-Image-Test");
+        testThread.start();
+    }
+
     private void loadEndpointForm(AIEndpointConfig endpoint) {
         if (endpoint == null) {
             clearEndpointForm();
@@ -349,6 +401,7 @@ public class SettingsController {
     }
 
     private void clearEndpointForm() {
+        selectedEndpoint = null;
         endpointNameField.clear();
         endpointBaseUrlField.clear();
         endpointApiKeyField.clear();
@@ -463,6 +516,11 @@ public class SettingsController {
         if (!validateEndpointList()) {
             return;
         }
+        if (!hasAnyCompleteEndpoint(endpoints) && AIConfig.hasRecoverableFallbackSettings()) {
+            AlertUtil.showWarning("已阻止清空 fallback",
+                    "当前 AI fallback 列表为空。为避免误删演示配置，本次不会覆盖本机配置；请点击“恢复默认 fallback”后再保存。");
+            return;
+        }
         if (!scanDirectory.isBlank()) {
             File scanDir = new File(scanDirectory);
             if (!scanDir.exists() || !scanDir.isDirectory()) {
@@ -478,12 +536,7 @@ public class SettingsController {
             }
         }
 
-        AISettings settings = new AISettings();
-        settings.setEndpoints(endpoints.stream().map(AIEndpointConfig::copy).toList());
-        settings.setRequestDelay(delay);
-        settings.setMaxRetries(AIConfig.DEFAULT_MAX_RETRIES);
-        settings.setBatchLimit(batchLimit);
-        settings.setCircuitBreakerThreshold(Integer.parseInt(circuitBreaker));
+        AISettings settings = buildAiSettings(delay, circuitBreaker, batchLimit);
         try {
             AIConfig.saveSettings(settings);
         } catch (IOException e) {
@@ -526,6 +579,48 @@ public class SettingsController {
             }
         }
         return true;
+    }
+
+    private AISettings buildAiSettings(String delay, String circuitBreaker, int batchLimit) {
+        AISettings settings = new AISettings();
+        settings.setEndpoints(endpoints.stream().map(AIEndpointConfig::copy).toList());
+        settings.setRequestDelay(delay);
+        settings.setMaxRetries(AIConfig.DEFAULT_MAX_RETRIES);
+        settings.setBatchLimit(batchLimit);
+        settings.setCircuitBreakerThreshold(Integer.parseInt(circuitBreaker));
+        return settings;
+    }
+
+    private void applyAiSettings(AISettings settings) {
+        AISettings normalized = settings == null ? new AISettings() : settings;
+        endpoints.setAll(normalized.getEndpoints());
+        delayField.setText(normalized.getRequestDelay());
+        circuitBreakerField.setText(String.valueOf(normalized.getCircuitBreakerThreshold()));
+        if (batchLimitSpinner.getValueFactory() != null) {
+            int limit = Math.max(AIConfig.MIN_BATCH_LIMIT,
+                    Math.min(normalized.getBatchLimit(), AIConfig.MAX_BATCH_LIMIT));
+            batchLimitSpinner.getValueFactory().setValue(limit);
+        }
+        selectedEndpoint = null;
+        endpointListView.getSelectionModel().clearSelection();
+        endpointListView.refresh();
+        if (!endpoints.isEmpty()) {
+            endpointListView.getSelectionModel().selectFirst();
+        } else {
+            clearEndpointForm();
+        }
+        originalEndpointSignature = endpointSignature(endpoints);
+        originalDelay = normalized.getRequestDelay();
+        originalBatchLimit = String.valueOf(AIConfig.getBatchLimit());
+    }
+
+    private boolean hasAnyCompleteEndpoint(List<AIEndpointConfig> endpointList) {
+        for (AIEndpointConfig endpoint : endpointList) {
+            if (endpoint != null && endpoint.isEnabled() && endpoint.isComplete()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean validateAiConfig(String delay, String circuitBreaker) {

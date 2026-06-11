@@ -1,8 +1,12 @@
 package com.imagemanager.ai;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * One OpenAI-compatible endpoint in the local, machine-private AI fallback list.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class AIEndpointConfig {
 
     private String name = "";
@@ -26,6 +30,7 @@ public class AIEndpointConfig {
         return new AIEndpointConfig(name, baseUrl, apiKey, model, enabled);
     }
 
+    @JsonIgnore
     public boolean isComplete() {
         return !baseUrl.isBlank() && !apiKey.isBlank() && !model.isBlank();
     }

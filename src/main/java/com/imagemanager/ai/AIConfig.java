@@ -45,6 +45,14 @@ public final class AIConfig {
                 .normalize();
     }
 
+    public static Path getDefaultConfigPath() {
+        return getConfigPath().resolveSibling("ai-fallbacks.default.json");
+    }
+
+    public static Path getLastGoodConfigPath() {
+        return getConfigPath().resolveSibling("ai-fallbacks.last-good.json");
+    }
+
     public static AISettings loadSettings() {
         AISettings runtime = RUNTIME_SETTINGS.get();
         if (runtime != null) {
@@ -70,7 +78,50 @@ public final class AIConfig {
         if (parent != null) {
             Files.createDirectories(parent);
         }
+        boolean newHasEndpoint = hasAnyEndpoint(normalized);
+        boolean currentHasEndpoint = false;
+        if (Files.isRegularFile(configPath)) {
+            try {
+                AISettings current = normalize(objectMapper.readValue(configPath.toFile(), AISettings.class));
+                currentHasEndpoint = hasAnyEndpoint(current);
+                if (currentHasEndpoint) {
+                    writeSettingsFile(getLastGoodConfigPath(), current);
+                }
+            } catch (IOException e) {
+                logger.warn("备份当前 AI 配置失败: {}", configPath, e);
+            }
+        }
+        if (!newHasEndpoint && (currentHasEndpoint || hasRecoverableFallbackSettings())) {
+            throw new IOException("拒绝用空 fallback 覆盖已有 AI 配置；请先在设置页点击“恢复默认 fallback”");
+        }
         objectMapper.writeValue(configPath.toFile(), normalized);
+        if (newHasEndpoint) {
+            writeSettingsFile(getLastGoodConfigPath(), normalized);
+        }
+    }
+
+    public static boolean hasRecoverableFallbackSettings() {
+        return hasCompleteEndpointInFile(getDefaultConfigPath()) || hasCompleteEndpointInFile(getLastGoodConfigPath());
+    }
+
+    public static AISettings restoreRecoverableSettings() throws IOException {
+        AISettings settings = loadRecoverableSettings();
+        saveSettings(settings);
+        return settings;
+    }
+
+    public static AISettings loadRecoverableSettings() throws IOException {
+        List<Path> candidates = List.of(getDefaultConfigPath(), getLastGoodConfigPath());
+        for (Path path : candidates) {
+            if (!Files.isRegularFile(path)) {
+                continue;
+            }
+            AISettings settings = normalize(objectMapper.readValue(path.toFile(), AISettings.class));
+            if (hasAnyEndpoint(settings)) {
+                return settings;
+            }
+        }
+        throw new IOException("没有可恢复的 fallback 配置文件");
     }
 
     public static List<AIEndpointConfig> getConfiguredEndpoints() {
@@ -176,5 +227,37 @@ public final class AIConfig {
         normalized.setCircuitBreakerThreshold(Math.max(1,
                 Math.min(normalized.getCircuitBreakerThreshold(), 20)));
         return normalized;
+    }
+
+    private static boolean hasAnyEndpoint(AISettings settings) {
+        if (settings == null) {
+            return false;
+        }
+        for (AIEndpointConfig endpoint : settings.getEndpoints()) {
+            if (endpoint != null && endpoint.isEnabled() && endpoint.isComplete()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void writeSettingsFile(Path path, AISettings settings) throws IOException {
+        Path parent = path.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        objectMapper.writeValue(path.toFile(), normalize(settings.copy()));
+    }
+
+    private static boolean hasCompleteEndpointInFile(Path path) {
+        if (!Files.isRegularFile(path)) {
+            return false;
+        }
+        try {
+            return hasAnyEndpoint(normalize(objectMapper.readValue(path.toFile(), AISettings.class)));
+        } catch (IOException e) {
+            logger.warn("读取 AI fallback 恢复文件失败: {}", path, e);
+            return false;
+        }
     }
 }
