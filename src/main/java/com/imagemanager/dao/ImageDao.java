@@ -4,6 +4,7 @@ import com.imagemanager.model.ImageFile;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 图片数据访问接口 — 定义对 images 表的所有数据库操作。
@@ -39,6 +40,16 @@ public interface ImageDao {
     Optional<ImageFile> findByFilePath(String filePath);
 
     /**
+     * 查询仍缺少宽高信息的活跃图片。
+     */
+    List<ImageFile> findMissingDimensions();
+
+    /**
+     * 查询目录下已存在的活跃图片路径，不加载缩略图。
+     */
+    Set<String> findFilePathsByDirectoryId(int directoryId);
+
+    /**
      * 插入一条新的图片记录。
      * 插入后触发器会自动在 operation_logs 中写入 INSERT 日志。
      *
@@ -71,6 +82,11 @@ public interface ImageDao {
      * @param thumbnailData 缩略图的二进制数据（PNG 格式）
      */
     void updateThumbnail(int imageId, byte[] thumbnailData);
+
+    /**
+     * 更新图片尺寸和当前文件大小。
+     */
+    void updateDimensions(int imageId, int width, int height, long fileSize);
 
     /**
      * 逻辑删除：将 is_deleted 标记设为 TRUE。

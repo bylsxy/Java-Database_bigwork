@@ -6,6 +6,7 @@ import com.imagemanager.ai.OpenAICompatibleService;
 import com.imagemanager.dao.*;
 import com.imagemanager.model.ImageAnalysisResult;
 import com.imagemanager.model.ImageFile;
+import com.imagemanager.util.ImageUtil;
 import javafx.concurrent.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,9 +14,11 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 扫描任务 — JavaFX 后台 Task，负责：
@@ -78,6 +81,8 @@ public class ScanTask extends Task<Void> {
         publishSnapshot();
 
         int insertedCount = 0;
+        Map<String, Integer> directoryIdCache = new HashMap<>();
+        Map<Integer, Set<String>> existingPathsByDirectory = new HashMap<>();
         for (int i = 0; i < totalImages; i++) {
             if (isCancelled()) return null;
 
@@ -86,21 +91,21 @@ public class ScanTask extends Task<Void> {
 
             long itemStart = System.nanoTime();
             try {
-                // 检查是否已存在（通过哈希）
-                // 如果存在就跳过
-                var existingImages = imageDao.findByDirectoryId(
-                        getOrCreateDirectoryId(img.file().getParentFile()));
-                boolean exists = existingImages.stream()
-                        .anyMatch(existing -> existing.filePath().equals(img.filePath()));
+                int directoryId = getOrCreateDirectoryId(img.file().getParentFile(), directoryIdCache);
+                Set<String> existingPaths = existingPathsByDirectory.computeIfAbsent(
+                        directoryId,
+                        imageDao::findFilePathsByDirectoryId);
 
-                if (!exists) {
+                if (!existingPaths.contains(img.filePath())) {
+                    int[] dimensions = ImageUtil.getImageDimensions(img.filePath());
                     ImageFile imageFile = new ImageFile(
                             0, img.fileName(), img.filePath(),
-                            getOrCreateDirectoryId(img.file().getParentFile()),
-                            img.fileSize(), 0, 0, img.format(),
+                            directoryId,
+                            img.fileSize(), dimensions[0], dimensions[1], img.format(),
                             null, LocalDateTime.now(), LocalDateTime.now(), false, false
                     );
                     imageDao.insert(imageFile);
+                    existingPaths.add(img.filePath());
                     insertedCount++;
                 }
             } catch (Exception e) {
@@ -272,6 +277,17 @@ public class ScanTask extends Task<Void> {
     private int getOrCreateDirectoryId(File dir) {
         var dirNode = directoryDao.findOrCreate(dir.getAbsolutePath());
         return dirNode.id();
+    }
+
+    private int getOrCreateDirectoryId(File dir, Map<String, Integer> directoryIdCache) {
+        String path = dir.getAbsolutePath();
+        Integer cached = directoryIdCache.get(path);
+        if (cached != null) {
+            return cached;
+        }
+        int directoryId = getOrCreateDirectoryId(dir);
+        directoryIdCache.put(path, directoryId);
+        return directoryId;
     }
 
     /**

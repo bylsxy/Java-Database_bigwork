@@ -165,8 +165,6 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <addClasspath>true</addClasspath>
-                            <classpathPrefix>lib/</classpathPrefix>
                             <mainClass>com.imagemanager.Launcher</mainClass>
                         </manifest>
                         <manifestEntries>
@@ -213,20 +211,23 @@
                 </executions>
             </plugin>
 
+            <!-- 清理 shade 过程留下的 Maven 备份 JAR，target 下只保留最终依赖完整 JAR。 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.8.1</version>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
                 <executions>
                     <execution>
-                        <id>copy-runtime-dependencies</id>
+                        <id>remove-intermediate-jars</id>
                         <phase>package</phase>
                         <goals>
-                            <goal>copy-dependencies</goal>
+                            <goal>run</goal>
                         </goals>
                         <configuration>
-                            <includeScope>runtime</includeScope>
-                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                            <target>
+                                <delete file="${project.build.directory}/original-${project.build.finalName}.jar" quiet="true"/>
+                                <delete file="${project.build.directory}/${project.build.finalName}-shaded.jar" quiet="true"/>
+                            </target>
                         </configuration>
                     </execution>
                 </executions>

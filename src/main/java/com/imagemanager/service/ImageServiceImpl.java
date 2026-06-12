@@ -95,6 +95,7 @@ public class ImageServiceImpl implements ImageService {
                 imageDao.batchInsert(newImages);
                 logger.info("新增 {} 张图片到数据库", newImages.size());
             }
+            boolean changed = !newImages.isEmpty();
 
             // 5. 同步：数据库有但磁盘没有的 → 标记删除
             var diskPaths = new java.util.HashSet<String>();
@@ -104,12 +105,13 @@ public class ImageServiceImpl implements ImageService {
             for (var img : dbImages) {
                 if (!diskPaths.contains(img.filePath())) {
                     imageDao.softDelete(img.id());
+                    changed = true;
                     logger.debug("磁盘文件不存在，标记删除: {}", img.filePath());
                 }
             }
 
             // 6. 重新查询并返回最新列表
-            return imageDao.findByDirectoryId(dirNode.id());
+            return changed ? imageDao.findByDirectoryId(dirNode.id()) : dbImages;
         } catch (RuntimeException e) {
             logger.warn("数据库同步不可用，改用离线文件浏览: {}", e.getMessage());
             return loadImagesFromDiskOnly(directoryPath);
@@ -181,13 +183,9 @@ public class ImageServiceImpl implements ImageService {
                 // 复制磁盘文件
                 Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
 
-                // 在数据库中创建新记录
-                var newImage = new ImageFile(
-                        0, targetFileName, targetPath.toString(), targetDir.id(),
-                        image.fileSize(), image.width(), image.height(),
-                        image.format(), image.thumbnail(),
-                        LocalDateTime.now(), LocalDateTime.now(), false, false
-                );
+                // 在数据库中创建新记录。目标文件可能被重新命名，尺寸必须按目标文件重新读取，
+                // 避免把旧版本遗留的未知分辨率继续复制到新记录。
+                var newImage = createImageFileFromDisk(targetPath.toFile(), targetDir.id());
                 int newImageId = imageDao.insert(newImage);
                 logOperation(newImageId, "PASTE", image.filePath(), targetPath.toString());
 

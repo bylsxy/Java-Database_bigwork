@@ -1,0 +1,525 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -------------------< com.imagemanager:image-manager >-------------------
+[INFO] Building ����ͼ�񼯳ɹ���ϵͳ 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ image-manager ---
+[INFO] Copying 14 resources from src\main\resources to target\classes
+[INFO] Copying 2 resources from sql to target\classes\sql
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ image-manager ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ image-manager ---
+[INFO] skip non existing resourceDirectory D:\AAAWorkSpace\java project\super_big_homework\Java��Database_bigwork\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ image-manager ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.4:test (default-test) @ image-manager ---
+[INFO] 
+[INFO] --- jar:3.4.2:jar (default-jar) @ image-manager ---
+[INFO] 
+[INFO] --- shade:3.6.0:shade (default) @ image-manager ---
+[INFO] Including org.openjfx:javafx-controls:jar:21.0.6 in the shaded jar.
+[INFO] Including org.openjfx:javafx-controls:jar:win:21.0.6 in the shaded jar.
+[INFO] Including org.openjfx:javafx-graphics:jar:21.0.6 in the shaded jar.
+[INFO] Including org.openjfx:javafx-graphics:jar:win:21.0.6 in the shaded jar.
+[INFO] Including org.openjfx:javafx-base:jar:21.0.6 in the shaded jar.
+[INFO] Including org.openjfx:javafx-base:jar:win:21.0.6 in the shaded jar.
+[INFO] Including org.openjfx:javafx-fxml:jar:21.0.6 in the shaded jar.
+[INFO] Including org.openjfx:javafx-fxml:jar:win:21.0.6 in the shaded jar.
+[INFO] Including org.openjfx:javafx-swing:jar:21.0.6 in the shaded jar.
+[INFO] Including org.openjfx:javafx-swing:jar:win:21.0.6 in the shaded jar.
+[INFO] Including org.postgresql:postgresql:jar:42.7.5 in the shaded jar.
+[INFO] Including org.checkerframework:checker-qual:jar:3.48.3 in the shaded jar.
+[INFO] Including com.zaxxer:HikariCP:jar:6.2.1 in the shaded jar.
+[INFO] Including org.slf4j:slf4j-api:jar:2.0.16 in the shaded jar.
+[INFO] Including ch.qos.logback:logback-classic:jar:1.5.15 in the shaded jar.
+[INFO] Including ch.qos.logback:logback-core:jar:1.5.15 in the shaded jar.
+[INFO] Including org.openjfx:javafx-media:jar:21.0.6 in the shaded jar.
+[INFO] Including org.openjfx:javafx-media:jar:win:21.0.6 in the shaded jar.
+[INFO] Including com.squareup.okhttp3:okhttp:jar:4.12.0 in the shaded jar.
+[INFO] Including com.squareup.okio:okio:jar:3.6.0 in the shaded jar.
+[INFO] Including com.squareup.okio:okio-jvm:jar:3.6.0 in the shaded jar.
+[INFO] Including org.jetbrains.kotlin:kotlin-stdlib-common:jar:1.9.10 in the shaded jar.
+[INFO] Including org.jetbrains.kotlin:kotlin-stdlib-jdk8:jar:1.8.21 in the shaded jar.
+[INFO] Including org.jetbrains.kotlin:kotlin-stdlib:jar:1.8.21 in the shaded jar.
+[INFO] Including org.jetbrains:annotations:jar:13.0 in the shaded jar.
+[INFO] Including org.jetbrains.kotlin:kotlin-stdlib-jdk7:jar:1.8.21 in the shaded jar.
+[INFO] Including com.fasterxml.jackson.core:jackson-databind:jar:2.18.2 in the shaded jar.
+[INFO] Including com.fasterxml.jackson.core:jackson-annotations:jar:2.18.2 in the shaded jar.
+[INFO] Including com.fasterxml.jackson.core:jackson-core:jar:2.18.2 in the shaded jar.
+[INFO] Including com.github.lookfirst:sardine:jar:5.12 in the shaded jar.
+[INFO] Including org.apache.httpcomponents:httpclient:jar:4.5.14 in the shaded jar.
+[INFO] Including org.apache.httpcomponents:httpcore:jar:4.4.16 in the shaded jar.
+[INFO] Including commons-logging:commons-logging:jar:1.2 in the shaded jar.
+[INFO] Including commons-codec:commons-codec:jar:1.11 in the shaded jar.
+[INFO] Including jakarta.xml.bind:jakarta.xml.bind-api:jar:4.0.0 in the shaded jar.
+[INFO] Including jakarta.activation:jakarta.activation-api:jar:2.1.0 in the shaded jar.
+[INFO] Including org.glassfish.jaxb:jaxb-runtime:jar:4.0.2 in the shaded jar.
+[INFO] Including org.glassfish.jaxb:jaxb-core:jar:4.0.2 in the shaded jar.
+[INFO] Including org.eclipse.angus:angus-activation:jar:2.0.0 in the shaded jar.
+[INFO] Including org.glassfish.jaxb:txw2:jar:4.0.2 in the shaded jar.
+[INFO] Including com.sun.istack:istack-commons-runtime:jar:4.1.1 in the shaded jar.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] Discovered module-info.class. Shading will break its strong encapsulation.
+[WARNING] image-manager-1.0.0.jar, okio-3.6.0.jar, okio-jvm-3.6.0.jar define 1 overlapping resource: 
+[WARNING]   - META-INF/okio.kotlin_module
+[WARNING] httpclient-4.5.14.jar, httpcore-4.4.16.jar, image-manager-1.0.0.jar define 1 overlapping resource: 
+[WARNING]   - META-INF/DEPENDENCIES
+[WARNING] image-manager-1.0.0.jar, jackson-annotations-2.18.2.jar define 75 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/com.fasterxml.jackson.core/jackson-annotations/pom.properties
+[WARNING]   - META-INF/maven/com.fasterxml.jackson.core/jackson-annotations/pom.xml
+[WARNING]   - com.fasterxml.jackson.annotation.JacksonAnnotation
+[WARNING]   - com.fasterxml.jackson.annotation.JacksonAnnotationValue
+[WARNING]   - com.fasterxml.jackson.annotation.JacksonAnnotationsInside
+[WARNING]   - com.fasterxml.jackson.annotation.JacksonInject
+[WARNING]   - com.fasterxml.jackson.annotation.JacksonInject$Value
+[WARNING]   - com.fasterxml.jackson.annotation.JsonAlias
+[WARNING]   - com.fasterxml.jackson.annotation.JsonAnyGetter
+[WARNING]   - com.fasterxml.jackson.annotation.JsonAnySetter
+[WARNING]   - 65 more...
+[WARNING] image-manager-1.0.0.jar, javafx-base-21.0.6-win.jar, javafx-controls-21.0.6-win.jar, javafx-fxml-21.0.6-win.jar, javafx-graphics-21.0.6-win.jar define 1 overlapping resource: 
+[WARNING]   - META-INF/substrate/config/reflectionconfig.json
+[WARNING] image-manager-1.0.0.jar, javafx-graphics-21.0.6-win.jar, javafx-media-21.0.6-win.jar define 2 overlapping resources: 
+[WARNING]   - META-INF/substrate/config/jniconfig-x86_64-linux.json
+[WARNING]   - META-INF/substrate/config/reflectionconfig-x86_64-linux.json
+[WARNING] image-manager-1.0.0.jar, javafx-controls-21.0.6-win.jar define 1509 overlapping classes and resources: 
+[WARNING]   - com.sun.javafx.charts.ChartLayoutAnimator
+[WARNING]   - com.sun.javafx.charts.Legend
+[WARNING]   - com.sun.javafx.charts.Legend$1
+[WARNING]   - com.sun.javafx.charts.Legend$2
+[WARNING]   - com.sun.javafx.charts.Legend$LegendItem
+[WARNING]   - com.sun.javafx.charts.Legend$LegendItem$1
+[WARNING]   - com.sun.javafx.charts.Legend$LegendItem$2
+[WARNING]   - com.sun.javafx.scene.control.ConstrainedColumnResize
+[WARNING]   - com.sun.javafx.scene.control.ConstrainedColumnResize$ResizeMode
+[WARNING]   - com.sun.javafx.scene.control.ConstrainedColumnResize$TablePolicy
+[WARNING]   - 1499 more...
+[WARNING] image-manager-1.0.0.jar, okhttp-4.12.0.jar define 321 overlapping classes and resources: 
+[WARNING]   - META-INF/okhttp.kotlin_module
+[WARNING]   - META-INF/proguard/okhttp3.pro
+[WARNING]   - okhttp3.Address
+[WARNING]   - okhttp3.Authenticator
+[WARNING]   - okhttp3.Authenticator$Companion
+[WARNING]   - okhttp3.Authenticator$Companion$AuthenticatorNone
+[WARNING]   - okhttp3.Cache
+[WARNING]   - okhttp3.Cache$CacheResponseBody
+[WARNING]   - okhttp3.Cache$CacheResponseBody$1
+[WARNING]   - okhttp3.Cache$Companion
+[WARNING]   - 311 more...
+[WARNING] httpclient-4.5.14.jar, httpcore-4.4.16.jar, image-manager-1.0.0.jar, jackson-annotations-2.18.2.jar, jackson-core-2.18.2.jar, jackson-databind-2.18.2.jar, postgresql-42.7.5.jar define 1 overlapping resource: 
+[WARNING]   - META-INF/LICENSE
+[WARNING] image-manager-1.0.0.jar, slf4j-api-2.0.16.jar define 57 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/org.slf4j/slf4j-api/pom.properties
+[WARNING]   - META-INF/maven/org.slf4j/slf4j-api/pom.xml
+[WARNING]   - org.slf4j.ILoggerFactory
+[WARNING]   - org.slf4j.IMarkerFactory
+[WARNING]   - org.slf4j.Logger
+[WARNING]   - org.slf4j.LoggerFactory
+[WARNING]   - org.slf4j.LoggerFactoryFriend
+[WARNING]   - org.slf4j.MDC
+[WARNING]   - org.slf4j.MDC$1
+[WARNING]   - org.slf4j.MDC$MDCCloseable
+[WARNING]   - 47 more...
+[WARNING] image-manager-1.0.0.jar, okio-jvm-3.6.0.jar define 107 overlapping classes: 
+[WARNING]   - okio.-Base64
+[WARNING]   - okio.-DeflaterSinkExtensions
+[WARNING]   - okio.-DeprecatedOkio
+[WARNING]   - okio.-DeprecatedUpgrade
+[WARNING]   - okio.-DeprecatedUtf8
+[WARNING]   - okio.-GzipSinkExtensions
+[WARNING]   - okio.-GzipSourceExtensions
+[WARNING]   - okio.-InflaterSourceExtensions
+[WARNING]   - okio.-SegmentedByteString
+[WARNING]   - okio.AsyncTimeout
+[WARNING]   - 97 more...
+[WARNING] image-manager-1.0.0.jar, okio-3.6.0.jar define 44 overlapping resources: 
+[WARNING]   - okio/ArrayIndexOutOfBoundsException.kotlin_metadata
+[WARNING]   - okio/Base64Kt.kotlin_metadata
+[WARNING]   - okio/BlackholeSink.kotlin_metadata
+[WARNING]   - okio/Buffer.kotlin_metadata
+[WARNING]   - okio/BufferedSink.kotlin_metadata
+[WARNING]   - okio/BufferedSource.kotlin_metadata
+[WARNING]   - okio/ByteString.kotlin_metadata
+[WARNING]   - okio/Closeable.kotlin_metadata
+[WARNING]   - okio/CommonPlatformKt.kotlin_metadata
+[WARNING]   - okio/EOFException.kotlin_metadata
+[WARNING]   - 34 more...
+[WARNING] image-manager-1.0.0.jar, javafx-base-21.0.6-win.jar define 664 overlapping class and resource: 
+[WARNING]   - com.sun.javafx.FXPermissions
+[WARNING]   - com.sun.javafx.PlatformUtil
+[WARNING]   - com.sun.javafx.UnmodifiableArrayList
+[WARNING]   - com.sun.javafx.beans.IDProperty
+[WARNING]   - com.sun.javafx.binding.BidirectionalBinding
+[WARNING]   - com.sun.javafx.binding.BidirectionalBinding$BidirectionalBooleanBinding
+[WARNING]   - com.sun.javafx.binding.BidirectionalBinding$BidirectionalDoubleBinding
+[WARNING]   - com.sun.javafx.binding.BidirectionalBinding$BidirectionalFloatBinding
+[WARNING]   - com.sun.javafx.binding.BidirectionalBinding$BidirectionalIntegerBinding
+[WARNING]   - com.sun.javafx.binding.BidirectionalBinding$BidirectionalLongBinding
+[WARNING]   - 654 more...
+[WARNING] angus-activation-2.0.0.jar, image-manager-1.0.0.jar, jakarta.activation-api-2.1.0.jar, jakarta.xml.bind-api-4.0.0.jar, jaxb-core-4.0.2.jar, jaxb-runtime-4.0.2.jar, txw2-4.0.2.jar define 2 overlapping resources: 
+[WARNING]   - META-INF/LICENSE.md
+[WARNING]   - META-INF/NOTICE.md
+[WARNING] HikariCP-6.2.1.jar, image-manager-1.0.0.jar define 81 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/com.zaxxer/HikariCP/pom.properties
+[WARNING]   - META-INF/maven/com.zaxxer/HikariCP/pom.xml
+[WARNING]   - com.zaxxer.hikari.HikariConfig
+[WARNING]   - com.zaxxer.hikari.HikariConfigMXBean
+[WARNING]   - com.zaxxer.hikari.HikariDataSource
+[WARNING]   - com.zaxxer.hikari.HikariJNDIFactory
+[WARNING]   - com.zaxxer.hikari.HikariPoolMXBean
+[WARNING]   - com.zaxxer.hikari.SQLExceptionOverride
+[WARNING]   - com.zaxxer.hikari.SQLExceptionOverride$Override
+[WARNING]   - com.zaxxer.hikari.hibernate.HikariConfigurationUtil
+[WARNING]   - 71 more...
+[WARNING] image-manager-1.0.0.jar, jaxb-core-4.0.2.jar define 128 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/org.glassfish.jaxb/jaxb-core/pom.properties
+[WARNING]   - META-INF/maven/org.glassfish.jaxb/jaxb-core/pom.xml
+[WARNING]   - org.glassfish.jaxb.core.Locatable
+[WARNING]   - org.glassfish.jaxb.core.StackHelper
+[WARNING]   - org.glassfish.jaxb.core.Utils
+[WARNING]   - org.glassfish.jaxb.core.WhiteSpaceProcessor
+[WARNING]   - org.glassfish.jaxb.core.annotation.OverrideAnnotationOf
+[WARNING]   - org.glassfish.jaxb.core.annotation.XmlIsSet
+[WARNING]   - org.glassfish.jaxb.core.annotation.XmlLocation
+[WARNING]   - org.glassfish.jaxb.core.api.ErrorListener
+[WARNING]   - 118 more...
+[WARNING] image-manager-1.0.0.jar, javafx-controls-21.0.6-win.jar, javafx-graphics-21.0.6-win.jar, javafx-media-21.0.6-win.jar define 1 overlapping resource: 
+[WARNING]   - META-INF/substrate/config/resourcebundles
+[WARNING] image-manager-1.0.0.jar, jackson-databind-2.18.2.jar define 792 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties
+[WARNING]   - META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.xml
+[WARNING]   - META-INF/services/com.fasterxml.jackson.core.ObjectCodec
+[WARNING]   - com.fasterxml.jackson.databind.AbstractTypeResolver
+[WARNING]   - com.fasterxml.jackson.databind.AnnotationIntrospector
+[WARNING]   - com.fasterxml.jackson.databind.AnnotationIntrospector$ReferenceProperty
+[WARNING]   - com.fasterxml.jackson.databind.AnnotationIntrospector$ReferenceProperty$Type
+[WARNING]   - com.fasterxml.jackson.databind.AnnotationIntrospector$XmlExtensions
+[WARNING]   - com.fasterxml.jackson.databind.BeanDescription
+[WARNING]   - com.fasterxml.jackson.databind.BeanProperty
+[WARNING]   - 782 more...
+[WARNING] image-manager-1.0.0.jar, javafx-swing-21.0.6-win.jar define 51 overlapping classes: 
+[WARNING]   - com.sun.javafx.embed.swing.CachingTransferable
+[WARNING]   - com.sun.javafx.embed.swing.DataFlavorUtils
+[WARNING]   - com.sun.javafx.embed.swing.DataFlavorUtils$ByteBufferInputStream
+[WARNING]   - com.sun.javafx.embed.swing.Disposer
+[WARNING]   - com.sun.javafx.embed.swing.Disposer$1
+[WARNING]   - com.sun.javafx.embed.swing.DisposerRecord
+[WARNING]   - com.sun.javafx.embed.swing.FXDnD
+[WARNING]   - com.sun.javafx.embed.swing.FXDnD$1
+[WARNING]   - com.sun.javafx.embed.swing.SwingCursors
+[WARNING]   - com.sun.javafx.embed.swing.SwingCursors$1
+[WARNING]   - 41 more...
+[WARNING] annotations-13.0.jar, image-manager-1.0.0.jar define 34 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/org.jetbrains/annotations/pom.properties
+[WARNING]   - META-INF/maven/org.jetbrains/annotations/pom.xml
+[WARNING]   - org.intellij.lang.annotations.Flow
+[WARNING]   - org.intellij.lang.annotations.Identifier
+[WARNING]   - org.intellij.lang.annotations.JdkConstants
+[WARNING]   - org.intellij.lang.annotations.JdkConstants$AdjustableOrientation
+[WARNING]   - org.intellij.lang.annotations.JdkConstants$BoxLayoutAxis
+[WARNING]   - org.intellij.lang.annotations.JdkConstants$CalendarMonth
+[WARNING]   - org.intellij.lang.annotations.JdkConstants$CursorType
+[WARNING]   - org.intellij.lang.annotations.JdkConstants$FlowLayoutAlignment
+[WARNING]   - 24 more...
+[WARNING] checker-qual-3.48.3.jar, commons-codec-1.11.jar, commons-logging-1.2.jar, image-manager-1.0.0.jar, slf4j-api-2.0.16.jar define 1 overlapping resource: 
+[WARNING]   - META-INF/LICENSE.txt
+[WARNING] image-manager-1.0.0.jar, sardine-5.12.jar define 134 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/com.github.lookfirst/sardine/pom.properties
+[WARNING]   - META-INF/maven/com.github.lookfirst/sardine/pom.xml
+[WARNING]   - com.github.sardine.DavAce
+[WARNING]   - com.github.sardine.DavAce$1
+[WARNING]   - com.github.sardine.DavAcl
+[WARNING]   - com.github.sardine.DavPrincipal
+[WARNING]   - com.github.sardine.DavPrincipal$PrincipalType
+[WARNING]   - com.github.sardine.DavQuota
+[WARNING]   - com.github.sardine.DavResource
+[WARNING]   - com.github.sardine.DavResource$DavProperties
+[WARNING]   - 124 more...
+[WARNING] image-manager-1.0.0.jar, postgresql-42.7.5.jar define 477 overlapping classes and resources: 
+[WARNING]   - META-INF/licenses/com.ongres.scram/scram-client-3.1/META-INF/LICENSE
+[WARNING]   - META-INF/licenses/com.ongres.scram/scram-common-3.1/META-INF/LICENSE
+[WARNING]   - META-INF/licenses/com.ongres.stringprep/saslprep-2.2/META-INF/LICENSE
+[WARNING]   - META-INF/licenses/com.ongres.stringprep/stringprep-2.2/META-INF/LICENSE
+[WARNING]   - META-INF/services/java.sql.Driver
+[WARNING]   - org.postgresql.Driver
+[WARNING]   - org.postgresql.Driver$1
+[WARNING]   - org.postgresql.Driver$ConnectThread
+[WARNING]   - org.postgresql.PGConnection
+[WARNING]   - org.postgresql.PGEnvironment
+[WARNING]   - 467 more...
+[WARNING] image-manager-1.0.0.jar, logback-core-1.5.15.jar define 474 overlapping classes and resources: 
+[WARNING]   - META-INF.versions.21.ch.qos.logback.core.property.ConsoleCharsetPropertyDefiner
+[WARNING]   - META-INF/maven/ch.qos.logback/logback-core/pom.properties
+[WARNING]   - META-INF/maven/ch.qos.logback/logback-core/pom.xml
+[WARNING]   - ch.qos.logback.core.Appender
+[WARNING]   - ch.qos.logback.core.AppenderBase
+[WARNING]   - ch.qos.logback.core.AsyncAppenderBase
+[WARNING]   - ch.qos.logback.core.AsyncAppenderBase$Worker
+[WARNING]   - ch.qos.logback.core.BasicStatusManager
+[WARNING]   - ch.qos.logback.core.ConsoleAppender
+[WARNING]   - ch.qos.logback.core.Context
+[WARNING]   - 464 more...
+[WARNING] image-manager-1.0.0.jar, javafx-graphics-21.0.6-win.jar define 3215 overlapping classes and resources: 
+[WARNING]   - META-INF/substrate/config/jniconfig-aarch64-android.json
+[WARNING]   - META-INF/substrate/config/jniconfig-aarch64-darwin.json
+[WARNING]   - META-INF/substrate/config/jniconfig-aarch64-linux.json
+[WARNING]   - META-INF/substrate/config/jniconfig-arm64-ios.json
+[WARNING]   - META-INF/substrate/config/jniconfig-x86_64-darwin.json
+[WARNING]   - META-INF/substrate/config/jniconfig-x86_64-ios.json
+[WARNING]   - META-INF/substrate/config/jniconfig-x86_64-windows.json
+[WARNING]   - META-INF/substrate/config/jniconfig.json
+[WARNING]   - META-INF/substrate/config/reflectionconfig-aarch64-darwin.json
+[WARNING]   - META-INF/substrate/config/reflectionconfig-aarch64-linux.json
+[WARNING]   - 3205 more...
+[WARNING] image-manager-1.0.0.jar, logback-classic-1.5.15.jar define 200 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/ch.qos.logback/logback-classic/pom.properties
+[WARNING]   - META-INF/maven/ch.qos.logback/logback-classic/pom.xml
+[WARNING]   - META-INF/services/jakarta.servlet.ServletContainerInitializer
+[WARNING]   - META-INF/services/org.slf4j.spi.SLF4JServiceProvider
+[WARNING]   - ch.qos.logback.classic.AsyncAppender
+[WARNING]   - ch.qos.logback.classic.BasicConfigurator
+[WARNING]   - ch.qos.logback.classic.ClassicConstants
+[WARNING]   - ch.qos.logback.classic.Level
+[WARNING]   - ch.qos.logback.classic.Logger
+[WARNING]   - ch.qos.logback.classic.LoggerContext
+[WARNING]   - 190 more...
+[WARNING] image-manager-1.0.0.jar, jackson-core-2.18.2.jar define 226 overlapping classes and resources: 
+[WARNING]   - META-INF.versions.11.com.fasterxml.jackson.core.internal.shaded.fdp.v2_18_2.BigSignificand
+[WARNING]   - META-INF.versions.11.com.fasterxml.jackson.core.internal.shaded.fdp.v2_18_2.FastDoubleSwar
+[WARNING]   - META-INF.versions.11.com.fasterxml.jackson.core.internal.shaded.fdp.v2_18_2.FastIntegerMath
+[WARNING]   - META-INF.versions.17.com.fasterxml.jackson.core.internal.shaded.fdp.v2_18_2.FastDoubleSwar
+[WARNING]   - META-INF.versions.17.com.fasterxml.jackson.core.internal.shaded.fdp.v2_18_2.FastIntegerMath
+[WARNING]   - META-INF.versions.21.com.fasterxml.jackson.core.internal.shaded.fdp.v2_18_2.FastDoubleSwar
+[WARNING]   - META-INF.versions.21.com.fasterxml.jackson.core.internal.shaded.fdp.v2_18_2.FastIntegerMath
+[WARNING]   - META-INF.versions.22.com.fasterxml.jackson.core.internal.shaded.fdp.v2_18_2.FastDoubleSwar
+[WARNING]   - META-INF.versions.22.com.fasterxml.jackson.core.internal.shaded.fdp.v2_18_2.FastIntegerMath
+[WARNING]   - META-INF/FastDoubleParser-LICENSE
+[WARNING]   - 216 more...
+[WARNING] image-manager-1.0.0.jar, kotlin-stdlib-1.8.21.jar define 958 overlapping classes and resources: 
+[WARNING]   - META-INF/kotlin-stdlib-jdk7.kotlin_module
+[WARNING]   - META-INF/kotlin-stdlib-jdk8.kotlin_module
+[WARNING]   - META-INF/kotlin-stdlib.kotlin_module
+[WARNING]   - kotlin.ArrayIntrinsicsKt
+[WARNING]   - kotlin.BuilderInference
+[WARNING]   - kotlin.CharCodeJVMKt
+[WARNING]   - kotlin.CharCodeKt
+[WARNING]   - kotlin.CompareToKt
+[WARNING]   - kotlin.ContextFunctionTypeParams
+[WARNING]   - kotlin.DeepRecursiveFunction
+[WARNING]   - 948 more...
+[WARNING] image-manager-1.0.0.jar, javafx-fxml-21.0.6-win.jar define 78 overlapping classes: 
+[WARNING]   - com.sun.javafx.fxml.BeanAdapter
+[WARNING]   - com.sun.javafx.fxml.BeanAdapter$1
+[WARNING]   - com.sun.javafx.fxml.BeanAdapter$MethodCache
+[WARNING]   - com.sun.javafx.fxml.FXMLLoaderHelper
+[WARNING]   - com.sun.javafx.fxml.FXMLLoaderHelper$FXMLLoaderAccessor
+[WARNING]   - com.sun.javafx.fxml.MethodHelper
+[WARNING]   - com.sun.javafx.fxml.ModuleHelper
+[WARNING]   - com.sun.javafx.fxml.ParseTraceElement
+[WARNING]   - com.sun.javafx.fxml.PropertyNotFoundException
+[WARNING]   - com.sun.javafx.fxml.builder.JavaFXFontBuilder
+[WARNING]   - 68 more...
+[WARNING] HikariCP-6.2.1.jar, angus-activation-2.0.0.jar, annotations-13.0.jar, checker-qual-3.48.3.jar, commons-codec-1.11.jar, commons-logging-1.2.jar, httpclient-4.5.14.jar, httpcore-4.4.16.jar, image-manager-1.0.0.jar, istack-commons-runtime-4.1.1.jar, jackson-annotations-2.18.2.jar, jackson-core-2.18.2.jar, jackson-databind-2.18.2.jar, jakarta.activation-api-2.1.0.jar, jakarta.xml.bind-api-4.0.0.jar, javafx-base-21.0.6-win.jar, javafx-base-21.0.6.jar, javafx-controls-21.0.6-win.jar, javafx-controls-21.0.6.jar, javafx-fxml-21.0.6-win.jar, javafx-fxml-21.0.6.jar, javafx-graphics-21.0.6-win.jar, javafx-graphics-21.0.6.jar, javafx-media-21.0.6-win.jar, javafx-media-21.0.6.jar, javafx-swing-21.0.6-win.jar, javafx-swing-21.0.6.jar, jaxb-core-4.0.2.jar, jaxb-runtime-4.0.2.jar, kotlin-stdlib-1.8.21.jar, kotlin-stdlib-common-1.9.10.jar, kotlin-stdlib-jdk7-1.8.21.jar, kotlin-stdlib-jdk8-1.8.21.jar, logback-classic-1.5.15.jar, logback-core-1.5.15.jar, okhttp-4.12.0.jar, okio-3.6.0.jar, okio-jvm-3.6.0.jar, postgresql-42.7.5.jar, sardine-5.12.jar, slf4j-api-2.0.16.jar, txw2-4.0.2.jar define 1 overlapping resource: 
+[WARNING]   - META-INF/MANIFEST.MF
+[WARNING] image-manager-1.0.0.jar, jakarta.xml.bind-api-4.0.0.jar define 116 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/jakarta.xml.bind/jakarta.xml.bind-api/pom.properties
+[WARNING]   - META-INF/maven/jakarta.xml.bind/jakarta.xml.bind-api/pom.xml
+[WARNING]   - jakarta.xml.bind.Binder
+[WARNING]   - jakarta.xml.bind.ContextFinder
+[WARNING]   - jakarta.xml.bind.ContextFinder$1
+[WARNING]   - jakarta.xml.bind.ContextFinder$2
+[WARNING]   - jakarta.xml.bind.ContextFinder$3
+[WARNING]   - jakarta.xml.bind.ContextFinder$4
+[WARNING]   - jakarta.xml.bind.ContextFinder$5
+[WARNING]   - jakarta.xml.bind.DataBindingException
+[WARNING]   - 106 more...
+[WARNING] image-manager-1.0.0.jar, jakarta.activation-api-2.1.0.jar define 46 overlapping classes and resources: 
+[WARNING]   - META-INF/mailcap.default
+[WARNING]   - META-INF/maven/jakarta.activation/jakarta.activation-api/pom.properties
+[WARNING]   - META-INF/maven/jakarta.activation/jakarta.activation-api/pom.xml
+[WARNING]   - META-INF/mimetypes.default
+[WARNING]   - jakarta.activation.ActivationDataFlavor
+[WARNING]   - jakarta.activation.CommandInfo
+[WARNING]   - jakarta.activation.CommandInfo$Beans
+[WARNING]   - jakarta.activation.CommandInfo$Beans$1
+[WARNING]   - jakarta.activation.CommandMap
+[WARNING]   - jakarta.activation.CommandObject
+[WARNING]   - 36 more...
+[WARNING] angus-activation-2.0.0.jar, image-manager-1.0.0.jar define 16 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/org.eclipse.angus/angus-activation/pom.properties
+[WARNING]   - META-INF/maven/org.eclipse.angus/angus-activation/pom.xml
+[WARNING]   - META-INF/native-image/org.eclipse.angus/angus-activation/native-image.properties
+[WARNING]   - META-INF/native-image/org.eclipse.angus/angus-activation/resource-config.json
+[WARNING]   - META-INF/services/jakarta.activation.spi.MailcapRegistryProvider
+[WARNING]   - META-INF/services/jakarta.activation.spi.MimeTypeRegistryProvider
+[WARNING]   - org.eclipse.angus.activation.LineTokenizer
+[WARNING]   - org.eclipse.angus.activation.LogSupport
+[WARNING]   - org.eclipse.angus.activation.MailcapFile
+[WARNING]   - org.eclipse.angus.activation.MailcapParseException
+[WARNING]   - 6 more...
+[WARNING] image-manager-1.0.0.jar, istack-commons-runtime-4.1.1.jar define 25 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/com.sun.istack/istack-commons-runtime/pom.properties
+[WARNING]   - META-INF/maven/com.sun.istack/istack-commons-runtime/pom.xml
+[WARNING]   - com.sun.istack.Builder
+[WARNING]   - com.sun.istack.ByteArrayDataSource
+[WARNING]   - com.sun.istack.FinalArrayList
+[WARNING]   - com.sun.istack.FragmentContentHandler
+[WARNING]   - com.sun.istack.Interned
+[WARNING]   - com.sun.istack.NotNull
+[WARNING]   - com.sun.istack.Nullable
+[WARNING]   - com.sun.istack.Pool
+[WARNING]   - 15 more...
+[WARNING] image-manager-1.0.0.jar, txw2-4.0.2.jar define 58 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/org.glassfish.jaxb/txw2/pom.properties
+[WARNING]   - META-INF/maven/org.glassfish.jaxb/txw2/pom.xml
+[WARNING]   - com.sun.xml.txw2.Attribute
+[WARNING]   - com.sun.xml.txw2.Cdata
+[WARNING]   - com.sun.xml.txw2.Comment
+[WARNING]   - com.sun.xml.txw2.ContainerElement
+[WARNING]   - com.sun.xml.txw2.Content
+[WARNING]   - com.sun.xml.txw2.ContentVisitor
+[WARNING]   - com.sun.xml.txw2.DatatypeWriter
+[WARNING]   - com.sun.xml.txw2.DatatypeWriter$1
+[WARNING]   - 48 more...
+[WARNING] image-manager-1.0.0.jar, javafx-controls-21.0.6-win.jar, javafx-graphics-21.0.6-win.jar define 3 overlapping resources: 
+[WARNING]   - META-INF/substrate/config/reflectionconfig-aarch64-android.json
+[WARNING]   - META-INF/substrate/config/reflectionconfig-arm64-ios.json
+[WARNING]   - META-INF/substrate/config/reflectionconfig-x86_64-ios.json
+[WARNING] image-manager-1.0.0.jar, javafx-media-21.0.6-win.jar define 188 overlapping classes and resources: 
+[WARNING]   - com.sun.javafx.media.PrismMediaFrameHandler
+[WARNING]   - com.sun.javafx.media.PrismMediaFrameHandler$1
+[WARNING]   - com.sun.javafx.media.PrismMediaFrameHandler$PrismFrameBuffer
+[WARNING]   - com.sun.javafx.media.PrismMediaFrameHandler$TextureMapEntry
+[WARNING]   - com.sun.javafx.scene.media.MediaViewHelper
+[WARNING]   - com.sun.javafx.scene.media.MediaViewHelper$MediaViewAccessor
+[WARNING]   - com.sun.media.jfxmedia.AudioClip
+[WARNING]   - com.sun.media.jfxmedia.Media
+[WARNING]   - com.sun.media.jfxmedia.MediaError
+[WARNING]   - com.sun.media.jfxmedia.MediaException
+[WARNING]   - 178 more...
+[WARNING] image-manager-1.0.0.jar, jackson-core-2.18.2.jar, jackson-databind-2.18.2.jar, kotlin-stdlib-1.8.21.jar, kotlin-stdlib-jdk7-1.8.21.jar, kotlin-stdlib-jdk8-1.8.21.jar, slf4j-api-2.0.16.jar define 1 overlapping classes: 
+[WARNING]   - META-INF.versions.9.module-info
+[WARNING] image-manager-1.0.0.jar, jaxb-runtime-4.0.2.jar define 642 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/org.glassfish.jaxb/jaxb-runtime/pom.properties
+[WARNING]   - META-INF/maven/org.glassfish.jaxb/jaxb-runtime/pom.xml
+[WARNING]   - META-INF/services/jakarta.xml.bind.JAXBContextFactory
+[WARNING]   - org.glassfish.jaxb.runtime.AccessorFactory
+[WARNING]   - org.glassfish.jaxb.runtime.AccessorFactoryImpl
+[WARNING]   - org.glassfish.jaxb.runtime.AnyTypeAdapter
+[WARNING]   - org.glassfish.jaxb.runtime.CycleRecoverable
+[WARNING]   - org.glassfish.jaxb.runtime.CycleRecoverable$Context
+[WARNING]   - org.glassfish.jaxb.runtime.DatatypeConverterImpl
+[WARNING]   - org.glassfish.jaxb.runtime.DatatypeConverterImpl$1
+[WARNING]   - 632 more...
+[WARNING] httpclient-4.5.14.jar, image-manager-1.0.0.jar define 474 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/org.apache.httpcomponents/httpclient/pom.properties
+[WARNING]   - META-INF/maven/org.apache.httpcomponents/httpclient/pom.xml
+[WARNING]   - mozilla/public-suffix-list.txt
+[WARNING]   - org.apache.http.auth.AUTH
+[WARNING]   - org.apache.http.auth.AuthOption
+[WARNING]   - org.apache.http.auth.AuthProtocolState
+[WARNING]   - org.apache.http.auth.AuthScheme
+[WARNING]   - org.apache.http.auth.AuthSchemeFactory
+[WARNING]   - org.apache.http.auth.AuthSchemeProvider
+[WARNING]   - org.apache.http.auth.AuthSchemeRegistry
+[WARNING]   - 464 more...
+[WARNING] commons-codec-1.11.jar, commons-logging-1.2.jar, image-manager-1.0.0.jar define 1 overlapping resource: 
+[WARNING]   - META-INF/NOTICE.txt
+[WARNING] httpclient-4.5.14.jar, httpcore-4.4.16.jar, image-manager-1.0.0.jar, jackson-annotations-2.18.2.jar, jackson-core-2.18.2.jar, jackson-databind-2.18.2.jar define 1 overlapping resource: 
+[WARNING]   - META-INF/NOTICE
+[WARNING] httpcore-4.4.16.jar, image-manager-1.0.0.jar define 256 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/org.apache.httpcomponents/httpcore/pom.properties
+[WARNING]   - META-INF/maven/org.apache.httpcomponents/httpcore/pom.xml
+[WARNING]   - org.apache.http.ConnectionClosedException
+[WARNING]   - org.apache.http.ConnectionReuseStrategy
+[WARNING]   - org.apache.http.Consts
+[WARNING]   - org.apache.http.ContentTooLongException
+[WARNING]   - org.apache.http.ExceptionLogger
+[WARNING]   - org.apache.http.ExceptionLogger$1
+[WARNING]   - org.apache.http.ExceptionLogger$2
+[WARNING]   - org.apache.http.FormattedHeader
+[WARNING]   - 246 more...
+[WARNING] checker-qual-3.48.3.jar, image-manager-1.0.0.jar define 380 overlapping classes: 
+[WARNING]   - org.checkerframework.checker.builder.qual.CalledMethods
+[WARNING]   - org.checkerframework.checker.builder.qual.NotCalledMethods
+[WARNING]   - org.checkerframework.checker.builder.qual.ReturnsReceiver
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.CalledMethods
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.CalledMethodsBottom
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.CalledMethodsPredicate
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.EnsuresCalledMethods
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.EnsuresCalledMethods$List
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.EnsuresCalledMethodsIf
+[WARNING]   - org.checkerframework.checker.calledmethods.qual.EnsuresCalledMethodsIf$List
+[WARNING]   - 370 more...
+[WARNING] commons-codec-1.11.jar, image-manager-1.0.0.jar define 226 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/commons-codec/commons-codec/pom.properties
+[WARNING]   - META-INF/maven/commons-codec/commons-codec/pom.xml
+[WARNING]   - org.apache.commons.codec.BinaryDecoder
+[WARNING]   - org.apache.commons.codec.BinaryEncoder
+[WARNING]   - org.apache.commons.codec.CharEncoding
+[WARNING]   - org.apache.commons.codec.Charsets
+[WARNING]   - org.apache.commons.codec.Decoder
+[WARNING]   - org.apache.commons.codec.DecoderException
+[WARNING]   - org.apache.commons.codec.Encoder
+[WARNING]   - org.apache.commons.codec.EncoderException
+[WARNING]   - 216 more...
+[WARNING] commons-logging-1.2.jar, image-manager-1.0.0.jar define 30 overlapping classes and resources: 
+[WARNING]   - META-INF/maven/commons-logging/commons-logging/pom.properties
+[WARNING]   - META-INF/maven/commons-logging/commons-logging/pom.xml
+[WARNING]   - org.apache.commons.logging.Log
+[WARNING]   - org.apache.commons.logging.LogConfigurationException
+[WARNING]   - org.apache.commons.logging.LogFactory
+[WARNING]   - org.apache.commons.logging.LogFactory$1
+[WARNING]   - org.apache.commons.logging.LogFactory$2
+[WARNING]   - org.apache.commons.logging.LogFactory$3
+[WARNING]   - org.apache.commons.logging.LogFactory$4
+[WARNING]   - org.apache.commons.logging.LogFactory$5
+[WARNING]   - 20 more...
+[WARNING] image-manager-1.0.0.jar, kotlin-stdlib-common-1.9.10.jar define 359 overlapping resources: 
+[WARNING]   - META-INF/kotlin-stdlib-common.kotlin_module
+[WARNING]   - kotlin/ArithmeticException.kotlin_metadata
+[WARNING]   - kotlin/AssertionError.kotlin_metadata
+[WARNING]   - kotlin/AutoCloseable.kotlin_metadata
+[WARNING]   - kotlin/AutoCloseableKt.kotlin_metadata
+[WARNING]   - kotlin/BuilderInference.kotlin_metadata
+[WARNING]   - kotlin/CharCodeKt.kotlin_metadata
+[WARNING]   - kotlin/ClassCastException.kotlin_metadata
+[WARNING]   - kotlin/Comparator.kotlin_metadata
+[WARNING]   - kotlin/CompareToKt.kotlin_metadata
+[WARNING]   - 349 more...
+[WARNING] maven-shade-plugin has detected that some files are
+[WARNING] present in two or more JARs. When this happens, only one
+[WARNING] single version of the file is copied to the uber jar.
+[WARNING] Usually this is not harmful and you can skip these warnings,
+[WARNING] otherwise try to manually exclude artifacts based on
+[WARNING] mvn dependency:tree -Ddetail=true and the above output.
+[WARNING] See https://maven.apache.org/plugins/maven-shade-plugin/
+[INFO] Replacing original artifact with shaded artifact.
+[INFO] Replacing D:\AAAWorkSpace\java project\super_big_homework\Java��Database_bigwork\target\image-manager-1.0.0.jar with D:\AAAWorkSpace\java project\super_big_homework\Java��Database_bigwork\target\image-manager-1.0.0-shaded.jar
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  15.784 s
+[INFO] Finished at: 2026-05-30T10:16:55+08:00
+[INFO] ------------------------------------------------------------------------

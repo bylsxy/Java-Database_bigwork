@@ -8,7 +8,6 @@ docs/面向对象程序与设计/面向对象程序设计实践/2024级软件工
 
 # Runtime logs
 logs/
-*.log
 
 # Local environment and secrets
 .env

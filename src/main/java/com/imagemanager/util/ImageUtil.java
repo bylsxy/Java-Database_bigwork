@@ -69,7 +69,8 @@ public final class ImageUtil {
                     file.toURI().toString(),
                     maxWidth, maxHeight,
                     true,   // preserveRatio: 保持宽高比
-                    true    // smooth: 平滑缩放
+                    true,   // smooth: 平滑缩放
+                    true    // backgroundLoading: 避免在 FX 线程同步解码磁盘图片
             );
         } catch (Exception e) {
             logger.error("加载缩略图失败: {}", e.getMessage());
@@ -177,7 +178,14 @@ public final class ImageUtil {
                     }
                 }
             }
+
+            Image fxImage = new Image(file.toURI().toString(), 0, 0, false, false, false);
+            if (!fxImage.isError() && fxImage.getWidth() > 0 && fxImage.getHeight() > 0) {
+                return new int[]{(int) Math.round(fxImage.getWidth()), (int) Math.round(fxImage.getHeight())};
+            }
         } catch (IOException e) {
+            logger.debug("读取图片尺寸失败: {}", e.getMessage());
+        } catch (Exception e) {
             logger.debug("读取图片尺寸失败: {}", e.getMessage());
         }
         return new int[]{0, 0};

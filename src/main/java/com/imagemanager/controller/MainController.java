@@ -14,6 +14,7 @@ import com.imagemanager.service.AiTagStorageService;
 import com.imagemanager.service.DatabaseBootstrapService;
 import com.imagemanager.service.ImageService;
 import com.imagemanager.service.ImageServiceImpl;
+import com.imagemanager.service.ImageDimensionRepairService;
 import com.imagemanager.service.SearchService;
 import com.imagemanager.util.AlertUtil;
 import com.imagemanager.util.FileUtil;
@@ -50,11 +51,14 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * 主窗口控制器 — 协调目录树导航和图片预览区域。
@@ -73,6 +77,7 @@ public class MainController {
 
     private static final Logger logger = LoggerFactory.getLogger(MainController.class);
     private static final String LOADING_TREE_ITEM_TEXT = "加载中...";
+    private static final long DATABASE_STATUS_CACHE_MILLIS = 5_000L;
 
     // ==================== FXML 注入的 UI 组件 ====================
 
@@ -163,16 +168,35 @@ public class MainController {
 
     /** 缩略图卡片与图片的映射（用于选中/取消选中的 UI 更新） */
     private final java.util.Map<ImageFile, VBox> cardMap = new java.util.LinkedHashMap<>();
+    private ContextMenu activeContextMenu;
+    private ContextMenu thumbnailContextMenu;
+    private MenuItem viewContextItem;
+    private MenuItem editContextItem;
+    private MenuItem playFromHereContextItem;
+    private MenuItem tagContextItem;
+    private MenuItem infoContextItem;
+    private MenuItem openFolderContextItem;
+    private MenuItem pasteContextItem;
+    private final ExecutorService thumbnailCacheExecutor = Executors.newFixedThreadPool(3, runnable -> {
+        Thread thread = new Thread(runnable, "Thumbnail-Cache");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     /** 框选相关状态 */
     private double dragStartX, dragStartY;
     private boolean isDragging = false;
+    private boolean suppressNextDirectoryLoad = false;
     private ScanTask activeScanTask;
     private String activeScanDirectoryPath = "";
     private String queuedScanDirectoryPath = "";
     private long directoryLoadRequestId = 0;
     private long searchRequestId = 0;
     private boolean promptCleanupAfterStop = false;
+    private volatile boolean databaseConnectedCache = DatabaseConnection.isInitialized();
+    private volatile boolean databaseReadyCache = false;
+    private volatile long databaseStatusCheckedAt = 0L;
+    private volatile boolean databaseStatusCheckRunning = false;
     private final Timeline scanSnapshotTimeline = new Timeline(
             new KeyFrame(Duration.ZERO, event -> refreshScanSnapshot()),
             new KeyFrame(Duration.seconds(1))
@@ -187,6 +211,9 @@ public class MainController {
     }
 
     private record DirectoryLoadResult(List<File> subDirectories, List<ImageFile> images) {
+    }
+
+    private record DatabaseStatus(boolean connected, boolean ready) {
     }
 
     // ==================== 初始化 ====================
@@ -344,9 +371,19 @@ public class MainController {
      * 用于设置页保存后、首启向导确认后，以及后续需要把右侧目录卡片导航同步到左侧树时调用。
      */
     public void syncScanDirectoryRoot(String directoryPath) {
-        showComputerRoot();
-        if (!selectDirectoryIfAvailable(directoryPath)) {
+        syncScanDirectoryRoot(directoryPath, true);
+    }
+
+    public void syncScanDirectoryRoot(String directoryPath, boolean loadSelectedDirectory) {
+        ensureComputerRoot();
+        if (!selectDirectoryIfAvailable(directoryPath, loadSelectedDirectory)) {
             showInitialDirectoryRoot();
+        }
+    }
+
+    private void ensureComputerRoot() {
+        if (directoryTree == null || directoryTree.getRoot() == null) {
+            showComputerRoot();
         }
     }
 
@@ -357,11 +394,7 @@ public class MainController {
      */
     private TreeItem<String> createLazyTreeItem(String displayName, String path) {
         TreeItem<String> item = new TreeItem<>(displayName);
-
-        if (hasVisibleSubDirectory(path)) {
-            TreeItem<String> placeholder = new TreeItem<>(LOADING_TREE_ITEM_TEXT);
-            item.getChildren().add(placeholder);
-        }
+        item.getChildren().add(new TreeItem<>(LOADING_TREE_ITEM_TEXT));
 
         // 监听展开事件 — 替换为真实子目录
         item.expandedProperty().addListener((obs, wasExpanded, isNowExpanded) -> {
@@ -381,33 +414,62 @@ public class MainController {
         return item;
     }
 
-    private boolean hasVisibleSubDirectory(String directoryPath) {
-        File dir = new File(directoryPath);
-        if (!dir.exists() || !dir.isDirectory()) {
-            return false;
-        }
-
-        File[] subDirs = dir.listFiles(file -> file.isDirectory() && !file.isHidden());
-        return subDirs != null && subDirs.length > 0;
-    }
-
     /**
      * 加载指定目录的子目录，替换虚拟节点。
      */
     private void loadSubDirectories(TreeItem<String> parentItem, String parentPath) {
-        List<File> subDirs = FileUtil.listSubDirectories(parentPath);
-        parentItem.getChildren().clear();
+        loadSubDirectories(parentItem, parentPath, null);
+    }
 
-        for (var subDir : subDirs) {
-            String childPath = normalizeDirectoryPath(subDir);
-            String childName = subDir.getName();
-            TreeItem<String> childItem = createLazyTreeItem(childName, childPath);
-            parentItem.getChildren().add(childItem);
+    private void loadSubDirectories(TreeItem<String> parentItem, String parentPath, Runnable afterLoad) {
+        if (parentItem == null || parentPath == null || parentPath.isBlank()) {
+            runAfterLoad(afterLoad);
+            return;
+        }
+        if (!hasLoadingPlaceholder(parentItem)) {
+            runAfterLoad(afterLoad);
+            return;
         }
 
-        if (parentItem.getChildren().isEmpty()) {
-            // 没有子目录的话，不显示空箭头
+        Task<List<File>> loadTask = new Task<>() {
+            @Override
+            protected List<File> call() {
+                return FileUtil.listSubDirectories(parentPath);
+            }
+        };
+        loadTask.setOnSucceeded(event -> {
+            List<TreeItem<String>> childItems = new ArrayList<>();
+            for (var subDir : loadTask.getValue()) {
+                String childPath = normalizeDirectoryPath(subDir);
+                String childName = subDir.getName();
+                childItems.add(createLazyTreeItem(childName, childPath));
+            }
+
+            parentItem.getChildren().setAll(childItems);
+            if (childItems.isEmpty()) {
+                parentItem.setExpanded(false);
+            }
+            runAfterLoad(afterLoad);
+        });
+        loadTask.setOnFailed(event -> {
+            logger.warn("加载子目录失败: {}", parentPath, loadTask.getException());
+            parentItem.getChildren().clear();
             parentItem.setExpanded(false);
+            runAfterLoad(afterLoad);
+        });
+
+        Thread.startVirtualThread(loadTask);
+    }
+
+    private boolean hasLoadingPlaceholder(TreeItem<String> item) {
+        return item != null
+                && item.getChildren().size() == 1
+                && LOADING_TREE_ITEM_TEXT.equals(item.getChildren().getFirst().getValue());
+    }
+
+    private void runAfterLoad(Runnable afterLoad) {
+        if (afterLoad != null) {
+            afterLoad.run();
         }
     }
 
@@ -427,6 +489,21 @@ public class MainController {
      * 目录选中事件处理器 — 加载该目录下的所有图片缩略图。
      */
     private void onDirectorySelected(String directoryPath) {
+        if (suppressNextDirectoryLoad) {
+            suppressNextDirectoryLoad = false;
+            directoryLoadRequestId++;
+            searchRequestId++;
+            currentDirectoryPath = directoryPath;
+            selectedImages.clear();
+            cardMap.clear();
+            pathLabel.setText(directoryPath);
+            File dir = new File(directoryPath);
+            directoryNameLabel.setText(dir.getName().isEmpty() ? directoryPath : dir.getName());
+            setImageCountText("");
+            selectionLabel.setText("");
+            thumbnailPane.getChildren().clear();
+            return;
+        }
         logger.info("选中目录: {}", directoryPath);
         long loadRequestId = ++directoryLoadRequestId;
         searchRequestId++;
@@ -485,7 +562,7 @@ public class MainController {
     }
 
     private void displayDirectoryContents(List<File> subDirectories, List<ImageFile> images) {
-        thumbnailPane.getChildren().clear();
+        List<Node> contentNodes = new ArrayList<>();
         cardMap.clear();
 
         int folderCount = subDirectories == null ? 0 : subDirectories.size();
@@ -494,19 +571,19 @@ public class MainController {
 
         if (subDirectories != null) {
             for (var subDir : subDirectories) {
-                thumbnailPane.getChildren().add(createDirectoryCard(subDir));
+                contentNodes.add(createDirectoryCard(subDir));
             }
         }
 
-        if (images == null) {
-            return;
+        if (images != null) {
+            for (var image : images) {
+                VBox card = createThumbnailCard(image);
+                cardMap.put(image, card);
+                contentNodes.add(card);
+            }
         }
 
-        for (var image : images) {
-            VBox card = createThumbnailCard(image);
-            cardMap.put(image, card);
-            thumbnailPane.getChildren().add(card);
-        }
+        thumbnailPane.getChildren().setAll(contentNodes);
     }
 
     private String formatDirectorySummary(int folderCount, int imageCount) {
@@ -554,78 +631,130 @@ public class MainController {
     }
 
     private void selectDirectoryInTree(String directoryPath) {
+        selectDirectoryInTree(directoryPath, true);
+    }
+
+    private boolean selectDirectoryIfAvailable(String directoryPath, boolean loadSelectedDirectory) {
+        if (directoryPath == null || directoryPath.isBlank()) {
+            return false;
+        }
+        File targetDir = new File(directoryPath);
+        if (!FileUtil.isUsableScanDirectory(targetDir)) {
+            return false;
+        }
+        selectDirectoryInTree(normalizeDirectoryPath(targetDir), loadSelectedDirectory);
+        return true;
+    }
+
+    private void selectDirectoryInTree(String directoryPath, boolean loadSelectedDirectory) {
         if (directoryTree == null || directoryTree.getRoot() == null || directoryPath == null || directoryPath.isBlank()) {
-            onDirectorySelected(directoryPath);
+            if (loadSelectedDirectory) {
+                onDirectorySelected(directoryPath);
+            }
             return;
         }
 
         String normalizedTarget = normalizeDirectoryPath(new File(directoryPath));
-        TreeItem<String> targetItem = findTreeItemByPath(directoryTree.getRoot(), normalizedTarget);
-        if (targetItem == null) {
-            onDirectorySelected(normalizedTarget);
+        TreeItem<String> diskItem = findDirectChildContainingPath(directoryTree.getRoot(), normalizedTarget);
+        if (diskItem == null) {
+            if (loadSelectedDirectory) {
+                onDirectorySelected(normalizedTarget);
+            }
             return;
         }
 
-        expandParentChain(targetItem);
-        targetItem.setExpanded(true);
-
-        TreeItem<String> selectedItem = directoryTree.getSelectionModel().getSelectedItem();
-        if (selectedItem == targetItem) {
-            onDirectorySelected(normalizedTarget);
-        } else {
-            directoryTree.getSelectionModel().select(targetItem);
-            int row = directoryTree.getRow(targetItem);
-            if (row >= 0) {
-                directoryTree.scrollTo(row);
-            }
-        }
+        List<String> pathChain = buildPathChain(getPathFromTreeItem(diskItem), normalizedTarget);
+        expandPathChain(diskItem, pathChain, 1, loadSelectedDirectory);
     }
 
-    private TreeItem<String> findTreeItemByPath(TreeItem<String> currentItem, String targetPath) {
-        if (currentItem == null || targetPath == null || targetPath.isBlank()) {
+    private TreeItem<String> findDirectChildContainingPath(TreeItem<String> parent, String targetPath) {
+        if (parent == null) {
             return null;
         }
-
-        String currentPath = getPathFromTreeItem(currentItem);
-        if (currentPath != null && sameDirectoryPath(currentPath, targetPath)) {
-            return currentItem;
-        }
-        if (currentPath != null && !isInsideDirectory(targetPath, currentPath)) {
-            return null;
-        }
-
-        ensureTreeChildrenLoaded(currentItem);
-        for (TreeItem<String> child : currentItem.getChildren()) {
-            if (LOADING_TREE_ITEM_TEXT.equals(child.getValue())) {
-                continue;
-            }
-            TreeItem<String> found = findTreeItemByPath(child, targetPath);
-            if (found != null) {
-                return found;
+        for (TreeItem<String> child : parent.getChildren()) {
+            String childPath = getPathFromTreeItem(child);
+            if (childPath != null && isInsideDirectory(targetPath, childPath)) {
+                return child;
             }
         }
         return null;
     }
 
-    private void ensureTreeChildrenLoaded(TreeItem<String> item) {
-        if (item == null || item.getChildren().isEmpty()) {
+    private List<String> buildPathChain(String rootPath, String targetPath) {
+        LinkedList<String> chain = new LinkedList<>();
+        if (rootPath == null || targetPath == null || rootPath.isBlank() || targetPath.isBlank()) {
+            return List.of();
+        }
+
+        File current = new File(targetPath);
+        while (current != null) {
+            String currentPath = normalizeDirectoryPath(current);
+            chain.addFirst(currentPath);
+            if (sameDirectoryPath(currentPath, rootPath)) {
+                break;
+            }
+            current = current.getParentFile();
+        }
+        if (chain.isEmpty() || !sameDirectoryPath(chain.getFirst(), rootPath)) {
+            return List.of(rootPath);
+        }
+        return new ArrayList<>(chain);
+    }
+
+    private void expandPathChain(TreeItem<String> currentItem,
+                                 List<String> pathChain,
+                                 int nextPathIndex,
+                                 boolean loadSelectedDirectory) {
+        if (currentItem == null || pathChain.isEmpty()) {
             return;
         }
 
-        if (item.getChildren().size() == 1
-                && LOADING_TREE_ITEM_TEXT.equals(item.getChildren().getFirst().getValue())) {
-            String itemPath = getPathFromTreeItem(item);
-            if (itemPath != null && !itemPath.isBlank()) {
-                loadSubDirectories(item, itemPath);
-            }
+        if (nextPathIndex >= pathChain.size()) {
+            currentItem.setExpanded(true);
+            selectTreeItem(currentItem, pathChain.getLast(), loadSelectedDirectory);
+            return;
         }
+
+        String currentPath = getPathFromTreeItem(currentItem);
+        loadSubDirectories(currentItem, currentPath, () -> {
+            currentItem.setExpanded(true);
+            TreeItem<String> nextItem = findDirectChildByPath(currentItem, pathChain.get(nextPathIndex));
+            if (nextItem == null) {
+                selectTreeItem(currentItem, pathChain.get(nextPathIndex - 1), loadSelectedDirectory);
+                return;
+            }
+            expandPathChain(nextItem, pathChain, nextPathIndex + 1, loadSelectedDirectory);
+        });
     }
 
-    private void expandParentChain(TreeItem<String> item) {
-        TreeItem<String> parent = item.getParent();
-        while (parent != null) {
-            parent.setExpanded(true);
-            parent = parent.getParent();
+    private TreeItem<String> findDirectChildByPath(TreeItem<String> parent, String path) {
+        if (parent == null || path == null) {
+            return null;
+        }
+        for (TreeItem<String> child : parent.getChildren()) {
+            String childPath = getPathFromTreeItem(child);
+            if (childPath != null && sameDirectoryPath(childPath, path)) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    private void selectTreeItem(TreeItem<String> item, String directoryPath, boolean loadSelectedDirectory) {
+        TreeItem<String> selectedItem = directoryTree.getSelectionModel().getSelectedItem();
+        if (!loadSelectedDirectory && selectedItem != item) {
+            suppressNextDirectoryLoad = true;
+        }
+        if (selectedItem == item) {
+            if (loadSelectedDirectory) {
+                onDirectorySelected(directoryPath);
+            }
+        } else {
+            directoryTree.getSelectionModel().select(item);
+        }
+        int row = directoryTree.getRow(item);
+        if (row >= 0) {
+            directoryTree.scrollTo(row);
         }
     }
 
@@ -653,8 +782,8 @@ public class MainController {
                     ImageUtil.DEFAULT_THUMBNAIL_HEIGHT);
             imageView.setImage(thumbImage);
 
-            // 后台生成并缓存到数据库
-            Thread.startVirtualThread(() -> {
+            // 后台限流生成并缓存到数据库，避免大目录一次性发起过多磁盘解码和 DB 写入。
+            thumbnailCacheExecutor.execute(() -> {
                 imageService.generateAndCacheThumbnail(
                         image,
                         ImageUtil.DEFAULT_THUMBNAIL_WIDTH,
@@ -705,6 +834,7 @@ public class MainController {
                 updateStatusBar();
             }
             showContextMenu(card, event.getScreenX(), event.getScreenY());
+            event.consume();
         });
 
         return card;
@@ -857,31 +987,43 @@ public class MainController {
      * 显示右键上下文菜单。
      */
     private void showContextMenu(Node anchor, double screenX, double screenY) {
-        ContextMenu contextMenu = new ContextMenu();
+        ContextMenu contextMenu = getThumbnailContextMenu();
+        if (activeContextMenu != null && activeContextMenu != contextMenu) {
+            activeContextMenu.hide();
+        }
+        if (contextMenu.isShowing()) {
+            contextMenu.hide();
+        }
 
-        MenuItem viewItem = new MenuItem("查看图片");
-        viewItem.setOnAction(e -> onViewImage());
-        viewItem.setDisable(selectedImages.size() != 1);
+        updateContextMenuState();
+        activeContextMenu = contextMenu;
+        contextMenu.show(anchor, screenX, screenY);
+    }
 
-        MenuItem editItem = new MenuItem("编辑图片");
-        editItem.setOnAction(e -> onEditImage());
-        editItem.setDisable(selectedImages.size() != 1 || !isDatabaseReady());
+    private ContextMenu getThumbnailContextMenu() {
+        if (thumbnailContextMenu != null) {
+            return thumbnailContextMenu;
+        }
 
-        MenuItem playFromHereItem = new MenuItem("从此处播放幻灯片");
-        playFromHereItem.setOnAction(e -> onPlayFromSelected());
-        playFromHereItem.setDisable(selectedImages.size() != 1);
+        thumbnailContextMenu = new ContextMenu();
 
-        MenuItem tagItem = new MenuItem("管理标签");
-        tagItem.setOnAction(e -> onManageTags());
-        tagItem.setDisable(selectedImages.size() != 1 || !isDatabaseReady());
+        viewContextItem = new MenuItem("查看图片");
+        viewContextItem.setOnAction(e -> onViewImage());
 
-        MenuItem infoItem = new MenuItem("查看图片信息");
-        infoItem.setOnAction(e -> onShowImageInfo());
-        infoItem.setDisable(selectedImages.size() != 1);
+        editContextItem = new MenuItem("编辑图片");
+        editContextItem.setOnAction(e -> onEditImage());
 
-        MenuItem openFolderItem = new MenuItem("打开所在文件夹");
-        openFolderItem.setOnAction(e -> onOpenContainingFolder());
-        openFolderItem.setDisable(selectedImages.size() != 1);
+        playFromHereContextItem = new MenuItem("从此处播放幻灯片");
+        playFromHereContextItem.setOnAction(e -> onPlayFromSelected());
+
+        tagContextItem = new MenuItem("管理标签");
+        tagContextItem.setOnAction(e -> onManageTags());
+
+        infoContextItem = new MenuItem("查看图片信息");
+        infoContextItem.setOnAction(e -> onShowImageInfo());
+
+        openFolderContextItem = new MenuItem("打开所在文件夹");
+        openFolderContextItem.setOnAction(e -> onOpenContainingFolder());
 
         MenuItem deleteItem = new MenuItem("删除");
         deleteItem.setOnAction(e -> onDelete());
@@ -889,28 +1031,44 @@ public class MainController {
         MenuItem copyItem = new MenuItem("复制");
         copyItem.setOnAction(e -> onCopy());
 
-        MenuItem pasteItem = new MenuItem("粘贴");
-        pasteItem.setOnAction(e -> onPaste());
-        pasteItem.setDisable(imageService.getClipboard().isEmpty());
+        pasteContextItem = new MenuItem("粘贴");
+        pasteContextItem.setOnAction(e -> onPaste());
 
         MenuItem renameItem = new MenuItem("重命名");
         renameItem.setOnAction(e -> onRename());
 
-        contextMenu.getItems().addAll(
-                viewItem,
-                editItem,
-                playFromHereItem,
-                tagItem,
-                infoItem,
-                openFolderItem,
+        thumbnailContextMenu.getItems().addAll(
+                viewContextItem,
+                editContextItem,
+                playFromHereContextItem,
+                tagContextItem,
+                infoContextItem,
+                openFolderContextItem,
                 new SeparatorMenuItem(),
                 deleteItem,
                 copyItem,
-                pasteItem,
+                pasteContextItem,
                 new SeparatorMenuItem(),
                 renameItem);
 
-        contextMenu.show(anchor, screenX, screenY);
+        thumbnailContextMenu.setOnHidden(event -> {
+            if (activeContextMenu == thumbnailContextMenu) {
+                activeContextMenu = null;
+            }
+        });
+        return thumbnailContextMenu;
+    }
+
+    private void updateContextMenuState() {
+        boolean singleSelected = selectedImages.size() == 1;
+        boolean databaseReady = isDatabaseReady();
+        viewContextItem.setDisable(!singleSelected);
+        editContextItem.setDisable(!singleSelected || !databaseReady);
+        playFromHereContextItem.setDisable(!singleSelected);
+        tagContextItem.setDisable(!singleSelected || !databaseReady);
+        infoContextItem.setDisable(!singleSelected);
+        openFolderContextItem.setDisable(!singleSelected);
+        pasteContextItem.setDisable(imageService.getClipboard().isEmpty());
     }
     // ==================== 操作处理 ====================
 
@@ -1056,14 +1214,16 @@ public class MainController {
                 "确定要删除选中的 " + count + " 张图片吗？此操作不可恢复。");
 
         if (confirmed) {
-            try {
-                imageService.deleteImages(new ArrayList<>(selectedImages));
+            List<ImageFile> imagesToDelete = new ArrayList<>(selectedImages);
+            runImageMutation(
+                    "正在删除 " + count + " 张图片...",
+                    "删除失败",
+                    () -> imageService.deleteImages(imagesToDelete),
+                    () -> {
                 statusLabel.setText("已删除 " + count + " 张图片");
                 // 刷新当前目录
                 onDirectorySelected(currentDirectoryPath);
-            } catch (Exception e) {
-                AlertUtil.showError("删除失败", e.getMessage());
-            }
+                    });
         }
     }
 
@@ -1091,15 +1251,16 @@ public class MainController {
             return;
         }
 
-        try {
-            int count = imageService.getClipboard().size();
-            imageService.pasteImages(currentDirectoryPath);
+        int count = imageService.getClipboard().size();
+        runImageMutation(
+                "正在粘贴 " + count + " 张图片...",
+                "粘贴失败",
+                () -> imageService.pasteImages(currentDirectoryPath),
+                () -> {
             statusLabel.setText("已粘贴 " + count + " 张图片");
             // 刷新
             onDirectorySelected(currentDirectoryPath);
-        } catch (Exception e) {
-            AlertUtil.showError("粘贴失败", e.getMessage());
-        }
+                });
     }
 
     /**
@@ -1116,18 +1277,38 @@ public class MainController {
             ImageFile image = selectedImages.iterator().next();
             AlertUtil.showTextInput("重命名", "请输入新文件名：", image.baseName())
                     .ifPresent(newName -> {
-                        try {
-                            imageService.renameImage(image, newName);
+                        runImageMutation(
+                                "正在重命名图片...",
+                                "重命名失败",
+                                () -> imageService.renameImage(image, newName),
+                                () -> {
                             statusLabel.setText("已重命名: " + newName + image.extension());
                             onDirectorySelected(currentDirectoryPath);
-                        } catch (Exception e) {
-                            AlertUtil.showError("重命名失败", e.getMessage());
-                        }
+                                });
                     });
         } else {
             // 多张 → 批量重命名对话框
             openBatchRenameDialog();
         }
+    }
+
+    private void runImageMutation(String workingMessage, String failureTitle, Runnable work, Runnable onSuccess) {
+        statusLabel.setText(workingMessage);
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() {
+                work.run();
+                return null;
+            }
+        };
+        task.setOnSucceeded(event -> onSuccess.run());
+        task.setOnFailed(event -> {
+            Throwable error = task.getException();
+            logger.error("{}: {}", failureTitle, error == null ? "未知错误" : error.getMessage(), error);
+            statusLabel.setText(failureTitle);
+            AlertUtil.showError(failureTitle, error == null ? "未知错误" : error.getMessage());
+        });
+        Thread.startVirtualThread(task);
     }
 
     /**
@@ -1356,14 +1537,15 @@ public class MainController {
 
             // 设置确认回调
             controller.setOnConfirm((prefix, startNumber, digitCount) -> {
-                try {
-                    imageService.batchRename(imagesToRename, prefix, startNumber, digitCount);
+                runImageMutation(
+                        "正在批量重命名 " + imagesToRename.size() + " 张图片...",
+                        "批量重命名失败",
+                        () -> imageService.batchRename(imagesToRename, prefix, startNumber, digitCount),
+                        () -> {
                     statusLabel.setText("已批量重命名 " + imagesToRename.size() + " 张图片");
                     dialogStage.close();
                     onDirectorySelected(currentDirectoryPath);
-                } catch (Exception e) {
-                    AlertUtil.showError("批量重命名失败", e.getMessage());
-                }
+                        });
             });
 
             dialogStage.showAndWait();
@@ -1595,17 +1777,85 @@ public class MainController {
     }
 
     public void showDatabaseSetupIfDisconnected(Window ownerWindow) {
-        refreshDatabaseStatus();
-        if (!isDatabaseReady()) {
+        refreshDatabaseStatusSync();
+        if (!databaseReadyCache) {
             openDatabaseSetupWindow(ownerWindow);
         }
     }
 
     public void refreshDatabaseStatus() {
+        if (!DatabaseConnection.isInitialized()) {
+            updateDatabaseStatusCache(new DatabaseStatus(false, false));
+            applyDatabaseStatus(false);
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (databaseStatusCheckRunning
+                || (databaseStatusCheckedAt > 0 && now - databaseStatusCheckedAt < DATABASE_STATUS_CACHE_MILLIS)) {
+            applyDatabaseStatus(databaseStatusCheckRunning);
+            return;
+        }
+
+        databaseStatusCheckRunning = true;
+        applyDatabaseStatus(true);
+
+        Task<DatabaseStatus> statusTask = new Task<>() {
+            @Override
+            protected DatabaseStatus call() {
+                return checkDatabaseStatus();
+            }
+        };
+        statusTask.setOnSucceeded(event -> {
+            updateDatabaseStatusCache(statusTask.getValue());
+            databaseStatusCheckRunning = false;
+            applyDatabaseStatus(false);
+        });
+        statusTask.setOnFailed(event -> {
+            logger.warn("数据库状态检测失败", statusTask.getException());
+            updateDatabaseStatusCache(new DatabaseStatus(DatabaseConnection.isInitialized(), false));
+            databaseStatusCheckRunning = false;
+            applyDatabaseStatus(false);
+        });
+        Thread.startVirtualThread(statusTask);
+    }
+
+    public void setDatabaseStatus(boolean connected, boolean ready) {
+        updateDatabaseStatusCache(new DatabaseStatus(connected, ready));
+        applyDatabaseStatus(false);
+    }
+
+    private void refreshDatabaseStatusSync() {
+        updateDatabaseStatusCache(checkDatabaseStatus());
+        applyDatabaseStatus(false);
+    }
+
+    private DatabaseStatus checkDatabaseStatus() {
         boolean connected = DatabaseConnection.isInitialized();
-        boolean ready = connected && new DatabaseBootstrapService().check().schemaReady();
+        boolean ready = false;
+        if (connected) {
+            try {
+                ready = new DatabaseBootstrapService().check().schemaReady();
+            } catch (Exception e) {
+                logger.warn("数据库状态检测失败: {}", e.getMessage());
+            }
+        }
+        return new DatabaseStatus(connected, ready);
+    }
+
+    private void updateDatabaseStatusCache(DatabaseStatus status) {
+        databaseConnectedCache = status.connected();
+        databaseReadyCache = status.ready();
+        databaseStatusCheckedAt = System.currentTimeMillis();
+    }
+
+    private void applyDatabaseStatus(boolean checking) {
+        boolean connected = databaseConnectedCache;
+        boolean ready = databaseReadyCache;
         if (databaseStatusLabel != null) {
-            databaseStatusLabel.setText(ready ? "数据库已连接" : connected ? "数据库待初始化" : "数据库未连接");
+            databaseStatusLabel.setText(checking
+                    ? "数据库检测中..."
+                    : ready ? "数据库已连接" : connected ? "数据库待初始化" : "数据库未连接");
             databaseStatusLabel.getStyleClass().remove("disconnected");
             if (!ready) {
                 databaseStatusLabel.getStyleClass().add("disconnected");
@@ -1632,15 +1882,26 @@ public class MainController {
             if (!DatabaseConnection.isInitialized()) {
                 DatabaseConnection.tryInitialize();
             }
-            refreshDatabaseStatus();
-            if (isDatabaseReady() && currentDirectoryPath != null) {
-                onDirectorySelected(currentDirectoryPath);
+            refreshDatabaseStatusSync();
+            if (databaseReadyCache) {
+                ImageDimensionRepairService.runOnceInBackground();
+                if (currentDirectoryPath != null) {
+                    onDirectorySelected(currentDirectoryPath);
+                }
             }
         });
     }
 
     private boolean isDatabaseReady() {
-        return DatabaseConnection.isInitialized() && new DatabaseBootstrapService().check().schemaReady();
+        if (!DatabaseConnection.isInitialized()) {
+            updateDatabaseStatusCache(new DatabaseStatus(false, false));
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        if (databaseStatusCheckedAt == 0 || now - databaseStatusCheckedAt > DATABASE_STATUS_CACHE_MILLIS) {
+            refreshDatabaseStatus();
+        }
+        return databaseReadyCache;
     }
 
     public void openSettingsWindow(Window ownerWindow) {
@@ -1683,12 +1944,13 @@ public class MainController {
 
             if (controller.isSaved()) {
                 applyTheme();
-                syncScanDirectoryRoot(controller.getSavedScanDirectory());
                 if (controller.isScanRequested()) {
                     String scanDirectory = controller.getSavedScanDirectory();
+                    syncScanDirectoryRoot(scanDirectory, false);
                     statusLabel.setText("设置已保存，开始扫描目录...");
                     startScanTask(scanDirectory);
                 } else {
+                    syncScanDirectoryRoot(controller.getSavedScanDirectory());
                     statusLabel.setText("设置已保存");
                 }
             }
@@ -2004,11 +2266,7 @@ public class MainController {
     }
 
     private String normalizeDirectoryPath(File dir) {
-        try {
-            return dir.getCanonicalPath();
-        } catch (Exception e) {
-            return dir.getAbsolutePath();
-        }
+        return dir.toPath().toAbsolutePath().normalize().toString();
     }
 
     private boolean sameDirectoryPath(String left, String right) {

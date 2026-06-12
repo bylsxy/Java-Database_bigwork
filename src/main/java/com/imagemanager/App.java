@@ -4,6 +4,7 @@ import com.imagemanager.controller.MainController;
 import com.imagemanager.controller.WelcomeDialogController;
 import com.imagemanager.dao.DatabaseConnection;
 import com.imagemanager.service.DatabaseBootstrapService;
+import com.imagemanager.service.ImageDimensionRepairService;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Rectangle2D;
@@ -74,7 +75,9 @@ public class App extends Application {
 
             boolean databaseReady = DatabaseConnection.isInitialized()
                     && new DatabaseBootstrapService().check().schemaReady();
+            mainController.setDatabaseStatus(DatabaseConnection.isInitialized(), databaseReady);
             if (databaseReady) {
+                ImageDimensionRepairService.runOnceInBackground();
                 // 5. v2.0: 首次启动向导 — 在主窗口显示后弹出
                 showWelcomeDialogIfNeeded(primaryStage, mainController);
             } else {
@@ -131,7 +134,7 @@ public class App extends Application {
                 String selectedDir = welcomeController.getSelectedDirectory();
                 if (!selectedDir.isBlank()) {
                     logger.info("用户选择扫描目录: {}", selectedDir);
-                    mainController.syncScanDirectoryRoot(selectedDir);
+                    mainController.syncScanDirectoryRoot(selectedDir, false);
                     mainController.startScanTask(selectedDir);
                 }
             } else {

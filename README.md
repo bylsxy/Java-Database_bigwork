@@ -18,7 +18,7 @@
 
 | 日期 | 更新内容 |
 | --- | --- |
-| 2026-06-12 | 修复了ui显示问题，解决了侧边栏目录显示问题，新增文件夹功能，重做了项目打包方案。 |
+| 2026-06-12 | 修复了ui显示问题，解决了侧边栏目录显示问题，新增文件夹功能，重做了项目打包方案；优化目录树懒加载和右键菜单，补齐扫描入库图片分辨率，并对旧版未知分辨率记录做一次性后台修复。 |
 | 2026-06-11 | 补强 AI fallback 设置：支持从默认配置和 last-good 配置恢复，保存时阻止空 fallback 覆盖已有可用配置；同步更新课程交付包。 |
 | 2026-06-10 | 重写 AI 识别、智能搜索和实验文档材料，补充真实界面截图和交付说明。 |
 | 2026-05-24 | 新增数据库连接与初始化向导，数据库未就绪时支持离线打开主界面，JAR 内嵌 `sql/schema.sql`。 |
@@ -74,7 +74,25 @@ mvn javafx:run
 mvn package
 ```
 
-`mvn package` 会生成可直接运行的 `target/image-manager-1.0.0.jar`，并把 `sql/*.sql` 一起打入 JAR。课程提交用的目标代码 JAR 位于：
+`mvn package` 只负责生成一个最终 JAR：`target/image-manager-1.0.0.jar`。这个 JAR 已经包含运行依赖和 `sql/*.sql`，适合本机已有 Java 21 或更高版本的电脑直接运行；Maven 过程中产生的 `original-*.jar` 等中间包会在打包阶段清理，不作为交付物保留。
+
+面向没有 Java 环境的新电脑，统一使用便携打包脚本：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\package-stable.ps1
+```
+
+脚本会先执行 Maven 打包，再生成运行发布物：
+
+```text
+target/DigitalImageManager-release/image-manager-1.0.0.jar
+target/DigitalImageManager-release/DigitalImageManager/DigitalImageManager.exe
+target/DigitalImageManager-windows-portable.zip
+```
+
+`DigitalImageManager.exe` 位于便携目录内，已由 `jpackage` 捆绑 Java 运行时；拷贝时需要保留同目录的 `app/` 和 `runtime/`。`DigitalImageManager-windows-portable.zip` 是给老师或新电脑使用的压缩包，解压后双击 exe 即可，不需要先安装 JDK、Maven 或 JavaFX。
+
+课程提交物与运行发布物分开管理。脚本会把最终 JAR 同步为课程要求的目标代码 JAR，位置是：
 
 ```text
 docs/面向对象程序与设计/面向对象程序设计实践/2024级软件工程R5班/第07组/面向对象程序设计实践目标代码.JAR
@@ -131,6 +149,7 @@ docs/面向对象程序与设计/面向对象程序设计实践/2024级软件工
 16. 加载目录时会把图片元数据写入数据库。
 17. 首次入库时生成缩略图，数据库可缓存 `bytea` 缩略图。
 18. 数据库不可用时会退化为直接读取磁盘文件并展示本地图片。
+19. 新图片入库时会写入真实分辨率，旧版遗留的未知分辨率记录会在数据库就绪后做一次性后台修复。
 
 ### 选择、快捷键与图片管理
 
@@ -375,16 +394,18 @@ docs/面向对象程序与设计/面向对象程序设计实践/2024级软件工
 
 ### 交付、截图与验证
 
-1. `mvn package` 生成课程可运行 JAR。
-2. JAR 内嵌 `sql/schema.sql` 和 `sql/data.sql`。
-3. `src/test/java/com/imagemanager/UiSnapshotSmoke.java` 可生成主要 FXML 界面截图。
-4. 界面截图输出到 `target/ui-smoke/`。
-5. 截图覆盖主界面、设置页、欢迎向导、图片查看器、幻灯片、图片编辑器、批量重命名和数据库向导。
-6. 面向对象课程最终材料位于 `docs/面向对象程序与设计/我们的实际写作/`。
-7. 面向对象课程班级提交镜像位于 `docs/面向对象程序与设计/面向对象程序设计实践/2024级软件工程R5班/第07组/`。
-8. 数据库课程最终材料位于 `docs/数据库系统基础/最终交付/`。
-9. `docs/面向对象程序与设计/我们的实际写作/generate_final_docs.py` 用于生成和同步论文、评分表、附加说明等交付材料。
-10. 过大的班级汇总 ZIP 不进入 Git，避免触发 GitHub 单文件大小限制。
+1. `mvn package` 生成依赖完整的 `target/image-manager-1.0.0.jar`，并清理 Maven 中间 JAR。
+2. `scripts/package-stable.ps1` 生成 Windows 便携版 exe 目录和 `DigitalImageManager-windows-portable.zip`，同时同步课程提交用目标代码 JAR。
+3. JAR 内嵌 `sql/schema.sql` 和 `sql/data.sql`。
+4. `src/test/java/com/imagemanager/UiSnapshotSmoke.java` 可生成主要 FXML 界面截图。
+5. 界面截图输出到 `target/ui-smoke/`。
+6. 截图覆盖主界面、设置页、欢迎向导、图片查看器、幻灯片、图片编辑器、批量重命名和数据库向导。
+7. 面向对象课程最终材料位于 `docs/面向对象程序与设计/我们的实际写作/`。
+8. 面向对象课程班级提交镜像位于 `docs/面向对象程序与设计/面向对象程序设计实践/2024级软件工程R5班/第07组/`。
+9. 数据库课程最终材料位于 `docs/数据库系统基础/最终交付/`。
+10. `docs/面向对象程序与设计/我们的实际写作/generate_final_docs.py` 用于生成和同步论文、评分表、附加说明等交付材料。
+11. 过大的班级汇总 ZIP 和 `target/` 构建产物不进入 Git，避免触发 GitHub 单文件大小限制。
+12. `docs/` 下的课程证据日志可以进入 Git；本机运行日志只保留在根目录 `logs/`，不进入 Git。
 
 ## 数据库对象概览
 

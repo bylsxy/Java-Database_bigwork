@@ -29,7 +29,7 @@ public class DirectoryScanner {
      * 支持的图片格式（小写）。
      */
     private static final Set<String> SUPPORTED_EXTENSIONS = Set.of(
-            ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"
+            ".jpg", ".jpeg", ".png", ".gif", ".bmp"
     );
 
     /**
@@ -77,7 +77,6 @@ public class DirectoryScanner {
 
                     if (SUPPORTED_EXTENSIONS.contains(ext)) {
                         try {
-                            String hash = computeSHA256(file);
                             String format = ext.substring(1).toUpperCase(); // 去掉点号并大写
 
                             images.add(new ScannedImage(
@@ -86,7 +85,7 @@ public class DirectoryScanner {
                                     file.toAbsolutePath().toString(),
                                     attrs.size(),
                                     format,
-                                    hash
+                                    null
                             ));
                         } catch (Exception e) {
                             logger.warn("处理文件失败，已跳过: {}", file, e);

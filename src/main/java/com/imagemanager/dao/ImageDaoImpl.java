@@ -7,8 +7,10 @@ import org.slf4j.LoggerFactory;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 图片数据访问实现 — 封装所有针对 images 表的 SQL 操作。
@@ -43,6 +45,18 @@ public class ImageDaoImpl implements ImageDao {
             "format, thumbnail, created_at, modified_at, is_deleted, ai_processed " +
             "FROM images WHERE file_path = ? AND is_deleted = FALSE";
 
+    /** 查询缺少尺寸的活跃图片，不加载缩略图，避免一次性读出大块 bytea。 */
+    private static final String SQL_FIND_MISSING_DIMENSIONS =
+            "SELECT id, file_name, file_path, directory_id, file_size, width, height, " +
+            "format, CAST(NULL AS bytea) AS thumbnail, created_at, modified_at, is_deleted, ai_processed " +
+            "FROM images WHERE is_deleted = FALSE " +
+            "AND (width IS NULL OR width <= 0 OR height IS NULL OR height <= 0) " +
+            "ORDER BY id";
+
+    /** 查询目录下已有文件路径，不加载缩略图。 */
+    private static final String SQL_FIND_FILE_PATHS_BY_DIRECTORY =
+            "SELECT file_path FROM images WHERE directory_id = ? AND is_deleted = FALSE";
+
     /** 插入新图片 */
     private static final String SQL_INSERT =
             "INSERT INTO images (file_name, file_path, directory_id, file_size, " +
@@ -56,6 +70,10 @@ public class ImageDaoImpl implements ImageDao {
     /** 更新缩略图 */
     private static final String SQL_UPDATE_THUMBNAIL =
             "UPDATE images SET thumbnail = ? WHERE id = ?";
+
+    /** 更新图片尺寸 */
+    private static final String SQL_UPDATE_DIMENSIONS =
+            "UPDATE images SET width = ?, height = ?, file_size = ?, modified_at = NOW() WHERE id = ?";
 
     /** 逻辑删除 */
     private static final String SQL_SOFT_DELETE =
@@ -129,6 +147,42 @@ public class ImageDaoImpl implements ImageDao {
             throw new RuntimeException("查询图片失败", e);
         }
         return Optional.empty();
+    }
+
+    @Override
+    public List<ImageFile> findMissingDimensions() {
+        ensureImageStateColumns();
+        var images = new ArrayList<ImageFile>();
+        try (var conn = DatabaseConnection.getConnection();
+             var stmt = conn.prepareStatement(SQL_FIND_MISSING_DIMENSIONS);
+             var rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                images.add(mapRowToImageFile(rs, true));
+            }
+        } catch (SQLException e) {
+            logger.error("查询缺少尺寸的图片失败: {}", e.getMessage());
+            throw new RuntimeException("查询缺少尺寸的图片失败", e);
+        }
+        return images;
+    }
+
+    @Override
+    public Set<String> findFilePathsByDirectoryId(int directoryId) {
+        ensureImageStateColumns();
+        Set<String> paths = new HashSet<>();
+        try (var conn = DatabaseConnection.getConnection();
+             var stmt = conn.prepareStatement(SQL_FIND_FILE_PATHS_BY_DIRECTORY)) {
+            stmt.setInt(1, directoryId);
+            try (var rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    paths.add(rs.getString("file_path"));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("查询目录 {} 已有图片路径失败: {}", directoryId, e.getMessage());
+            throw new RuntimeException("查询图片路径失败", e);
+        }
+        return paths;
     }
 
     @Override
@@ -215,6 +269,21 @@ public class ImageDaoImpl implements ImageDao {
         } catch (SQLException e) {
             logger.error("更新缩略图 id={} 失败: {}", imageId, e.getMessage());
             throw new RuntimeException("更新缩略图失败", e);
+        }
+    }
+
+    @Override
+    public void updateDimensions(int imageId, int width, int height, long fileSize) {
+        try (var conn = DatabaseConnection.getConnection();
+             var stmt = conn.prepareStatement(SQL_UPDATE_DIMENSIONS)) {
+            stmt.setInt(1, width);
+            stmt.setInt(2, height);
+            stmt.setLong(3, fileSize);
+            stmt.setInt(4, imageId);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("更新图片尺寸失败 id={}: {}", imageId, e.getMessage());
+            throw new RuntimeException("更新图片尺寸失败", e);
         }
     }
 
