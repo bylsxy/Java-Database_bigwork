@@ -1,0 +1,64 @@
+{
+  "tables": [
+    "directories",
+    "images",
+    "operation_logs",
+    "tag_categories",
+    "tags",
+    "image_tags",
+    "ai_analysis_results",
+    "app_settings",
+    "search_history",
+    "image_versions",
+    "image_edit_operations",
+    "cloud_sources",
+    "cloud_images"
+  ],
+  "indexes": [
+    "idx_images_directory_id",
+    "idx_images_file_name",
+    "idx_images_active",
+    "idx_images_hash",
+    "idx_images_ai_pending",
+    "idx_directories_parent_id",
+    "idx_directories_path",
+    "idx_operation_logs_image_id",
+    "idx_operation_logs_time",
+    "idx_tags_name",
+    "idx_tags_category",
+    "idx_image_tags_image",
+    "idx_image_tags_tag",
+    "idx_ai_results_image",
+    "idx_versions_image",
+    "idx_versions_current",
+    "idx_cloud_images_source",
+    "idx_tags_name_trgm",
+    "idx_ai_desc_trgm"
+  ],
+  "views": [
+    "v_active_images",
+    "v_directory_stats",
+    "v_image_search",
+    "v_tag_stats"
+  ],
+  "functions": [
+    "fn_log_image_insert",
+    "fn_log_image_update",
+    "fn_log_image_delete",
+    "fn_log_tag_change"
+  ],
+  "triggers": [
+    "trg_image_after_insert",
+    "trg_image_before_update",
+    "trg_image_after_delete",
+    "trg_tag_after_insert",
+    "trg_tag_after_delete"
+  ],
+  "procedures": [
+    "sp_monthly_report",
+    "sp_directory_report",
+    "sp_batch_rename",
+    "sp_restore_version",
+    "sp_batch_insert_tags"
+  ]
+}

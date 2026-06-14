@@ -1,0 +1,2476 @@
+package com.imagemanager.controller;
+
+import com.imagemanager.dao.SettingsDao;
+import com.imagemanager.dao.SettingsDaoImpl;
+import com.imagemanager.dao.DatabaseConnection;
+import com.imagemanager.dao.TagDao;
+import com.imagemanager.dao.TagDaoImpl;
+import com.imagemanager.model.ImageFile;
+import com.imagemanager.model.Tag;
+import com.imagemanager.model.TagCategory;
+import com.imagemanager.scanner.ScanTask;
+import com.imagemanager.scanner.ScanProgressEstimator;
+import com.imagemanager.service.AiTagStorageService;
+import com.imagemanager.service.DatabaseBootstrapService;
+import com.imagemanager.service.ImageService;
+import com.imagemanager.service.ImageServiceImpl;
+import com.imagemanager.service.ImageDimensionRepairService;
+import com.imagemanager.service.SearchService;
+import com.imagemanager.util.AlertUtil;
+import com.imagemanager.util.FileUtil;
+import com.imagemanager.util.ImageUtil;
+import com.imagemanager.util.ThemeUtil;
+import javafx.animation.KeyFrame;
+import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.concurrent.Task;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.geometry.Bounds;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.*;
+import javafx.stage.Screen;
+import javafx.stage.Stage;
+import javafx.stage.Window;
+import javafx.util.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/**
+ * 主窗口控制器 — 协调目录树导航和图片预览区域。
+ * <p>
+ * 职责：
+ * <ul>
+ * <li>初始化并管理目录树 TreeView</li>
+ * <li>加载和显示缩略图网格</li>
+ * <li>处理选中/多选/框选交互</li>
+ * <li>提供右键上下文菜单（删除/复制/粘贴/重命名）</li>
+ * <li>管理状态栏信息更新</li>
+ * <li>启动幻灯片播放窗口</li>
+ * </ul>
+ */
+public class MainController {
+
+    private static final Logger logger = LoggerFactory.getLogger(MainController.class);
+    private static final String LOADING_TREE_ITEM_TEXT = "加载中...";
+    private static final long DATABASE_STATUS_CACHE_MILLIS = 5_000L;
+
+    // ==================== FXML 注入的 UI 组件 ====================
+
+    @FXML
+    private TreeView<String> directoryTree;
+    @FXML
+    private FlowPane thumbnailPane;
+    @FXML
+    private ScrollPane thumbnailScroll;
+    @FXML
+    private Label pathLabel;
+    @FXML
+    private Label directoryNameLabel;
+    @FXML
+    private Label imageCountLabel;
+    @FXML
+    private Label statusLabel;
+    @FXML
+    private Label databaseStatusLabel;
+    @FXML
+    private Button databaseSetupButton;
+    @FXML
+    private Label selectionLabel;
+    @FXML
+    private Button slideshowButton;
+    @FXML
+    private SplitPane mainSplitPane;
+    @FXML
+    private StackPane appRoot;
+    @FXML
+    private ImageView themeBackgroundImageView;
+    @FXML
+    private BorderPane mainContentPane;
+    private Stage settingsStage;
+
+    // v2.0 新增：搜索栏
+    @FXML
+    private ComboBox<String> searchModeCombo;
+    @FXML
+    private TextField searchField;
+    @FXML
+    private Button searchButton;
+
+    // v2.0 新增：AI扫描进度
+    @FXML
+    private VBox scanStatusPane;
+    @FXML
+    private Label scanPhaseLabel;
+    @FXML
+    private Label scanSummaryLabel;
+    @FXML
+    private Label scanDetailLabel;
+    @FXML
+    private Label scanStartedAtLabel;
+    @FXML
+    private Label scanElapsedLabel;
+    @FXML
+    private Label scanRemainingLabel;
+    @FXML
+    private Label scanRateLabel;
+    @FXML
+    private ProgressBar scanProgressBar;
+    @FXML
+    private Button stopScanButton;
+    @FXML
+    private Button rescanAiButton;
+    @FXML
+    private Button cleanupAiButton;
+
+    // ==================== 业务服务 ====================
+
+    private final ImageService imageService = new ImageServiceImpl();
+    private final SearchService searchService = new SearchService();
+    private final AiTagStorageService aiTagStorageService = new AiTagStorageService();
+    private final SettingsDao settingsDao = new SettingsDaoImpl();
+    private final TagDao tagDao = new TagDaoImpl();
+
+    // ==================== 状态变量 ====================
+
+    /** 当前选中目录的路径 */
+    private String currentDirectoryPath;
+
+    /** 当前目录下的所有图片 */
+    private List<ImageFile> currentImages = new ArrayList<>();
+
+    /** 当前选中的图片集合 */
+    private final Set<ImageFile> selectedImages = new HashSet<>();
+
+    /** 缩略图卡片与图片的映射（用于选中/取消选中的 UI 更新） */
+    private final java.util.Map<ImageFile, VBox> cardMap = new java.util.LinkedHashMap<>();
+    private ContextMenu activeContextMenu;
+    private ContextMenu thumbnailContextMenu;
+    private MenuItem viewContextItem;
+    private MenuItem editContextItem;
+    private MenuItem playFromHereContextItem;
+    private MenuItem tagContextItem;
+    private MenuItem infoContextItem;
+    private MenuItem openFolderContextItem;
+    private MenuItem pasteContextItem;
+    private final ExecutorService thumbnailCacheExecutor = Executors.newFixedThreadPool(3, runnable -> {
+        Thread thread = new Thread(runnable, "Thumbnail-Cache");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    /** 框选相关状态 */
+    private double dragStartX, dragStartY;
+    private boolean isDragging = false;
+    private boolean suppressNextDirectoryLoad = false;
+    private ScanTask activeScanTask;
+    private String activeScanDirectoryPath = "";
+    private String queuedScanDirectoryPath = "";
+    private long directoryLoadRequestId = 0;
+    private long searchRequestId = 0;
+    private boolean promptCleanupAfterStop = false;
+    private volatile boolean databaseConnectedCache = DatabaseConnection.isInitialized();
+    private volatile boolean databaseReadyCache = false;
+    private volatile long databaseStatusCheckedAt = 0L;
+    private volatile boolean databaseStatusCheckRunning = false;
+    private final Timeline scanSnapshotTimeline = new Timeline(
+            new KeyFrame(Duration.ZERO, event -> refreshScanSnapshot()),
+            new KeyFrame(Duration.seconds(1))
+    );
+    private final PauseTransition scanStatusHideTransition = new PauseTransition(Duration.seconds(6));
+
+    private record TagViewItem(Tag tag, String categoryLabel) {
+        @Override
+        public String toString() {
+            return categoryLabel + " / " + tag.name();
+        }
+    }
+
+    private record DirectoryLoadResult(List<File> subDirectories, List<ImageFile> images) {
+    }
+
+    private record DatabaseStatus(boolean connected, boolean ready) {
+    }
+
+    // ==================== 初始化 ====================
+
+    /**
+     * FXML 加载完成后自动调用。
+     * 初始化目录树和交互事件。
+     */
+    @FXML
+    public void initialize() {
+        logger.info("初始化主界面...");
+
+        scanSnapshotTimeline.setCycleCount(Timeline.INDEFINITE);
+        scanStatusHideTransition.setOnFinished(event -> hideScanStatusPanel());
+
+        // 构建目录树
+        initDirectoryTree();
+
+        // 配置缩略图区域的交互
+        initThumbnailInteraction();
+
+        // 配置键盘快捷键
+        initKeyboardShortcuts();
+
+        // v2.0: 初始化搜索栏
+        initSearchBar();
+        setImageCountText("");
+        refreshDatabaseStatus();
+
+        // 应用全局主题背景
+        applyTheme();
+        hideScanStatusPanel();
+
+        logger.info("主界面初始化完成");
+    }
+
+    private void applyTheme() {
+        if (DatabaseConnection.isInitialized()) {
+            ThemeUtil.applyThemeBackground(appRoot, themeBackgroundImageView, settingsDao);
+        } else {
+            ThemeUtil.applyThemeBackground(appRoot, themeBackgroundImageView, "");
+        }
+        ThemeUtil.markThemedSurface(mainContentPane);
+    }
+
+    /**
+     * 初始化搜索栏 — 下拉选择搜索模式，回车触发搜索。
+     */
+    private void initSearchBar() {
+        if (searchModeCombo != null) {
+            searchModeCombo.setItems(FXCollections.observableArrayList(
+                    "关键词", "AI智能"
+            ));
+            searchModeCombo.getSelectionModel().selectFirst();
+        }
+
+        if (searchField != null) {
+            searchField.setOnAction(event -> onSearch());
+        }
+    }
+
+    // ==================== 目录树 ====================
+
+    /**
+     * 初始化目录树。目录树始终以“我的电脑”为根，扫描目录只作为自动展开和选中的目标。
+     */
+    private void initDirectoryTree() {
+        // 监听选中变化
+        directoryTree.getSelectionModel().selectedItemProperty().addListener(
+                (observable, oldValue, newValue) -> {
+                    if (newValue != null && newValue.getValue() != null) {
+                        String path = getPathFromTreeItem(newValue);
+                        if (path != null) {
+                            onDirectorySelected(path);
+                        }
+                    }
+                });
+
+        showInitialDirectoryRoot();
+    }
+
+    /**
+     * 启动时始终显示完整磁盘树，并优先展开到用户已保存的扫描目录。
+     * 如果没有配置扫描目录，再回退到 Pictures。
+     */
+    private void showInitialDirectoryRoot() {
+        showComputerRoot();
+
+        String scanDirectory = getConfiguredScanDirectory();
+        if (selectDirectoryIfAvailable(scanDirectory)) {
+            return;
+        }
+
+        String defaultPictures = System.getProperty("user.home") + File.separator + "Pictures";
+        selectDirectoryIfAvailable(defaultPictures);
+    }
+
+    private String getConfiguredScanDirectory() {
+        if (!DatabaseConnection.isInitialized()) {
+            return "";
+        }
+        try {
+            return settingsDao.getValueOrDefault("scan_directory", "").trim();
+        } catch (Exception e) {
+            logger.warn("读取扫描目录失败，回退到默认目录", e);
+            return "";
+        }
+    }
+
+    private boolean selectDirectoryIfAvailable(String directoryPath) {
+        if (directoryPath == null || directoryPath.isBlank()) {
+            return false;
+        }
+        File targetDir = new File(directoryPath);
+        if (!FileUtil.isUsableScanDirectory(targetDir)) {
+            return false;
+        }
+        selectDirectoryInTree(normalizeDirectoryPath(targetDir));
+        return true;
+    }
+
+    /**
+     * 兜底显示整台电脑的磁盘根目录。
+     */
+    private void showComputerRoot() {
+        TreeItem<String> rootItem = new TreeItem<>("我的电脑");
+        rootItem.setExpanded(true);
+
+        // 列出所有磁盘根目录
+        File[] roots = File.listRoots();
+        if (roots != null) {
+            for (var root : roots) {
+                String rootPath = root.getAbsolutePath();
+                String displayName = "本地磁盘 (" + rootPath.replace("\\", "") + ")";
+
+                TreeItem<String> diskItem = createLazyTreeItem(displayName, rootPath);
+                rootItem.getChildren().add(diskItem);
+            }
+        }
+
+        directoryTree.setRoot(rootItem);
+        directoryTree.setShowRoot(true);
+        if (pathLabel != null) {
+            pathLabel.setText("我的电脑");
+        }
+        if (directoryNameLabel != null) {
+            directoryNameLabel.setText("我的电脑");
+        }
+        setImageCountText("");
+    }
+
+    /**
+     * 同步左侧目录树到指定扫描目录。
+     * <p>
+     * 用于设置页保存后、首启向导确认后，以及后续需要把右侧目录卡片导航同步到左侧树时调用。
+     */
+    public void syncScanDirectoryRoot(String directoryPath) {
+        syncScanDirectoryRoot(directoryPath, true);
+    }
+
+    public void syncScanDirectoryRoot(String directoryPath, boolean loadSelectedDirectory) {
+        ensureComputerRoot();
+        if (!selectDirectoryIfAvailable(directoryPath, loadSelectedDirectory)) {
+            showInitialDirectoryRoot();
+        }
+    }
+
+    private void ensureComputerRoot() {
+        if (directoryTree == null || directoryTree.getRoot() == null) {
+            showComputerRoot();
+        }
+    }
+
+    /**
+     * 创建一个懒加载的目录树节点。
+     * 只有存在可见子目录时才放一个虚拟子节点让箭头可见，
+     * 用户展开时再真正加载子目录。
+     */
+    private TreeItem<String> createLazyTreeItem(String displayName, String path) {
+        TreeItem<String> item = new TreeItem<>(displayName);
+        item.getChildren().add(new TreeItem<>(LOADING_TREE_ITEM_TEXT));
+
+        // 监听展开事件 — 替换为真实子目录
+        item.expandedProperty().addListener((obs, wasExpanded, isNowExpanded) -> {
+            if (isNowExpanded && item.getChildren().size() == 1
+                    && LOADING_TREE_ITEM_TEXT.equals(item.getChildren().getFirst().getValue())) {
+                loadSubDirectories(item, path);
+            }
+        });
+
+        // 将路径存储在 TreeItem 的用户数据中
+        item.setValue(displayName);
+        // 使用 graphic 的 userData 存储路径
+        Label label = new Label("📁");
+        label.setUserData(normalizeDirectoryPath(new File(path)));
+        item.setGraphic(label);
+
+        return item;
+    }
+
+    /**
+     * 加载指定目录的子目录，替换虚拟节点。
+     */
+    private void loadSubDirectories(TreeItem<String> parentItem, String parentPath) {
+        loadSubDirectories(parentItem, parentPath, null);
+    }
+
+    private void loadSubDirectories(TreeItem<String> parentItem, String parentPath, Runnable afterLoad) {
+        if (parentItem == null || parentPath == null || parentPath.isBlank()) {
+            runAfterLoad(afterLoad);
+            return;
+        }
+        if (!hasLoadingPlaceholder(parentItem)) {
+            runAfterLoad(afterLoad);
+            return;
+        }
+
+        Task<List<File>> loadTask = new Task<>() {
+            @Override
+            protected List<File> call() {
+                return FileUtil.listSubDirectories(parentPath);
+            }
+        };
+        loadTask.setOnSucceeded(event -> {
+            List<TreeItem<String>> childItems = new ArrayList<>();
+            for (var subDir : loadTask.getValue()) {
+                String childPath = normalizeDirectoryPath(subDir);
+                String childName = subDir.getName();
+                childItems.add(createLazyTreeItem(childName, childPath));
+            }
+
+            parentItem.getChildren().setAll(childItems);
+            if (childItems.isEmpty()) {
+                parentItem.setExpanded(false);
+            }
+            runAfterLoad(afterLoad);
+        });
+        loadTask.setOnFailed(event -> {
+            logger.warn("加载子目录失败: {}", parentPath, loadTask.getException());
+            parentItem.getChildren().clear();
+            parentItem.setExpanded(false);
+            runAfterLoad(afterLoad);
+        });
+
+        Thread.startVirtualThread(loadTask);
+    }
+
+    private boolean hasLoadingPlaceholder(TreeItem<String> item) {
+        return item != null
+                && item.getChildren().size() == 1
+                && LOADING_TREE_ITEM_TEXT.equals(item.getChildren().getFirst().getValue());
+    }
+
+    private void runAfterLoad(Runnable afterLoad) {
+        if (afterLoad != null) {
+            afterLoad.run();
+        }
+    }
+
+    /**
+     * 从 TreeItem 中提取目录路径。
+     */
+    private String getPathFromTreeItem(TreeItem<String> item) {
+        if (item.getGraphic() instanceof Label label && label.getUserData() instanceof String path) {
+            return path;
+        }
+        return null;
+    }
+
+    // ==================== 缩略图加载与显示 ====================
+
+    /**
+     * 目录选中事件处理器 — 加载该目录下的所有图片缩略图。
+     */
+    private void onDirectorySelected(String directoryPath) {
+        if (suppressNextDirectoryLoad) {
+            suppressNextDirectoryLoad = false;
+            directoryLoadRequestId++;
+            searchRequestId++;
+            currentDirectoryPath = directoryPath;
+            selectedImages.clear();
+            cardMap.clear();
+            pathLabel.setText(directoryPath);
+            File dir = new File(directoryPath);
+            directoryNameLabel.setText(dir.getName().isEmpty() ? directoryPath : dir.getName());
+            setImageCountText("");
+            selectionLabel.setText("");
+            thumbnailPane.getChildren().clear();
+            return;
+        }
+        logger.info("选中目录: {}", directoryPath);
+        long loadRequestId = ++directoryLoadRequestId;
+        searchRequestId++;
+        currentDirectoryPath = directoryPath;
+        selectedImages.clear();
+        cardMap.clear();
+
+        // 更新路径显示
+        pathLabel.setText(directoryPath);
+        File dir = new File(directoryPath);
+        directoryNameLabel.setText(dir.getName().isEmpty() ? directoryPath : dir.getName());
+        setImageCountText("");
+
+        // 在后台线程加载子目录和图片（避免阻塞 UI）
+        Task<DirectoryLoadResult> loadTask = new Task<>() {
+            @Override
+            protected DirectoryLoadResult call() {
+                List<File> subDirectories = FileUtil.listSubDirectories(directoryPath);
+                List<ImageFile> images = imageService.loadImagesFromDirectory(directoryPath);
+                return new DirectoryLoadResult(subDirectories, images);
+            }
+        };
+
+        loadTask.setOnSucceeded(event -> {
+            if (loadRequestId != directoryLoadRequestId || !directoryPath.equals(currentDirectoryPath)) {
+                return;
+            }
+            DirectoryLoadResult content = loadTask.getValue();
+            currentImages = content.images();
+            displayDirectoryContents(content.subDirectories(), content.images());
+            updateStatusBar();
+            slideshowButton.setDisable(currentImages.isEmpty());
+        });
+
+        loadTask.setOnFailed(event -> {
+            if (loadRequestId != directoryLoadRequestId || !directoryPath.equals(currentDirectoryPath)) {
+                return;
+            }
+            logger.error("加载图片失败", loadTask.getException());
+            statusLabel.setText("加载失败: " + loadTask.getException().getMessage());
+            refreshDatabaseStatus();
+        });
+
+        // 显示加载提示
+        statusLabel.setText("正在加载...");
+        thumbnailPane.getChildren().clear();
+
+        Thread.startVirtualThread(loadTask);
+    }
+
+    /**
+     * 在缩略图区域显示图片。
+     */
+    private void displayThumbnails(List<ImageFile> images) {
+        displayDirectoryContents(List.of(), images);
+    }
+
+    private void displayDirectoryContents(List<File> subDirectories, List<ImageFile> images) {
+        List<Node> contentNodes = new ArrayList<>();
+        cardMap.clear();
+
+        int folderCount = subDirectories == null ? 0 : subDirectories.size();
+        int imageCount = images == null ? 0 : images.size();
+        setImageCountText(formatDirectorySummary(folderCount, imageCount));
+
+        if (subDirectories != null) {
+            for (var subDir : subDirectories) {
+                contentNodes.add(createDirectoryCard(subDir));
+            }
+        }
+
+        if (images != null) {
+            for (var image : images) {
+                VBox card = createThumbnailCard(image);
+                cardMap.put(image, card);
+                contentNodes.add(card);
+            }
+        }
+
+        thumbnailPane.getChildren().setAll(contentNodes);
+    }
+
+    private String formatDirectorySummary(int folderCount, int imageCount) {
+        if (folderCount > 0 && imageCount > 0) {
+            return folderCount + " \u4E2A\u6587\u4EF6\u5939 / " + imageCount + " \u5F20\u56FE\u7247";
+        }
+        if (folderCount > 0) {
+            return folderCount + " \u4E2A\u6587\u4EF6\u5939";
+        }
+        if (imageCount > 0) {
+            return imageCount + " \u5F20\u56FE\u7247";
+        }
+        return "\u7A7A\u76EE\u5F55";
+    }
+
+    private VBox createDirectoryCard(File directory) {
+        String directoryPath = normalizeDirectoryPath(directory);
+        String directoryName = directory.getName().isBlank() ? directoryPath : directory.getName();
+
+        Label folderIcon = new Label("\uD83D\uDCC1");
+        folderIcon.getStyleClass().add("directory-card-icon");
+
+        StackPane iconContainer = new StackPane(folderIcon);
+        iconContainer.getStyleClass().add("directory-card-icon-container");
+        iconContainer.setPrefSize(148, 112);
+
+        Label nameLabel = new Label(directoryName);
+        nameLabel.getStyleClass().add("directory-card-name");
+        nameLabel.setMaxWidth(148);
+        nameLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
+        nameLabel.setTooltip(new Tooltip(directoryPath));
+
+        VBox card = new VBox(6, iconContainer, nameLabel);
+        card.setAlignment(Pos.CENTER);
+        card.getStyleClass().add("directory-card");
+        card.setPrefWidth(172);
+        card.setMinWidth(172);
+        card.setOnMouseClicked(event -> {
+            if (event.getButton() == MouseButton.PRIMARY && event.getClickCount() == 2) {
+                selectDirectoryInTree(directoryPath);
+            }
+        });
+
+        return card;
+    }
+
+    private void selectDirectoryInTree(String directoryPath) {
+        selectDirectoryInTree(directoryPath, true);
+    }
+
+    private boolean selectDirectoryIfAvailable(String directoryPath, boolean loadSelectedDirectory) {
+        if (directoryPath == null || directoryPath.isBlank()) {
+            return false;
+        }
+        File targetDir = new File(directoryPath);
+        if (!FileUtil.isUsableScanDirectory(targetDir)) {
+            return false;
+        }
+        selectDirectoryInTree(normalizeDirectoryPath(targetDir), loadSelectedDirectory);
+        return true;
+    }
+
+    private void selectDirectoryInTree(String directoryPath, boolean loadSelectedDirectory) {
+        if (directoryTree == null || directoryTree.getRoot() == null || directoryPath == null || directoryPath.isBlank()) {
+            if (loadSelectedDirectory) {
+                onDirectorySelected(directoryPath);
+            }
+            return;
+        }
+
+        String normalizedTarget = normalizeDirectoryPath(new File(directoryPath));
+        TreeItem<String> diskItem = findDirectChildContainingPath(directoryTree.getRoot(), normalizedTarget);
+        if (diskItem == null) {
+            if (loadSelectedDirectory) {
+                onDirectorySelected(normalizedTarget);
+            }
+            return;
+        }
+
+        List<String> pathChain = buildPathChain(getPathFromTreeItem(diskItem), normalizedTarget);
+        expandPathChain(diskItem, pathChain, 1, loadSelectedDirectory);
+    }
+
+    private TreeItem<String> findDirectChildContainingPath(TreeItem<String> parent, String targetPath) {
+        if (parent == null) {
+            return null;
+        }
+        for (TreeItem<String> child : parent.getChildren()) {
+            String childPath = getPathFromTreeItem(child);
+            if (childPath != null && isInsideDirectory(targetPath, childPath)) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    private List<String> buildPathChain(String rootPath, String targetPath) {
+        LinkedList<String> chain = new LinkedList<>();
+        if (rootPath == null || targetPath == null || rootPath.isBlank() || targetPath.isBlank()) {
+            return List.of();
+        }
+
+        File current = new File(targetPath);
+        while (current != null) {
+            String currentPath = normalizeDirectoryPath(current);
+            chain.addFirst(currentPath);
+            if (sameDirectoryPath(currentPath, rootPath)) {
+                break;
+            }
+            current = current.getParentFile();
+        }
+        if (chain.isEmpty() || !sameDirectoryPath(chain.getFirst(), rootPath)) {
+            return List.of(rootPath);
+        }
+        return new ArrayList<>(chain);
+    }
+
+    private void expandPathChain(TreeItem<String> currentItem,
+                                 List<String> pathChain,
+                                 int nextPathIndex,
+                                 boolean loadSelectedDirectory) {
+        if (currentItem == null || pathChain.isEmpty()) {
+            return;
+        }
+
+        if (nextPathIndex >= pathChain.size()) {
+            currentItem.setExpanded(true);
+            selectTreeItem(currentItem, pathChain.getLast(), loadSelectedDirectory);
+            return;
+        }
+
+        String currentPath = getPathFromTreeItem(currentItem);
+        loadSubDirectories(currentItem, currentPath, () -> {
+            currentItem.setExpanded(true);
+            TreeItem<String> nextItem = findDirectChildByPath(currentItem, pathChain.get(nextPathIndex));
+            if (nextItem == null) {
+                selectTreeItem(currentItem, pathChain.get(nextPathIndex - 1), loadSelectedDirectory);
+                return;
+            }
+            expandPathChain(nextItem, pathChain, nextPathIndex + 1, loadSelectedDirectory);
+        });
+    }
+
+    private TreeItem<String> findDirectChildByPath(TreeItem<String> parent, String path) {
+        if (parent == null || path == null) {
+            return null;
+        }
+        for (TreeItem<String> child : parent.getChildren()) {
+            String childPath = getPathFromTreeItem(child);
+            if (childPath != null && sameDirectoryPath(childPath, path)) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    private void selectTreeItem(TreeItem<String> item, String directoryPath, boolean loadSelectedDirectory) {
+        TreeItem<String> selectedItem = directoryTree.getSelectionModel().getSelectedItem();
+        if (!loadSelectedDirectory && selectedItem != item) {
+            suppressNextDirectoryLoad = true;
+        }
+        if (selectedItem == item) {
+            if (loadSelectedDirectory) {
+                onDirectorySelected(directoryPath);
+            }
+        } else {
+            directoryTree.getSelectionModel().select(item);
+        }
+        int row = directoryTree.getRow(item);
+        if (row >= 0) {
+            directoryTree.scrollTo(row);
+        }
+    }
+
+    /**
+     * 创建单个缩略图卡片。
+     * 每个卡片包含：ImageView（缩略图）+ Label（文件名）
+     */
+    private VBox createThumbnailCard(ImageFile image) {
+        // 缩略图图片
+        ImageView imageView = new ImageView();
+        imageView.setFitWidth(132);
+        imageView.setFitHeight(98);
+        imageView.setPreserveRatio(true);
+        imageView.setSmooth(true);
+
+        // 优先从数据库 bytea 加载缩略图
+        if (image.thumbnail() != null && image.thumbnail().length > 0) {
+            Image thumbImage = ImageUtil.fromBytes(image.thumbnail());
+            imageView.setImage(thumbImage);
+        } else {
+            // 从磁盘加载（后台生成并缓存）
+            Image thumbImage = ImageUtil.loadThumbnailImage(
+                    image.filePath(),
+                    ImageUtil.DEFAULT_THUMBNAIL_WIDTH,
+                    ImageUtil.DEFAULT_THUMBNAIL_HEIGHT);
+            imageView.setImage(thumbImage);
+
+            // 后台限流生成并缓存到数据库，避免大目录一次性发起过多磁盘解码和 DB 写入。
+            thumbnailCacheExecutor.execute(() -> {
+                imageService.generateAndCacheThumbnail(
+                        image,
+                        ImageUtil.DEFAULT_THUMBNAIL_WIDTH,
+                        ImageUtil.DEFAULT_THUMBNAIL_HEIGHT);
+            });
+        }
+
+        // 图片容器（固定大小，居中显示）
+        StackPane imageContainer = new StackPane(imageView);
+        imageContainer.getStyleClass().add("thumbnail-image-container");
+        imageContainer.setPrefSize(148, 112);
+        if (image.aiProcessed()) {
+            Label indexedBadge = createAiIndexedBadge();
+            imageContainer.getChildren().add(indexedBadge);
+        }
+
+        // 文件名标签
+        Label nameLabel = new Label(image.fileName());
+        nameLabel.getStyleClass().add("thumbnail-name");
+        nameLabel.setMaxWidth(148);
+        nameLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
+        nameLabel.setTooltip(new Tooltip(image.fileName()));
+
+        String formatText = image.format() == null ? "" : image.format().toUpperCase();
+        Label metaLabel = new Label(image.resolution() + "  " + formatText);
+        metaLabel.getStyleClass().add("thumbnail-meta");
+        metaLabel.setMaxWidth(148);
+        metaLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
+
+        // 卡片容器
+        VBox card = new VBox(6, imageContainer, nameLabel, metaLabel);
+        card.setAlignment(Pos.CENTER);
+        card.getStyleClass().add("thumbnail-card");
+        card.setPrefWidth(172);
+        card.setMinWidth(172);
+
+        // 单击选中
+        card.setOnMouseClicked(event -> handleCardClick(image, card, event));
+
+        // 双击进入图片查看器
+        // （单击事件中检查 clickCount）
+
+        // 右键菜单
+        card.setOnContextMenuRequested(event -> {
+            if (!selectedImages.contains(image)) {
+                clearSelection();
+                selectImage(image, card);
+                updateStatusBar();
+            }
+            showContextMenu(card, event.getScreenX(), event.getScreenY());
+            event.consume();
+        });
+
+        return card;
+    }
+
+    private Label createAiIndexedBadge() {
+        Label badge = new Label("✓");
+        badge.getStyleClass().add("ai-indexed-badge");
+        badge.setTooltip(new Tooltip("已完成AI索引，可通过标签或AI搜索"));
+        StackPane.setAlignment(badge, Pos.TOP_RIGHT);
+        StackPane.setMargin(badge, new Insets(6));
+        return badge;
+    }
+
+    // ==================== 选中交互 ====================
+
+    /**
+     * 缩略图卡片点击处理。
+     */
+    private void handleCardClick(ImageFile image, VBox card, MouseEvent event) {
+        if (event.getButton() == MouseButton.PRIMARY) {
+            if (event.getClickCount() == 2) {
+                // 双击 → 进入单张图片查看器
+                openImageViewer(currentImages.indexOf(image));
+                return;
+            }
+
+            if (event.isControlDown()) {
+                // Ctrl + 单击 → 切换选中状态
+                if (selectedImages.contains(image)) {
+                    deselectImage(image, card);
+                } else {
+                    selectImage(image, card);
+                }
+            } else {
+                // 普通单击 → 清除其他选中，只选当前
+                clearSelection();
+                selectImage(image, card);
+            }
+            updateStatusBar();
+        }
+    }
+
+    private void selectImage(ImageFile image, VBox card) {
+        selectedImages.add(image);
+        card.getStyleClass().add("selected");
+    }
+
+    private void deselectImage(ImageFile image, VBox card) {
+        selectedImages.remove(image);
+        card.getStyleClass().remove("selected");
+    }
+
+    private void clearSelection() {
+        selectedImages.clear();
+        for (var card : cardMap.values()) {
+            card.getStyleClass().remove("selected");
+        }
+        updateStatusBar();
+    }
+
+    /**
+     * 初始化缩略图区域的交互事件（框选、空白处取消选中）。
+     */
+    private void initThumbnailInteraction() {
+        // 点击空白处取消选中
+        thumbnailScroll.setOnMouseClicked(event -> {
+            if (event.getButton() == MouseButton.PRIMARY && event.getTarget() == thumbnailScroll) {
+                clearSelection();
+            }
+        });
+
+        thumbnailPane.setOnMouseClicked(event -> {
+            // 只有点击 FlowPane 本身（空白区域）才取消选中
+            if (event.getButton() == MouseButton.PRIMARY && event.getTarget() == thumbnailPane) {
+                clearSelection();
+            }
+        });
+
+        // 框选功能
+        thumbnailPane.setOnMousePressed(event -> {
+            if (event.getButton() == MouseButton.PRIMARY && !event.isControlDown()) {
+                dragStartX = event.getX();
+                dragStartY = event.getY();
+                isDragging = false;
+            }
+        });
+
+        thumbnailPane.setOnMouseDragged(event -> {
+            if (event.getButton() == MouseButton.PRIMARY && !event.isControlDown()) {
+                isDragging = true;
+                double currentX = event.getX();
+                double currentY = event.getY();
+
+                // 更新框选状态
+                if (!event.isControlDown()) {
+                    clearSelection();
+                }
+
+                // 计算框选矩形
+                double minX = Math.min(dragStartX, currentX);
+                double maxX = Math.max(dragStartX, currentX);
+                double minY = Math.min(dragStartY, currentY);
+                double maxY = Math.max(dragStartY, currentY);
+
+                // 遍历所有卡片，判断是否在框选范围内
+                for (var entry : cardMap.entrySet()) {
+                    VBox card = entry.getValue();
+                    Bounds cardBounds = card.getBoundsInParent();
+
+                    if (cardBounds.getMaxX() >= minX && cardBounds.getMinX() <= maxX
+                            && cardBounds.getMaxY() >= minY && cardBounds.getMinY() <= maxY) {
+                        selectImage(entry.getKey(), card);
+                    }
+                }
+                updateStatusBar();
+            }
+        });
+    }
+
+    /**
+     * 初始化键盘快捷键。
+     */
+    private void initKeyboardShortcuts() {
+        // 快捷键在 Scene 设置后才能绑定，这里通过 Platform.runLater 延迟
+        Platform.runLater(() -> {
+            if (thumbnailPane.getScene() != null) {
+                thumbnailPane.getScene().setOnKeyPressed(event -> {
+                    if (event.isControlDown()) {
+                        switch (event.getCode()) {
+                            case C -> onCopy();
+                            case V -> onPaste();
+                            case A -> selectAll();
+                            default -> {
+                                /* 其他快捷键暂不处理 */ }
+                        }
+                    } else if (event.getCode() == KeyCode.DELETE) {
+                        onDelete();
+                    } else if (event.getCode() == KeyCode.F2) {
+                        onRename();
+                    }
+                });
+            }
+        });
+    }
+
+    // ==================== 右键菜单 ====================
+
+    /**
+     * 显示右键上下文菜单。
+     */
+    private void showContextMenu(Node anchor, double screenX, double screenY) {
+        ContextMenu contextMenu = getThumbnailContextMenu();
+        if (activeContextMenu != null && activeContextMenu != contextMenu) {
+            activeContextMenu.hide();
+        }
+        if (contextMenu.isShowing()) {
+            contextMenu.hide();
+        }
+
+        updateContextMenuState();
+        activeContextMenu = contextMenu;
+        contextMenu.show(anchor, screenX, screenY);
+    }
+
+    private ContextMenu getThumbnailContextMenu() {
+        if (thumbnailContextMenu != null) {
+            return thumbnailContextMenu;
+        }
+
+        thumbnailContextMenu = new ContextMenu();
+
+        viewContextItem = new MenuItem("查看图片");
+        viewContextItem.setOnAction(e -> onViewImage());
+
+        editContextItem = new MenuItem("编辑图片");
+        editContextItem.setOnAction(e -> onEditImage());
+
+        playFromHereContextItem = new MenuItem("从此处播放幻灯片");
+        playFromHereContextItem.setOnAction(e -> onPlayFromSelected());
+
+        tagContextItem = new MenuItem("管理标签");
+        tagContextItem.setOnAction(e -> onManageTags());
+
+        infoContextItem = new MenuItem("查看图片信息");
+        infoContextItem.setOnAction(e -> onShowImageInfo());
+
+        openFolderContextItem = new MenuItem("打开所在文件夹");
+        openFolderContextItem.setOnAction(e -> onOpenContainingFolder());
+
+        MenuItem deleteItem = new MenuItem("删除");
+        deleteItem.setOnAction(e -> onDelete());
+
+        MenuItem copyItem = new MenuItem("复制");
+        copyItem.setOnAction(e -> onCopy());
+
+        pasteContextItem = new MenuItem("粘贴");
+        pasteContextItem.setOnAction(e -> onPaste());
+
+        MenuItem renameItem = new MenuItem("重命名");
+        renameItem.setOnAction(e -> onRename());
+
+        thumbnailContextMenu.getItems().addAll(
+                viewContextItem,
+                editContextItem,
+                playFromHereContextItem,
+                tagContextItem,
+                infoContextItem,
+                openFolderContextItem,
+                new SeparatorMenuItem(),
+                deleteItem,
+                copyItem,
+                pasteContextItem,
+                new SeparatorMenuItem(),
+                renameItem);
+
+        thumbnailContextMenu.setOnHidden(event -> {
+            if (activeContextMenu == thumbnailContextMenu) {
+                activeContextMenu = null;
+            }
+        });
+        return thumbnailContextMenu;
+    }
+
+    private void updateContextMenuState() {
+        boolean singleSelected = selectedImages.size() == 1;
+        boolean databaseReady = isDatabaseReady();
+        viewContextItem.setDisable(!singleSelected);
+        editContextItem.setDisable(!singleSelected || !databaseReady);
+        playFromHereContextItem.setDisable(!singleSelected);
+        tagContextItem.setDisable(!singleSelected || !databaseReady);
+        infoContextItem.setDisable(!singleSelected);
+        openFolderContextItem.setDisable(!singleSelected);
+        pasteContextItem.setDisable(imageService.getClipboard().isEmpty());
+    }
+    // ==================== 操作处理 ====================
+
+    /**
+     * 打开单张图片查看器。查看器只负责浏览，不包含自动播放和背景音乐。
+     */
+    private void onViewImage() {
+        if (selectedImages.size() != 1) {
+            AlertUtil.showWarning("无法查看", "请只选择一张图片");
+            return;
+        }
+
+        ImageFile image = selectedImages.iterator().next();
+        int startIndex = currentImages.indexOf(image);
+        openImageViewer(startIndex < 0 ? 0 : startIndex);
+    }
+
+    private void openImageViewer(int startIndex) {
+        if (currentImages.isEmpty()) {
+            return;
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/fxml/ImageViewerView.fxml"));
+            Parent viewerRoot = loader.load();
+
+            ImageViewerController controller = loader.getController();
+            controller.initViewer(currentImages, startIndex);
+            controller.setEditAction(this::openImageEditor);
+            controller.setPlayAction(this::openSlideshowFromImage);
+
+            ImageFile image = currentImages.get(Math.max(0, Math.min(startIndex, currentImages.size() - 1)));
+            Stage viewerStage = new Stage();
+            viewerStage.setTitle("图片查看 - " + image.fileName());
+            Window ownerWindow = thumbnailPane.getScene().getWindow();
+            Rectangle2D screenBounds = ownerVisualBounds(ownerWindow);
+            double sceneWidth = boundedSceneSize(1040, 760, screenBounds.getWidth(), 120);
+            double sceneHeight = boundedSceneSize(760, 560, screenBounds.getHeight(), 120);
+            Scene scene = new Scene(viewerRoot, sceneWidth, sceneHeight);
+            scene.getStylesheets().add(
+                    getClass().getResource("/css/style.css").toExternalForm());
+            viewerStage.setScene(scene);
+            viewerStage.initOwner(ownerWindow);
+            viewerStage.setResizable(true);
+            viewerStage.setMinWidth(Math.min(720, sceneWidth));
+            viewerStage.setMinHeight(Math.min(520, sceneHeight));
+            viewerStage.setMaxWidth(screenBounds.getWidth());
+            viewerStage.setMaxHeight(screenBounds.getHeight());
+            viewerStage.setOnShown(event -> Platform.runLater(() -> {
+                viewerStage.sizeToScene();
+                keepStageInsideScreen(viewerStage, screenBounds);
+                controller.refreshLayoutAfterShow();
+            }));
+            viewerStage.show();
+        } catch (Exception e) {
+            logger.error("打开图片查看器失败", e);
+            AlertUtil.showError("打开查看器失败", e.getMessage());
+        }
+    }
+
+    private void onPlayFromSelected() {
+        if (selectedImages.size() != 1) {
+            AlertUtil.showWarning("无法播放", "请只选择一张图片作为起点");
+            return;
+        }
+        openSlideshowFromImage(selectedImages.iterator().next());
+    }
+
+    private void openSlideshowFromImage(ImageFile image) {
+        int startIndex = currentImages.indexOf(image);
+        openSlideshow(startIndex < 0 ? 0 : startIndex);
+    }
+
+    private void onShowImageInfo() {
+        if (selectedImages.size() != 1) {
+            AlertUtil.showWarning("无法查看信息", "请只选择一张图片");
+            return;
+        }
+
+        ImageFile image = selectedImages.iterator().next();
+        String modifiedAt = image.modifiedAt() == null ? "未知" : image.modifiedAt().toString();
+        String createdAt = image.createdAt() == null ? "未知" : image.createdAt().toString();
+        String content = """
+                文件名: %s
+                路径: %s
+                格式: %s
+                分辨率: %s
+                大小: %s
+                创建时间: %s
+                修改时间: %s
+                """.formatted(
+                image.fileName(),
+                image.filePath(),
+                image.format(),
+                image.resolution(),
+                image.formattedSize(),
+                createdAt,
+                modifiedAt
+        );
+
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("图片信息");
+        alert.setHeaderText(image.fileName());
+        alert.setContentText(content);
+        alert.showAndWait();
+    }
+
+    private void onOpenContainingFolder() {
+        if (selectedImages.size() != 1) {
+            AlertUtil.showWarning("无法打开文件夹", "请只选择一张图片");
+            return;
+        }
+
+        File parentDir = new File(selectedImages.iterator().next().filePath()).getParentFile();
+        if (parentDir == null || !parentDir.exists()) {
+            AlertUtil.showWarning("打开失败", "图片所在文件夹不存在");
+            return;
+        }
+
+        try {
+            if (!java.awt.Desktop.isDesktopSupported()) {
+                AlertUtil.showWarning("打开失败", "当前环境不支持打开文件夹");
+                return;
+            }
+            java.awt.Desktop.getDesktop().open(parentDir);
+        } catch (Exception e) {
+            logger.error("打开图片所在文件夹失败", e);
+            AlertUtil.showError("打开失败", e.getMessage());
+        }
+    }
+
+    /**
+     * 删除选中的图片。
+     */
+    private void onDelete() {
+        if (selectedImages.isEmpty())
+            return;
+
+        int count = selectedImages.size();
+        boolean confirmed = AlertUtil.showConfirmation(
+                "确认删除",
+                "确定要删除选中的 " + count + " 张图片吗？此操作不可恢复。");
+
+        if (confirmed) {
+            List<ImageFile> imagesToDelete = new ArrayList<>(selectedImages);
+            runImageMutation(
+                    "正在删除 " + count + " 张图片...",
+                    "删除失败",
+                    () -> imageService.deleteImages(imagesToDelete),
+                    () -> {
+                statusLabel.setText("已删除 " + count + " 张图片");
+                // 刷新当前目录
+                onDirectorySelected(currentDirectoryPath);
+                    });
+        }
+    }
+
+    /**
+     * 复制选中的图片到剪贴板。
+     */
+    private void onCopy() {
+        if (selectedImages.isEmpty())
+            return;
+
+        imageService.copyImages(new ArrayList<>(selectedImages));
+        statusLabel.setText("已复制 " + selectedImages.size() + " 张图片");
+    }
+
+    /**
+     * 粘贴剪贴板中的图片到当前目录。
+     */
+    private void onPaste() {
+        if (currentDirectoryPath == null) {
+            AlertUtil.showWarning("粘贴失败", "请先选择一个目标目录");
+            return;
+        }
+        if (imageService.getClipboard().isEmpty()) {
+            AlertUtil.showWarning("粘贴失败", "剪贴板为空，请先复制图片");
+            return;
+        }
+
+        int count = imageService.getClipboard().size();
+        runImageMutation(
+                "正在粘贴 " + count + " 张图片...",
+                "粘贴失败",
+                () -> imageService.pasteImages(currentDirectoryPath),
+                () -> {
+            statusLabel.setText("已粘贴 " + count + " 张图片");
+            // 刷新
+            onDirectorySelected(currentDirectoryPath);
+                });
+    }
+
+    /**
+     * 重命名选中的图片。
+     * 单选 → 直接输入新名称
+     * 多选 → 打开批量重命名对话框
+     */
+    private void onRename() {
+        if (selectedImages.isEmpty())
+            return;
+
+        if (selectedImages.size() == 1) {
+            // 单张重命名
+            ImageFile image = selectedImages.iterator().next();
+            AlertUtil.showTextInput("重命名", "请输入新文件名：", image.baseName())
+                    .ifPresent(newName -> {
+                        runImageMutation(
+                                "正在重命名图片...",
+                                "重命名失败",
+                                () -> imageService.renameImage(image, newName),
+                                () -> {
+                            statusLabel.setText("已重命名: " + newName + image.extension());
+                            onDirectorySelected(currentDirectoryPath);
+                                });
+                    });
+        } else {
+            // 多张 → 批量重命名对话框
+            openBatchRenameDialog();
+        }
+    }
+
+    private void runImageMutation(String workingMessage, String failureTitle, Runnable work, Runnable onSuccess) {
+        statusLabel.setText(workingMessage);
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() {
+                work.run();
+                return null;
+            }
+        };
+        task.setOnSucceeded(event -> onSuccess.run());
+        task.setOnFailed(event -> {
+            Throwable error = task.getException();
+            logger.error("{}: {}", failureTitle, error == null ? "未知错误" : error.getMessage(), error);
+            statusLabel.setText(failureTitle);
+            AlertUtil.showError(failureTitle, error == null ? "未知错误" : error.getMessage());
+        });
+        Thread.startVirtualThread(task);
+    }
+
+    /**
+     * 打开图片编辑器。当前编辑器只处理单张图片，编辑完成后刷新主界面。
+     */
+    private void onEditImage() {
+        if (selectedImages.size() != 1) {
+            AlertUtil.showWarning("无法编辑", "请只选择一张图片进行编辑");
+            return;
+        }
+
+        openImageEditor(selectedImages.iterator().next());
+    }
+
+    private void openImageEditor(ImageFile image) {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，图片编辑版本管理不可用");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/fxml/ImageEditorView.fxml"));
+            Parent editorRoot = loader.load();
+
+            ImageEditorController controller = loader.getController();
+            controller.initEditor(image);
+
+            Stage editorStage = new Stage();
+            editorStage.setTitle("图片编辑 - " + image.fileName());
+            Window ownerWindow = thumbnailPane.getScene().getWindow();
+            Rectangle2D screenBounds = ownerVisualBounds(ownerWindow);
+            double sceneWidth = boundedSceneSize(1000, 760, screenBounds.getWidth(), 120);
+            double sceneHeight = boundedSceneSize(750, 560, screenBounds.getHeight(), 120);
+            Scene scene = new Scene(editorRoot, sceneWidth, sceneHeight);
+            scene.getStylesheets().add(
+                    getClass().getResource("/css/style.css").toExternalForm());
+            editorStage.setScene(scene);
+            editorStage.initOwner(ownerWindow);
+            editorStage.setResizable(true);
+            editorStage.setMinWidth(Math.min(720, sceneWidth));
+            editorStage.setMinHeight(Math.min(520, sceneHeight));
+            editorStage.setMaxWidth(screenBounds.getWidth());
+            editorStage.setMaxHeight(screenBounds.getHeight());
+            editorStage.setOnShown(event -> Platform.runLater(() -> {
+                editorStage.sizeToScene();
+                keepStageInsideScreen(editorStage, screenBounds);
+                controller.refreshLayoutAfterShow();
+            }));
+            editorStage.setOnHidden(event -> {
+                if (currentDirectoryPath != null) {
+                    onDirectorySelected(currentDirectoryPath);
+                }
+            });
+            editorStage.show();
+        } catch (Exception e) {
+            logger.error("打开图片编辑器失败", e);
+            AlertUtil.showError("打开编辑器失败", e.getMessage());
+        }
+    }
+
+    /**
+     * 查看并编辑单张图片的标签。手动添加的标签会立即进入搜索索引。
+     */
+    private void onManageTags() {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，标签管理不可用");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
+        if (selectedImages.size() != 1) {
+            AlertUtil.showWarning("无法管理标签", "请只选择一张图片");
+            return;
+        }
+
+        ImageFile image = selectedImages.iterator().next();
+        try {
+            List<TagCategory> categories = tagDao.findAllCategories();
+            if (categories.isEmpty()) {
+                AlertUtil.showWarning("无法管理标签", "标签分类尚未初始化");
+                return;
+            }
+
+            Map<Integer, String> categoryLabels = new LinkedHashMap<>();
+            for (TagCategory category : categories) {
+                categoryLabels.put(category.id(), category.displayName() + " (" + category.name() + ")");
+            }
+
+            Dialog<Void> dialog = new Dialog<>();
+            dialog.setTitle("管理标签");
+            dialog.setHeaderText(image.fileName());
+            if (thumbnailPane.getScene() != null) {
+                dialog.initOwner(thumbnailPane.getScene().getWindow());
+            }
+            dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+
+            ListView<TagViewItem> tagListView = new ListView<>();
+            tagListView.setPrefHeight(230);
+
+            ComboBox<TagCategory> categoryCombo = new ComboBox<>(
+                    FXCollections.observableArrayList(categories));
+            categoryCombo.setPrefWidth(190);
+            categoryCombo.setCellFactory(list -> createCategoryCell());
+            categoryCombo.setButtonCell(createCategoryCell());
+            categoryCombo.getSelectionModel().selectFirst();
+
+            TextField tagNameField = new TextField();
+            tagNameField.setPromptText("输入标签名称");
+            tagNameField.setPrefWidth(220);
+
+            Button addButton = new Button("添加");
+            Button removeButton = new Button("删除选中标签");
+
+            Runnable reloadTags = () -> {
+                List<TagViewItem> items = new ArrayList<>();
+                for (Tag tag : tagDao.findTagsByImageId(image.id())) {
+                    String categoryLabel = categoryLabels.getOrDefault(tag.categoryId(), "未分类");
+                    items.add(new TagViewItem(tag, categoryLabel));
+                }
+                tagListView.setItems(FXCollections.observableArrayList(items));
+            };
+
+            addButton.setOnAction(event -> {
+                TagCategory category = categoryCombo.getValue();
+                String tagName = tagNameField.getText().trim();
+                if (category == null) {
+                    AlertUtil.showWarning("添加失败", "请选择标签分类");
+                    return;
+                }
+                if (tagName.isBlank()) {
+                    AlertUtil.showWarning("添加失败", "请输入标签名称");
+                    return;
+                }
+                try {
+                    Tag tag = tagDao.findOrCreateTag(category.id(), tagName);
+                    tagDao.linkImageTag(image.id(), tag.id(), 1.0f, "MANUAL");
+                    tagNameField.clear();
+                    reloadTags.run();
+                    statusLabel.setText("已添加标签: " + tagName);
+                } catch (Exception e) {
+                    logger.error("添加标签失败: imageId={}, tag={}", image.id(), tagName, e);
+                    AlertUtil.showError("添加标签失败", e.getMessage());
+                }
+            });
+
+            removeButton.setOnAction(event -> {
+                TagViewItem selected = tagListView.getSelectionModel().getSelectedItem();
+                if (selected == null) {
+                    AlertUtil.showWarning("删除失败", "请先选择一个标签");
+                    return;
+                }
+                try {
+                    tagDao.unlinkImageTag(image.id(), selected.tag().id());
+                    reloadTags.run();
+                    statusLabel.setText("已删除标签: " + selected.tag().name());
+                } catch (Exception e) {
+                    logger.error("删除标签失败: imageId={}, tagId={}", image.id(), selected.tag().id(), e);
+                    AlertUtil.showError("删除标签失败", e.getMessage());
+                }
+            });
+
+            tagNameField.setOnAction(event -> addButton.fire());
+
+            GridPane form = new GridPane();
+            form.setHgap(10);
+            form.setVgap(10);
+            form.add(new Label("分类:"), 0, 0);
+            form.add(categoryCombo, 1, 0);
+            form.add(new Label("标签:"), 0, 1);
+            form.add(tagNameField, 1, 1);
+
+            HBox actions = new HBox(10, addButton, removeButton);
+            actions.setAlignment(Pos.CENTER_LEFT);
+
+            VBox content = new VBox(10,
+                    new Label("当前标签"),
+                    tagListView,
+                    new Separator(),
+                    form,
+                    actions);
+            content.setPrefWidth(520);
+            content.setPadding(new javafx.geometry.Insets(10));
+
+            reloadTags.run();
+            dialog.getDialogPane().setContent(content);
+            dialog.showAndWait();
+        } catch (Exception e) {
+            logger.error("打开标签管理失败: imageId={}", image.id(), e);
+            AlertUtil.showError("标签管理失败", e.getMessage());
+        }
+    }
+
+    private ListCell<TagCategory> createCategoryCell() {
+        return new ListCell<>() {
+            @Override
+            protected void updateItem(TagCategory category, boolean empty) {
+                super.updateItem(category, empty);
+                setText(empty || category == null
+                        ? null
+                        : category.displayName() + " (" + category.name() + ")");
+            }
+        };
+    }
+
+    /**
+     * 打开批量重命名对话框。
+     */
+    private void openBatchRenameDialog() {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/fxml/RenameDialog.fxml"));
+            Parent dialogRoot = loader.load();
+
+            RenameDialogController controller = loader.getController();
+            List<ImageFile> imagesToRename = new ArrayList<>(selectedImages);
+            controller.initData(imagesToRename);
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("批量重命名");
+            Scene scene = new Scene(dialogRoot);
+            scene.getStylesheets().add(
+                    getClass().getResource("/css/style.css").toExternalForm());
+            dialogStage.setScene(scene);
+            dialogStage.initOwner(thumbnailPane.getScene().getWindow());
+            dialogStage.setResizable(false);
+
+            // 设置确认回调
+            controller.setOnConfirm((prefix, startNumber, digitCount) -> {
+                runImageMutation(
+                        "正在批量重命名 " + imagesToRename.size() + " 张图片...",
+                        "批量重命名失败",
+                        () -> imageService.batchRename(imagesToRename, prefix, startNumber, digitCount),
+                        () -> {
+                    statusLabel.setText("已批量重命名 " + imagesToRename.size() + " 张图片");
+                    dialogStage.close();
+                    onDirectorySelected(currentDirectoryPath);
+                        });
+            });
+
+            dialogStage.showAndWait();
+
+        } catch (Exception e) {
+            logger.error("打开批量重命名对话框失败", e);
+            AlertUtil.showError("错误", "无法打开重命名对话框: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 全选当前目录下的所有图片。
+     */
+    private void selectAll() {
+        for (var entry : cardMap.entrySet()) {
+            selectImage(entry.getKey(), entry.getValue());
+        }
+        updateStatusBar();
+    }
+
+    // ==================== 幻灯片播放 ====================
+
+    /**
+     * 点击播放按钮时，打开幻灯片播放窗口。
+     * v2.0: 如果有 Ctrl 多选，仅播放选中的图片。
+     */
+    @FXML
+    private void onSlideshow() {
+        if (currentImages.isEmpty())
+            return;
+
+        // v2.0: 多选播放 — 如果选中了多张，只播放选中的
+        List<ImageFile> playList;
+        int startIndex = 0;
+
+        if (selectedImages.size() > 1) {
+            // 按原始顺序排列选中的图片
+            playList = currentImages.stream()
+                    .filter(selectedImages::contains)
+                    .toList();
+            logger.info("多选播放: {} 张图片", playList.size());
+        } else {
+            playList = currentImages;
+            if (!selectedImages.isEmpty()) {
+                ImageFile first = selectedImages.iterator().next();
+                startIndex = currentImages.indexOf(first);
+                if (startIndex < 0) startIndex = 0;
+            }
+        }
+
+        openSlideshow(playList, startIndex);
+    }
+
+    private void openSlideshow(int startIndex) {
+        openSlideshow(currentImages, startIndex);
+    }
+
+    private void openSlideshow(List<ImageFile> images, int startIndex) {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/fxml/SlideshowView.fxml"));
+            Parent slideshowRoot = loader.load();
+
+            SlideshowController controller = loader.getController();
+            controller.initSlideshow(images, startIndex);
+
+            Stage slideshowStage = new Stage();
+            slideshowStage.setTitle("幻灯片播放 - 数字图像管理系统");
+            Scene scene = new Scene(slideshowRoot, 1000, 700);
+            scene.getStylesheets().add(
+                    getClass().getResource("/css/style.css").toExternalForm());
+            slideshowStage.setScene(scene);
+            slideshowStage.setOnCloseRequest(event -> controller.dispose());
+            slideshowStage.setOnShown(event -> controller.refreshLayoutAfterShow());
+            slideshowStage.show();
+
+        } catch (Exception e) {
+            logger.error("打开幻灯片播放失败", e);
+            AlertUtil.showError("错误", "无法打开播放窗口: " + e.getMessage());
+        }
+    }
+
+    // ==================== 搜索功能 (v2.0新增) ====================
+
+    /**
+     * 搜索按钮或回车触发的搜索。
+     */
+    @FXML
+    private void onSearch() {
+        String query = searchField != null ? searchField.getText().trim() : "";
+        if (query.isEmpty()) {
+            // 清空搜索，恢复当前目录显示
+            if (currentDirectoryPath != null) {
+                onDirectorySelected(currentDirectoryPath);
+            }
+            return;
+        }
+        if (currentDirectoryPath == null || currentDirectoryPath.isBlank()) {
+            statusLabel.setText("请先选择一个文件夹再搜索");
+            return;
+        }
+        if (!DatabaseConnection.isInitialized()) {
+            List<ImageFile> matches = currentImages.stream()
+                    .filter(image -> image.fileName().toLowerCase().contains(query.toLowerCase()))
+                    .toList();
+            selectedImages.clear();
+            currentImages = new ArrayList<>(matches);
+            displayThumbnails(currentImages);
+            directoryNameLabel.setText("离线文件名搜索: \"" + query + "\"");
+            statusLabel.setText("数据库未连接，仅按当前目录已加载文件名搜索");
+            slideshowButton.setDisable(currentImages.isEmpty());
+            return;
+        }
+        String searchDirectoryPath = currentDirectoryPath;
+
+        // 判断搜索模式
+        int modeIndex = searchModeCombo != null
+                ? searchModeCombo.getSelectionModel().getSelectedIndex() : 0;
+        SearchService.SearchMode mode = (modeIndex == 1)
+                ? SearchService.SearchMode.AI_SQL
+                : SearchService.SearchMode.KEYWORD;
+
+        long requestId = ++searchRequestId;
+        String initialMessage = mode == SearchService.SearchMode.AI_SQL
+                ? "AI搜索：准备发送请求..."
+                : "关键词搜索：准备匹配...";
+        logger.info("执行搜索: mode={}, query={}", mode, query);
+        statusLabel.setText(initialMessage);
+        setSearchControlsRunning(true, mode);
+
+        // 后台执行搜索
+        Task<SearchService.SearchResult> searchTask = new Task<>() {
+            @Override
+            protected SearchService.SearchResult call() {
+                updateMessage(initialMessage);
+                return searchService.search(query, mode, searchDirectoryPath, this::updateMessage);
+            }
+        };
+        searchTask.messageProperty().addListener((obs, oldValue, newValue) -> {
+            if (requestId == searchRequestId
+                    && searchDirectoryPath.equals(currentDirectoryPath)
+                    && newValue != null && !newValue.isBlank()) {
+                statusLabel.setText(newValue);
+            }
+        });
+
+        searchTask.setOnSucceeded(event -> {
+            setSearchControlsRunning(false, mode);
+            if (requestId != searchRequestId || !searchDirectoryPath.equals(currentDirectoryPath)) {
+                return;
+            }
+            SearchService.SearchResult result = searchTask.getValue();
+            selectedImages.clear();
+            currentImages = new ArrayList<>(result.images());
+            displayThumbnails(currentImages);
+            directoryNameLabel.setText("当前文件夹及子文件夹搜索: \"" + query + "\"");
+            setImageCountText(result.totalCount() + " 张图片");
+            selectionLabel.setText("");
+            statusLabel.setText(result.message());
+            slideshowButton.setDisable(currentImages.isEmpty());
+        });
+
+        searchTask.setOnFailed(event -> {
+            setSearchControlsRunning(false, mode);
+            if (requestId != searchRequestId || !searchDirectoryPath.equals(currentDirectoryPath)) {
+                return;
+            }
+            logger.error("搜索任务失败", searchTask.getException());
+            statusLabel.setText("搜索失败: " + searchTask.getException().getMessage());
+        });
+
+        searchTask.setOnCancelled(event -> {
+            setSearchControlsRunning(false, mode);
+            if (requestId != searchRequestId || !searchDirectoryPath.equals(currentDirectoryPath)) {
+                return;
+            }
+            statusLabel.setText("搜索已取消");
+        });
+
+        Thread.startVirtualThread(searchTask);
+    }
+
+    private void setImageCountText(String text) {
+        if (imageCountLabel == null) {
+            return;
+        }
+        String safeText = text == null ? "" : text;
+        boolean hasText = !safeText.isBlank();
+        imageCountLabel.setText(safeText);
+        imageCountLabel.setVisible(hasText);
+        imageCountLabel.setManaged(hasText);
+    }
+
+    private void setSearchControlsRunning(boolean running, SearchService.SearchMode mode) {
+        if (searchButton != null) {
+            searchButton.setDisable(running);
+            if (running) {
+                searchButton.setText(mode == SearchService.SearchMode.AI_SQL ? "等待AI" : "搜索中");
+            } else {
+                searchButton.setText("搜索");
+            }
+        }
+        if (searchField != null) {
+            searchField.setDisable(running);
+        }
+        if (searchModeCombo != null) {
+            searchModeCombo.setDisable(running);
+        }
+    }
+
+    // ==================== 设置页面 (v2.0新增) ====================
+
+    /**
+     * 打开设置页面。
+     */
+    @FXML
+    private void onOpenSettings() {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，先打开数据库向导");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
+        openSettingsWindow(thumbnailPane.getScene().getWindow());
+    }
+
+    @FXML
+    private void onOpenDatabaseSetup() {
+        openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+    }
+
+    public void showDatabaseSetupIfDisconnected(Window ownerWindow) {
+        refreshDatabaseStatusSync();
+        if (!databaseReadyCache) {
+            openDatabaseSetupWindow(ownerWindow);
+        }
+    }
+
+    public void refreshDatabaseStatus() {
+        if (!DatabaseConnection.isInitialized()) {
+            updateDatabaseStatusCache(new DatabaseStatus(false, false));
+            applyDatabaseStatus(false);
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (databaseStatusCheckRunning
+                || (databaseStatusCheckedAt > 0 && now - databaseStatusCheckedAt < DATABASE_STATUS_CACHE_MILLIS)) {
+            applyDatabaseStatus(databaseStatusCheckRunning);
+            return;
+        }
+
+        databaseStatusCheckRunning = true;
+        applyDatabaseStatus(true);
+
+        Task<DatabaseStatus> statusTask = new Task<>() {
+            @Override
+            protected DatabaseStatus call() {
+                return checkDatabaseStatus();
+            }
+        };
+        statusTask.setOnSucceeded(event -> {
+            updateDatabaseStatusCache(statusTask.getValue());
+            databaseStatusCheckRunning = false;
+            applyDatabaseStatus(false);
+        });
+        statusTask.setOnFailed(event -> {
+            logger.warn("数据库状态检测失败", statusTask.getException());
+            updateDatabaseStatusCache(new DatabaseStatus(DatabaseConnection.isInitialized(), false));
+            databaseStatusCheckRunning = false;
+            applyDatabaseStatus(false);
+        });
+        Thread.startVirtualThread(statusTask);
+    }
+
+    public void setDatabaseStatus(boolean connected, boolean ready) {
+        updateDatabaseStatusCache(new DatabaseStatus(connected, ready));
+        applyDatabaseStatus(false);
+    }
+
+    private void refreshDatabaseStatusSync() {
+        updateDatabaseStatusCache(checkDatabaseStatus());
+        applyDatabaseStatus(false);
+    }
+
+    private DatabaseStatus checkDatabaseStatus() {
+        boolean connected = DatabaseConnection.isInitialized();
+        boolean ready = false;
+        if (connected) {
+            try {
+                ready = new DatabaseBootstrapService().check().schemaReady();
+            } catch (Exception e) {
+                logger.warn("数据库状态检测失败: {}", e.getMessage());
+            }
+        }
+        return new DatabaseStatus(connected, ready);
+    }
+
+    private void updateDatabaseStatusCache(DatabaseStatus status) {
+        databaseConnectedCache = status.connected();
+        databaseReadyCache = status.ready();
+        databaseStatusCheckedAt = System.currentTimeMillis();
+    }
+
+    private void applyDatabaseStatus(boolean checking) {
+        boolean connected = databaseConnectedCache;
+        boolean ready = databaseReadyCache;
+        if (databaseStatusLabel != null) {
+            databaseStatusLabel.setText(checking
+                    ? "数据库检测中..."
+                    : ready ? "数据库已连接" : connected ? "数据库待初始化" : "数据库未连接");
+            databaseStatusLabel.getStyleClass().remove("disconnected");
+            if (!ready) {
+                databaseStatusLabel.getStyleClass().add("disconnected");
+            }
+        }
+        if (databaseSetupButton != null) {
+            databaseSetupButton.setText(ready ? "数据库" : "数据库向导");
+        }
+        if (!ready) {
+            setRescanAiButtonDisabled(true);
+            if (cleanupAiButton != null) {
+                cleanupAiButton.setDisable(true);
+            }
+        } else {
+            setRescanAiButtonDisabled(activeScanTask != null && activeScanTask.isRunning());
+            if (cleanupAiButton != null) {
+                cleanupAiButton.setDisable(false);
+            }
+        }
+    }
+
+    private void openDatabaseSetupWindow(Window ownerWindow) {
+        DatabaseSetupDialog.show(ownerWindow, () -> {
+            if (!DatabaseConnection.isInitialized()) {
+                DatabaseConnection.tryInitialize();
+            }
+            refreshDatabaseStatusSync();
+            if (databaseReadyCache) {
+                ImageDimensionRepairService.runOnceInBackground();
+                if (currentDirectoryPath != null) {
+                    onDirectorySelected(currentDirectoryPath);
+                }
+            }
+        });
+    }
+
+    private boolean isDatabaseReady() {
+        if (!DatabaseConnection.isInitialized()) {
+            updateDatabaseStatusCache(new DatabaseStatus(false, false));
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        if (databaseStatusCheckedAt == 0 || now - databaseStatusCheckedAt > DATABASE_STATUS_CACHE_MILLIS) {
+            refreshDatabaseStatus();
+        }
+        return databaseReadyCache;
+    }
+
+    public void openSettingsWindow(Window ownerWindow) {
+        if (settingsStage != null && settingsStage.isShowing()) {
+            settingsStage.setIconified(false);
+            settingsStage.toFront();
+            settingsStage.requestFocus();
+            return;
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/fxml/SettingsView.fxml"));
+            Parent settingsRoot = loader.load();
+            SettingsController controller = loader.getController();
+
+            Stage newSettingsStage = new Stage();
+            newSettingsStage.setTitle("系统设置 - 数字图像管理系统");
+            Rectangle2D screenBounds = ownerVisualBounds(ownerWindow);
+            double sceneWidth = Math.min(720, Math.max(560, screenBounds.getWidth() - 96));
+            double sceneHeight = Math.min(760, Math.max(520, screenBounds.getHeight() - 96));
+            Scene scene = new Scene(settingsRoot, sceneWidth, sceneHeight);
+            scene.getStylesheets().add(
+                    getClass().getResource("/css/style.css").toExternalForm());
+            newSettingsStage.setScene(scene);
+            newSettingsStage.initOwner(ownerWindow);
+            newSettingsStage.setResizable(true);
+            newSettingsStage.setMinWidth(Math.min(560, sceneWidth));
+            newSettingsStage.setMinHeight(Math.min(480, sceneHeight));
+            newSettingsStage.setMaxWidth(screenBounds.getWidth());
+            newSettingsStage.setMaxHeight(screenBounds.getHeight());
+            newSettingsStage.setOnShown(event -> keepStageInsideScreen(newSettingsStage, screenBounds));
+            newSettingsStage.setOnHidden(event -> {
+                if (settingsStage == newSettingsStage) {
+                    settingsStage = null;
+                }
+            });
+            settingsStage = newSettingsStage;
+            newSettingsStage.showAndWait();
+
+            if (controller.isSaved()) {
+                applyTheme();
+                if (controller.isScanRequested()) {
+                    String scanDirectory = controller.getSavedScanDirectory();
+                    syncScanDirectoryRoot(scanDirectory, false);
+                    statusLabel.setText("设置已保存，开始扫描目录...");
+                    startScanTask(scanDirectory);
+                } else {
+                    syncScanDirectoryRoot(controller.getSavedScanDirectory());
+                    statusLabel.setText("设置已保存");
+                }
+            }
+        } catch (Exception e) {
+            if (settingsStage != null && !settingsStage.isShowing()) {
+                settingsStage = null;
+            }
+            logger.error("打开设置页面失败", e);
+            AlertUtil.showError("错误", "无法打开设置页面: " + e.getMessage());
+        }
+    }
+
+    private Rectangle2D ownerVisualBounds(Window ownerWindow) {
+        if (ownerWindow == null) {
+            return Screen.getPrimary().getVisualBounds();
+        }
+        return Screen.getScreensForRectangle(
+                        ownerWindow.getX(),
+                        ownerWindow.getY(),
+                        Math.max(1, ownerWindow.getWidth()),
+                        Math.max(1, ownerWindow.getHeight()))
+                .stream()
+                .findFirst()
+                .orElse(Screen.getPrimary())
+                .getVisualBounds();
+    }
+
+    private double boundedSceneSize(double preferred, double minimum, double available, double margin) {
+        double maxSize = Math.max(360, available - margin);
+        double desired = Math.min(preferred, Math.max(minimum, maxSize));
+        return Math.min(desired, maxSize);
+    }
+
+    private void keepStageInsideScreen(Stage stage, Rectangle2D bounds) {
+        double margin = 24;
+        double maxWidth = Math.max(360, bounds.getWidth() - margin);
+        double maxHeight = Math.max(320, bounds.getHeight() - margin);
+        if (stage.getWidth() > maxWidth) {
+            stage.setWidth(maxWidth);
+        }
+        if (stage.getHeight() > maxHeight) {
+            stage.setHeight(maxHeight);
+        }
+
+        double x = bounds.getMinX() + (bounds.getWidth() - stage.getWidth()) / 2;
+        double y = bounds.getMinY() + (bounds.getHeight() - stage.getHeight()) / 2;
+        stage.setX(Math.max(bounds.getMinX(), x));
+        stage.setY(Math.max(bounds.getMinY(), y));
+    }
+
+    private void refreshScanSnapshot() {
+        if (activeScanTask == null) {
+            return;
+        }
+        applyScanSnapshot(activeScanTask.getProgressSnapshot());
+    }
+
+    private void startScanSnapshotTimeline(ScanTask scanTask) {
+        if (scanTask == null) {
+            return;
+        }
+        cancelHideScanStatusPanel();
+        showScanStatusPanel();
+        applyScanSnapshot(scanTask.getProgressSnapshot());
+        scanSnapshotTimeline.playFromStart();
+    }
+
+    private void stopScanSnapshotTimeline() {
+        scanSnapshotTimeline.stop();
+    }
+
+    private void applyScanSnapshot(ScanProgressEstimator.Snapshot snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        showScanStatusPanel();
+        if (scanPhaseLabel != null) {
+            scanPhaseLabel.setText(snapshot.phaseText());
+        }
+        if (scanSummaryLabel != null) {
+            scanSummaryLabel.setText(snapshot.summaryText());
+        }
+        if (scanDetailLabel != null) {
+            scanDetailLabel.setText(snapshot.detailText());
+        }
+        if (scanStartedAtLabel != null) {
+            scanStartedAtLabel.setText(snapshot.startedAtText());
+        }
+        if (scanElapsedLabel != null) {
+            scanElapsedLabel.setText(snapshot.elapsedText());
+        }
+        if (scanRemainingLabel != null) {
+            scanRemainingLabel.setText(snapshot.remainingText());
+        }
+        if (scanRateLabel != null) {
+            scanRateLabel.setText(snapshot.rateText());
+        }
+        if (scanProgressBar != null && !scanProgressBar.progressProperty().isBound()) {
+            scanProgressBar.setProgress(snapshot.progress());
+        }
+    }
+
+    private void showManualScanStatus(String phaseText, String summaryText, String detailText,
+                                      boolean showStop, boolean disableStop, Double progress) {
+        showScanStatusPanel();
+        if (scanPhaseLabel != null) {
+            scanPhaseLabel.setText(phaseText);
+        }
+        if (scanSummaryLabel != null) {
+            scanSummaryLabel.setText(summaryText);
+        }
+        if (scanDetailLabel != null) {
+            scanDetailLabel.setText(detailText);
+        }
+        if (scanProgressBar != null && !scanProgressBar.progressProperty().isBound() && progress != null) {
+            scanProgressBar.setProgress(progress);
+        }
+        setStopScanButtonVisible(showStop);
+        if (stopScanButton != null) {
+            stopScanButton.setDisable(disableStop);
+        }
+    }
+
+    private void showScanStatusPanel() {
+        cancelHideScanStatusPanel();
+        if (scanStatusPane != null) {
+            scanStatusPane.setVisible(true);
+            scanStatusPane.setManaged(true);
+        }
+    }
+
+    private void hideScanStatusPanel() {
+        cancelHideScanStatusPanel();
+        if (scanStatusPane != null) {
+            scanStatusPane.setVisible(false);
+            scanStatusPane.setManaged(false);
+        }
+        setStopScanButtonVisible(false);
+    }
+
+    private void scheduleHideScanStatusPanel() {
+        if (activeScanTask != null && activeScanTask.isRunning()) {
+            return;
+        }
+        scanStatusHideTransition.playFromStart();
+    }
+
+    private void cancelHideScanStatusPanel() {
+        scanStatusHideTransition.stop();
+    }
+
+    private void setStopScanButtonVisible(boolean visible) {
+        if (stopScanButton != null) {
+            stopScanButton.setVisible(visible);
+            stopScanButton.setManaged(visible);
+        }
+    }
+
+    // ==================== AI扫描 (v2.0新增) ====================
+
+    /**
+     * 启动后台AI扫描任务。在首次启动向导确认后被 App.java 调用。
+     */
+    public void startScanTask(String directoryPath) {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，AI扫描不可用");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
+        if (directoryPath == null || directoryPath.isBlank()) {
+            AlertUtil.showWarning("扫描失败", "请选择具体图片文件夹，不要直接扫描磁盘根目录。");
+            return;
+        }
+        File scanDir = new File(directoryPath);
+        if (!FileUtil.isUsableScanDirectory(scanDir)) {
+            logger.warn("扫描目录不合法: {}", directoryPath);
+            AlertUtil.showWarning("扫描失败", "请选择具体图片文件夹，不要直接扫描磁盘根目录。");
+            return;
+        }
+        String scanDirectoryPath = normalizeDirectoryPath(scanDir);
+
+        if (activeScanTask != null && activeScanTask.isRunning()) {
+            if (sameDirectoryPath(activeScanDirectoryPath, scanDirectoryPath)) {
+                statusLabel.setText("当前目录正在扫描中");
+                startScanSnapshotTimeline(activeScanTask);
+                logger.info("扫描任务已在运行，当前目录不重复启动: {}", scanDirectoryPath);
+                return;
+            }
+
+            queuedScanDirectoryPath = scanDirectoryPath;
+            promptCleanupAfterStop = false;
+            statusLabel.setText("正在切换扫描目录，先停止旧任务...");
+            stopScanSnapshotTimeline();
+            unbindScanProgress();
+            showManualScanStatus(
+                    "准备切换",
+                    "正在切换扫描目录",
+                    "先停止旧任务，完成后会自动开始新目录的 AI 标签任务。",
+                    true,
+                    true,
+                    scanProgressBar == null ? null : scanProgressBar.getProgress()
+            );
+            setRescanAiButtonDisabled(true);
+            logger.info("扫描任务正在运行，取消旧任务后切换到新目录: {}", scanDirectoryPath);
+            activeScanTask.cancel();
+            return;
+        }
+
+        ScanTask scanTask = new ScanTask(scanDir);
+        activeScanTask = scanTask;
+        activeScanDirectoryPath = scanDirectoryPath;
+        promptCleanupAfterStop = false;
+
+        unbindScanProgress();
+        showScanStatusPanel();
+        setStopScanButtonVisible(true);
+        if (stopScanButton != null) {
+            stopScanButton.setDisable(false);
+        }
+        setRescanAiButtonDisabled(true);
+        applyScanSnapshot(scanTask.getProgressSnapshot());
+        if (scanProgressBar != null) {
+            scanProgressBar.progressProperty().bind(scanTask.progressProperty());
+        }
+        startScanSnapshotTimeline(scanTask);
+
+        scanTask.setOnSucceeded(e -> {
+            stopScanSnapshotTimeline();
+            unbindScanProgress();
+            applyScanSnapshot(scanTask.getProgressSnapshot());
+            if (scanProgressBar != null) {
+                scanProgressBar.setProgress(1.0);
+            }
+            activeScanTask = null;
+            activeScanDirectoryPath = "";
+            if (startQueuedScanIfAny()) {
+                return;
+            }
+            statusLabel.setText("AI 标签处理完成");
+            setRescanAiButtonDisabled(false);
+            hideStopScanButton();
+            if (currentDirectoryPath != null && isInsideDirectory(currentDirectoryPath, scanDirectoryPath)) {
+                onDirectorySelected(currentDirectoryPath);
+            }
+            scheduleHideScanStatusPanel();
+        });
+
+        scanTask.setOnFailed(e -> {
+            stopScanSnapshotTimeline();
+            unbindScanProgress();
+            applyScanSnapshot(scanTask.getProgressSnapshot());
+            activeScanTask = null;
+            activeScanDirectoryPath = "";
+            if (startQueuedScanIfAny()) {
+                return;
+            }
+            statusLabel.setText("扫描失败");
+            setRescanAiButtonDisabled(false);
+            hideStopScanButton();
+            logger.error("扫描任务失败", scanTask.getException());
+            scheduleHideScanStatusPanel();
+        });
+
+        scanTask.setOnCancelled(e -> {
+            stopScanSnapshotTimeline();
+            unbindScanProgress();
+            applyScanSnapshot(scanTask.getProgressSnapshot());
+            activeScanTask = null;
+            activeScanDirectoryPath = "";
+            if (startQueuedScanIfAny()) {
+                return;
+            }
+            statusLabel.setText("扫描已取消");
+            setRescanAiButtonDisabled(false);
+            hideStopScanButton();
+            if (promptCleanupAfterStop) {
+                promptCleanupAfterStop = false;
+                Platform.runLater(this::onCleanupAiData);
+            } else {
+                scheduleHideScanStatusPanel();
+            }
+        });
+
+        Thread scanThread = new Thread(scanTask);
+        scanThread.setDaemon(true);
+        scanThread.setName("AI-Scan-Thread");
+        scanThread.start();
+        logger.info("AI扫描任务已启动: {}", scanDirectoryPath);
+    }
+
+    private void unbindScanProgress() {
+        if (scanProgressBar != null && scanProgressBar.progressProperty().isBound()) {
+            scanProgressBar.progressProperty().unbind();
+        }
+    }
+
+    private boolean startQueuedScanIfAny() {
+        if (queuedScanDirectoryPath == null || queuedScanDirectoryPath.isBlank()) {
+            return false;
+        }
+
+        String nextDirectory = queuedScanDirectoryPath;
+        queuedScanDirectoryPath = "";
+        statusLabel.setText("旧扫描已停止，开始扫描新目录...");
+        startScanTask(nextDirectory);
+        return true;
+    }
+
+    private void setRescanAiButtonDisabled(boolean disabled) {
+        if (rescanAiButton != null) {
+            rescanAiButton.setDisable(disabled);
+        }
+    }
+
+    private String normalizeDirectoryPath(File dir) {
+        return dir.toPath().toAbsolutePath().normalize().toString();
+    }
+
+    private boolean sameDirectoryPath(String left, String right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return left.equalsIgnoreCase(right);
+    }
+
+    private boolean isInsideDirectory(String path, String directoryPath) {
+        if (path == null || directoryPath == null || directoryPath.isBlank()) {
+            return false;
+        }
+        String normalizedPath = normalizeDirectoryPath(new File(path));
+        String normalizedDirectory = normalizeDirectoryPath(new File(directoryPath));
+        if (normalizedPath.equalsIgnoreCase(normalizedDirectory)) {
+            return true;
+        }
+        String prefix = normalizedDirectory.endsWith(File.separator)
+                ? normalizedDirectory
+                : normalizedDirectory + File.separator;
+        return normalizedPath.regionMatches(true, 0, prefix, 0, prefix.length());
+    }
+
+    @FXML
+    private void onRescanAiTags() {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，无法补打AI标签");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
+        if (activeScanTask != null && activeScanTask.isRunning()) {
+            statusLabel.setText("当前已有扫描任务在运行");
+            return;
+        }
+
+        String targetDirectory = currentDirectoryPath;
+        if (targetDirectory == null || targetDirectory.isBlank()) {
+            targetDirectory = settingsDao.getValueOrDefault("scan_directory", "");
+        }
+        if (targetDirectory == null || targetDirectory.isBlank()) {
+            AlertUtil.showInfo("补打 AI 标签", "请先在设置中选择图片目录，或先在左侧目录树中选中一个目录。");
+            return;
+        }
+
+        File targetDir = new File(targetDirectory);
+        if (!FileUtil.isUsableScanDirectory(targetDir)) {
+            AlertUtil.showError("补打 AI 标签", "目录不存在或不可访问: " + targetDirectory);
+            return;
+        }
+
+        statusLabel.setText("开始补打当前目录的 AI 标签...");
+        syncScanDirectoryRoot(targetDir.getAbsolutePath());
+        startScanTask(targetDir.getAbsolutePath());
+    }
+
+    @FXML
+    private void onStopScan() {
+        if (activeScanTask == null || !activeScanTask.isRunning()) {
+            statusLabel.setText("当前没有正在运行的扫描任务");
+            return;
+        }
+
+        boolean viewCleanup = AlertUtil.showConfirmation(
+                "停止扫描",
+                "将停止继续扫描和后续AI识别。当前正在请求中的一张图片可能会先完成。\n\n停止后是否查看并清理已经写入数据库的AI标签？"
+        );
+        promptCleanupAfterStop = viewCleanup;
+        statusLabel.setText("正在停止扫描...");
+        stopScanSnapshotTimeline();
+        unbindScanProgress();
+        showManualScanStatus(
+                "正在停止",
+                "正在停止扫描",
+                "当前请求中的一张图片可能会先完成，随后自动结束任务。",
+                true,
+                true,
+                scanProgressBar == null ? null : scanProgressBar.getProgress()
+        );
+        activeScanTask.cancel();
+
+        if (!viewCleanup) {
+            promptCleanupAfterStop = false;
+        }
+    }
+
+    @FXML
+    private void onCleanupAiData() {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，无法清理AI标签");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
+        if (activeScanTask != null && activeScanTask.isRunning()) {
+            boolean stopFirst = AlertUtil.showConfirmation(
+                    "清理AI标签",
+                    "扫描任务仍在运行。清理前需要先停止扫描，避免一边删除一边继续写入。\n\n是否先停止扫描，停止后打开清理窗口？"
+            );
+            if (stopFirst) {
+                promptCleanupAfterStop = true;
+                statusLabel.setText("正在停止扫描，稍后打开清理窗口...");
+                stopScanSnapshotTimeline();
+                unbindScanProgress();
+                showManualScanStatus(
+                        "正在停止",
+                        "正在停止扫描",
+                        "扫描结束后会自动打开 AI 标签清理窗口。",
+                        true,
+                        true,
+                        scanProgressBar == null ? null : scanProgressBar.getProgress()
+                );
+                activeScanTask.cancel();
+            }
+            return;
+        }
+
+        AiTagStorageService.StorageStats stats;
+        try {
+            stats = aiTagStorageService.loadStats();
+        } catch (Exception e) {
+            logger.error("读取AI标签存储信息失败", e);
+            AlertUtil.showError("读取失败", e.getMessage());
+            return;
+        }
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("AI标签存储与清理");
+        alert.setHeaderText("AI标签保存在 PostgreSQL 数据库中，不是图片旁边的独立文件。");
+        TextArea detailArea = new TextArea(stats.summaryText());
+        detailArea.setEditable(false);
+        detailArea.setWrapText(true);
+        detailArea.setPrefWidth(720);
+        detailArea.setPrefHeight(360);
+        alert.getDialogPane().setContent(detailArea);
+
+        ButtonType cleanupButtonType = new ButtonType("清理AI标签", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelButtonType = new ButtonType("取消", ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(cleanupButtonType, cancelButtonType);
+
+        if (alert.showAndWait().orElse(cancelButtonType) != cleanupButtonType) {
+            return;
+        }
+
+        Task<AiTagStorageService.CleanupResult> cleanupTask = new Task<>() {
+            @Override
+            protected AiTagStorageService.CleanupResult call() {
+                updateMessage("正在清理AI标签数据...");
+                return aiTagStorageService.cleanupAiTags();
+            }
+        };
+
+        cleanupAiButton.setDisable(true);
+        statusLabel.textProperty().bind(cleanupTask.messageProperty());
+
+        cleanupTask.setOnSucceeded(event -> {
+            statusLabel.textProperty().unbind();
+            cleanupAiButton.setDisable(false);
+            AiTagStorageService.CleanupResult result = cleanupTask.getValue();
+            statusLabel.setText("AI标签已清理");
+            AlertUtil.showInfo("清理完成", result.summaryText());
+            if (currentDirectoryPath != null) {
+                onDirectorySelected(currentDirectoryPath);
+            }
+        });
+
+        cleanupTask.setOnFailed(event -> {
+            statusLabel.textProperty().unbind();
+            cleanupAiButton.setDisable(false);
+            Throwable error = cleanupTask.getException();
+            logger.error("AI标签清理失败", error);
+            statusLabel.setText("AI标签清理失败");
+            AlertUtil.showError("清理失败", error == null ? "未知错误" : error.getMessage());
+        });
+
+        Thread cleanupThread = new Thread(cleanupTask);
+        cleanupThread.setDaemon(true);
+        cleanupThread.setName("AI-Tag-Cleanup");
+        cleanupThread.start();
+    }
+
+    private void hideStopScanButton() {
+        setStopScanButtonVisible(false);
+        if (stopScanButton != null) {
+            stopScanButton.setDisable(false);
+        }
+    }
+
+    // ==================== 状态栏 ====================
+
+    /**
+     * 更新底部状态栏信息。
+     */
+    private void updateStatusBar() {
+        // 总图片信息
+        long totalSize = currentImages.stream().mapToLong(ImageFile::fileSize).sum();
+        statusLabel.setText(currentImages.size() + "张图片(" + FileUtil.formatFileSize(totalSize) + ")");
+
+        // 选中信息
+        if (selectedImages.isEmpty()) {
+            selectionLabel.setText("");
+        } else {
+            long selectedSize = selectedImages.stream().mapToLong(ImageFile::fileSize).sum();
+            selectionLabel.setText(
+                    "选中 " + selectedImages.size() + " 张, " + FileUtil.formatFileSize(selectedSize));
+        }
+    }
+}

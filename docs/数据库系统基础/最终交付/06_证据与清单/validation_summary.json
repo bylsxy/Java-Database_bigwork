@@ -1,0 +1,245 @@
+{
+  "failed": [],
+  "checks": [
+    {
+      "name": "需求分析 DOCX存在且非空",
+      "ok": true,
+      "detail": "docs\\数据库系统基础\\最终交付\\01_阶段文档\\第07组毕振岚-系统需求分析说明书.docx; size=219831"
+    },
+    {
+      "name": "概要设计 DOCX存在且非空",
+      "ok": true,
+      "detail": "docs\\数据库系统基础\\最终交付\\01_阶段文档\\第07组毕振岚-概要设计说明书.docx; size=320535"
+    },
+    {
+      "name": "详细设计 DOCX存在且非空",
+      "ok": true,
+      "detail": "docs\\数据库系统基础\\最终交付\\01_阶段文档\\第07组毕振岚-详细设计说明书.docx; size=331133"
+    },
+    {
+      "name": "课程报告 DOCX存在且非空",
+      "ok": true,
+      "detail": "docs\\数据库系统基础\\最终交付\\02_课程报告\\第07组毕振岚-数据库课程设计报告.docx; size=1043580"
+    },
+    {
+      "name": "答辩 PPTX存在且非空",
+      "ok": true,
+      "detail": "docs\\数据库系统基础\\最终交付\\03_答辩PPT\\第07组毕振岚-数据库课程设计答辩PPT.pptx; size=9485661"
+    },
+    {
+      "name": "打印讲稿 DOCX存在且非空",
+      "ok": true,
+      "detail": "docs\\数据库系统基础\\最终交付\\04_打印讲稿\\第07组毕振岚-数据库课程设计答辩讲稿.docx; size=122717"
+    },
+    {
+      "name": "源码快照 ZIP存在且非空",
+      "ok": true,
+      "detail": "docs\\数据库系统基础\\最终交付\\05_源码与运行包\\第07组毕振岚-数据库课程设计源代码.zip; size=4261142"
+    },
+    {
+      "name": "最终 JAR存在且非空",
+      "ok": true,
+      "detail": "docs\\数据库系统基础\\最终交付\\05_源码与运行包\\image-manager-1.0.0.jar; size=25895311"
+    },
+    {
+      "name": "Windows portable ZIP存在且非空",
+      "ok": true,
+      "detail": "docs\\数据库系统基础\\最终交付\\05_源码与运行包\\DigitalImageManager-windows-portable.zip; size=95900691"
+    },
+    {
+      "name": "DOCX 可解析：第07组毕振岚-系统需求分析说明书.docx",
+      "ok": true,
+      "detail": "paragraphs=24, tables=6, chars=2761"
+    },
+    {
+      "name": "正式文档未暴露后台信息：第07组毕振岚-系统需求分析说明书.docx",
+      "ok": true,
+      "detail": "no forbidden terms"
+    },
+    {
+      "name": "DOCX 可解析：第07组毕振岚-概要设计说明书.docx",
+      "ok": true,
+      "detail": "paragraphs=28, tables=7, chars=3002"
+    },
+    {
+      "name": "正式文档未暴露后台信息：第07组毕振岚-概要设计说明书.docx",
+      "ok": true,
+      "detail": "no forbidden terms"
+    },
+    {
+      "name": "DOCX 可解析：第07组毕振岚-详细设计说明书.docx",
+      "ok": true,
+      "detail": "paragraphs=21, tables=3, chars=1836"
+    },
+    {
+      "name": "正式文档未暴露后台信息：第07组毕振岚-详细设计说明书.docx",
+      "ok": true,
+      "detail": "no forbidden terms"
+    },
+    {
+      "name": "DOCX 可解析：第07组毕振岚-数据库课程设计报告.docx",
+      "ok": true,
+      "detail": "paragraphs=234, tables=1, chars=13002"
+    },
+    {
+      "name": "正式文档未暴露后台信息：第07组毕振岚-数据库课程设计报告.docx",
+      "ok": true,
+      "detail": "no forbidden terms"
+    },
+    {
+      "name": "DOCX 可解析：第07组毕振岚-数据库课程设计答辩讲稿.docx",
+      "ok": true,
+      "detail": "paragraphs=13, tables=3, chars=2335"
+    },
+    {
+      "name": "正式文档未暴露后台信息：第07组毕振岚-数据库课程设计答辩讲稿.docx",
+      "ok": true,
+      "detail": "no forbidden terms"
+    },
+    {
+      "name": "PPT 为 16:9 横版",
+      "ok": true,
+      "detail": "ratio=1.7778"
+    },
+    {
+      "name": "PPT 页数适合 15 分钟答辩",
+      "ok": true,
+      "detail": "slides=14"
+    },
+    {
+      "name": "PPT 每页都有页面视觉图",
+      "ok": true,
+      "detail": "pictures=[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]"
+    },
+    {
+      "name": "PPT 页面视觉图数量完整",
+      "ok": true,
+      "detail": "count=14, expected=14"
+    },
+    {
+      "name": "页面视觉非空：S01.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(0, 255), stddev=43.57"
+    },
+    {
+      "name": "页面视觉非空：S02.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(26, 255), stddev=44.03"
+    },
+    {
+      "name": "页面视觉非空：S03.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(0, 255), stddev=38.55"
+    },
+    {
+      "name": "页面视觉非空：S04.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(3, 255), stddev=35.57"
+    },
+    {
+      "name": "页面视觉非空：S05.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(26, 255), stddev=41.62"
+    },
+    {
+      "name": "页面视觉非空：S06.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(26, 255), stddev=44.01"
+    },
+    {
+      "name": "页面视觉非空：S07.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(0, 255), stddev=42.39"
+    },
+    {
+      "name": "页面视觉非空：S08.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(2, 255), stddev=59.87"
+    },
+    {
+      "name": "页面视觉非空：S09.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(3, 255), stddev=41.99"
+    },
+    {
+      "name": "页面视觉非空：S10.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(0, 255), stddev=35.03"
+    },
+    {
+      "name": "页面视觉非空：S11.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(0, 255), stddev=98.27"
+    },
+    {
+      "name": "页面视觉非空：S12.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(0, 255), stddev=78.81"
+    },
+    {
+      "name": "页面视觉非空：S13.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(20, 255), stddev=37.81"
+    },
+    {
+      "name": "页面视觉非空：S14.png",
+      "ok": true,
+      "detail": "size=(1600, 900), extrema=(26, 255), stddev=39.00"
+    },
+    {
+      "name": "JAR 包含主类与 SQL 资源",
+      "ok": true,
+      "detail": "all present"
+    },
+    {
+      "name": "源码 ZIP 包含必要源码文件",
+      "ok": true,
+      "detail": "all present"
+    },
+    {
+      "name": "源码 ZIP 排除构建产物、最终交付和密钥类文件",
+      "ok": true,
+      "detail": "blocked_count=0"
+    },
+    {
+      "name": "portable ZIP 含 exe 与运行时",
+      "ok": true,
+      "detail": "has_exe=True, has_runtime=True"
+    },
+    {
+      "name": "运行包目录含可双击 exe",
+      "ok": true,
+      "detail": "docs\\数据库系统基础\\最终交付\\05_源码与运行包\\DigitalImageManager-release\\DigitalImageManager\\DigitalImageManager.exe"
+    },
+    {
+      "name": "最终证据目录未保留原始过程记录抽取文本",
+      "ok": true,
+      "detail": "no raw backstage extracted files"
+    },
+    {
+      "name": "验证命令通过：git diff --check",
+      "ok": true,
+      "detail": "{\"command\": \"git diff --check\", \"exit_code\": 0, \"started_at\": \"2026-06-15T00:28:01\", \"finished_at\": \"2026-06-15T00:28:02\", \"log\": \"D:\\\\AAAWorkSpace\\\\java project\\\\super_big_homework\\\\Java＆Database_bigwork\\\\docs\\\\数据库系统基础\\\\最终交付\\\\06_证据与清单\\\\verification_logs\\\\git_diff_--check.log\"}"
+    },
+    {
+      "name": "验证命令通过：mvn -q -DskipTests compile",
+      "ok": true,
+      "detail": "{\"command\": \"mvn -q -DskipTests compile\", \"exit_code\": 0, \"started_at\": \"2026-06-15T00:28:02\", \"finished_at\": \"2026-06-15T00:28:04\", \"log\": \"D:\\\\AAAWorkSpace\\\\java project\\\\super_big_homework\\\\Java＆Database_bigwork\\\\docs\\\\数据库系统基础\\\\最终交付\\\\06_证据与清单\\\\verification_logs\\\\mvn_-q_-DskipTests_compile.log\"}"
+    },
+    {
+      "name": "验证命令通过：mvn -q test",
+      "ok": true,
+      "detail": "{\"command\": \"mvn -q test\", \"exit_code\": 0, \"started_at\": \"2026-06-15T00:28:04\", \"finished_at\": \"2026-06-15T00:28:06\", \"log\": \"D:\\\\AAAWorkSpace\\\\java project\\\\super_big_homework\\\\Java＆Database_bigwork\\\\docs\\\\数据库系统基础\\\\最终交付\\\\06_证据与清单\\\\verification_logs\\\\mvn_-q_test.log\"}"
+    },
+    {
+      "name": "验证命令通过：mvn -q -DskipTests package",
+      "ok": true,
+      "detail": "{\"command\": \"mvn -q -DskipTests package\", \"exit_code\": 0, \"started_at\": \"2026-06-15T00:28:06\", \"finished_at\": \"2026-06-15T00:28:12\", \"log\": \"D:\\\\AAAWorkSpace\\\\java project\\\\super_big_homework\\\\Java＆Database_bigwork\\\\docs\\\\数据库系统基础\\\\最终交付\\\\06_证据与清单\\\\verification_logs\\\\mvn_-q_-DskipTests_package.log\"}"
+    },
+    {
+      "name": "验证命令通过：package-stable.ps1",
+      "ok": true,
+      "detail": "{\"command\": \"package-stable.ps1\", \"exit_code\": 0, \"started_at\": \"2026-06-15T00:28:12\", \"finished_at\": \"2026-06-15T00:28:37\", \"log\": \"D:\\\\AAAWorkSpace\\\\java project\\\\super_big_homework\\\\Java＆Database_bigwork\\\\docs\\\\数据库系统基础\\\\最终交付\\\\06_证据与清单\\\\verification_logs\\\\package-stable.ps1.log\"}"
+    }
+  ]
+}
