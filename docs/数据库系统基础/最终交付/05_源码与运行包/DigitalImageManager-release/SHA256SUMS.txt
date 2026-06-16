@@ -1,0 +1,3 @@
+938BFE132428CA98552CBE7C6BE8B8FD83FB2596916D4441905DFC900C28C3E1  D:\AAAWorkSpace\java project\super_big_homework\Java＆Database_bigwork\target\DigitalImageManager-release\DigitalImageManager\DigitalImageManager.exe
+E19054458CF3D73D1A091A6B8476112E2EA4020DC5E31BE60FE3F5B1279D16BE  D:\AAAWorkSpace\java project\super_big_homework\Java＆Database_bigwork\target\DigitalImageManager-release\image-manager-1.0.0.jar
+769A98650799524FF9FD873885E32B768C7688D5DA07EFD4233EA6D48781A657  D:\AAAWorkSpace\java project\super_big_homework\Java＆Database_bigwork\target\DigitalImageManager-windows-portable.zip

@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+
+<StackPane xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.imagemanager.controller.MainController"
+           fx:id="appRoot"
+           prefWidth="1200" prefHeight="800"
+           styleClass="root-pane">
+    <ImageView fx:id="themeBackgroundImageView" preserveRatio="true" smooth="true"
+               managed="false"
+               mouseTransparent="true"/>
+    <BorderPane fx:id="mainContentPane" styleClass="theme-content-pane"
+                maxWidth="Infinity" maxHeight="Infinity">
+
+    <top>
+        <VBox styleClass="app-header">
+            <HBox styleClass="top-toolbar" alignment="CENTER_LEFT" spacing="16">
+                <VBox styleClass="brand-block" minWidth="250" prefWidth="330">
+                    <Label text="数字图像集成管理系统" styleClass="app-title"/>
+                    <Label fx:id="pathLabel" text="我的图片" styleClass="path-label"
+                           textOverrun="CENTER_ELLIPSIS" maxWidth="320"/>
+                </VBox>
+
+                <HBox styleClass="search-cluster" alignment="CENTER_LEFT" spacing="8"
+                      HBox.hgrow="ALWAYS">
+                    <ComboBox fx:id="searchModeCombo" minWidth="108" prefWidth="118"
+                              promptText="搜索模式" styleClass="search-mode-combo"/>
+                    <TextField fx:id="searchField" minWidth="220" prefWidth="420" maxWidth="620"
+                               promptText="搜索文件名、标签、元数据或 AI 描述..."
+                               styleClass="search-field" HBox.hgrow="ALWAYS"/>
+                    <Button fx:id="searchButton" text="搜索" onAction="#onSearch"
+                            minWidth="78" prefWidth="78"
+                            styleClass="search-button"/>
+                </HBox>
+
+                <Button fx:id="settingsButton" text="设置" onAction="#onOpenSettings"
+                        minWidth="78" prefWidth="78"
+                        styleClass="settings-button"/>
+            </HBox>
+        </VBox>
+    </top>
+
+    <center>
+        <SplitPane fx:id="mainSplitPane" dividerPositions="0.23" styleClass="main-split">
+            <VBox styleClass="tree-container" minWidth="230" prefWidth="270">
+                <Label text="目录树" styleClass="tree-header"/>
+                <TreeView fx:id="directoryTree" VBox.vgrow="ALWAYS" styleClass="directory-tree"/>
+            </VBox>
+
+            <VBox styleClass="preview-container">
+                <HBox styleClass="directory-info-bar" alignment="CENTER_LEFT" spacing="12">
+                    <padding><Insets top="12" right="18" bottom="10" left="18"/></padding>
+                    <VBox HBox.hgrow="ALWAYS" spacing="2" minWidth="0">
+                        <Label fx:id="directoryNameLabel" text="" styleClass="directory-name"
+                               maxWidth="Infinity" textOverrun="CENTER_ELLIPSIS"/>
+                    </VBox>
+                    <HBox styleClass="directory-action-bar" alignment="CENTER_RIGHT" spacing="8">
+                        <Label fx:id="imageCountLabel" text="" styleClass="image-count"/>
+                        <Button fx:id="recoveryButton" text="恢复中心" onAction="#onOpenRecoveryCenter"
+                                styleClass="recovery-button"/>
+                        <Button fx:id="rescanAiButton" text="补打 AI 标签" onAction="#onRescanAiTags"
+                                styleClass="scan-rescan-button"/>
+                        <Button fx:id="cleanupAiButton" text="清理 AI 标签" onAction="#onCleanupAiData"
+                                styleClass="scan-cleanup-button"/>
+                    </HBox>
+                </HBox>
+
+                <VBox fx:id="scanStatusPane" styleClass="scan-status-pane" spacing="10"
+                      visible="false" managed="false">
+                    <padding><Insets top="12" right="18" bottom="12" left="18"/></padding>
+                    <BorderPane>
+                        <center>
+                            <VBox spacing="4" minWidth="0" BorderPane.alignment="CENTER_LEFT">
+                                <HBox alignment="CENTER_LEFT" spacing="8">
+                                    <Label fx:id="scanPhaseLabel" text="" styleClass="scan-phase-label"/>
+                                    <Label fx:id="scanSummaryLabel" text="" styleClass="scan-summary-label"
+                                           minWidth="0" maxWidth="Infinity" HBox.hgrow="ALWAYS"
+                                           textOverrun="CENTER_ELLIPSIS"/>
+                                </HBox>
+                                <Label fx:id="scanDetailLabel" text="" styleClass="scan-detail-label"
+                                       minWidth="0" wrapText="true" textOverrun="CLIP" maxWidth="Infinity"/>
+                            </VBox>
+                        </center>
+                        <right>
+                            <Button fx:id="stopScanButton" text="停止扫描" onAction="#onStopScan"
+                                    styleClass="scan-stop-button" visible="false" managed="false"
+                                    BorderPane.alignment="CENTER_RIGHT"/>
+                        </right>
+                    </BorderPane>
+
+                    <ProgressBar fx:id="scanProgressBar" prefHeight="12" maxWidth="Infinity"
+                                 styleClass="scan-progress-bar"/>
+
+                    <FlowPane styleClass="scan-metrics-flow" alignment="CENTER_LEFT" hgap="12" vgap="8"
+                              prefWrapLength="720">
+                        <HBox styleClass="scan-metric-chip" alignment="CENTER_LEFT" spacing="6">
+                            <Label text="开始于" styleClass="scan-metric-caption"/>
+                            <Label fx:id="scanStartedAtLabel" text="--" styleClass="scan-metric-value"/>
+                        </HBox>
+                        <HBox styleClass="scan-metric-chip" alignment="CENTER_LEFT" spacing="6">
+                            <Label text="已耗时" styleClass="scan-metric-caption"/>
+                            <Label fx:id="scanElapsedLabel" text="--" styleClass="scan-metric-value"/>
+                        </HBox>
+                        <HBox styleClass="scan-metric-chip" alignment="CENTER_LEFT" spacing="6">
+                            <Label text="预计剩余" styleClass="scan-metric-caption"/>
+                            <Label fx:id="scanRemainingLabel" text="估算中" styleClass="scan-metric-value"/>
+                        </HBox>
+                        <HBox styleClass="scan-metric-chip" alignment="CENTER_LEFT" spacing="6">
+                            <Label text="平均速度" styleClass="scan-metric-caption"/>
+                            <Label fx:id="scanRateLabel" text="计算中" styleClass="scan-metric-value"/>
+                        </HBox>
+                    </FlowPane>
+                </VBox>
+
+                <ScrollPane fx:id="thumbnailScroll" fitToWidth="true" VBox.vgrow="ALWAYS"
+                            styleClass="thumbnail-scroll" pannable="true">
+                    <FlowPane fx:id="thumbnailPane" hgap="18" vgap="18"
+                              styleClass="thumbnail-pane" alignment="TOP_LEFT">
+                        <padding><Insets topRightBottomLeft="20"/></padding>
+                    </FlowPane>
+                </ScrollPane>
+            </VBox>
+        </SplitPane>
+    </center>
+
+    <bottom>
+        <HBox styleClass="status-bar" alignment="CENTER_LEFT" spacing="12">
+            <padding><Insets top="6" right="15" bottom="6" left="15"/></padding>
+            <Label fx:id="statusLabel" text="就绪" styleClass="status-text"
+                   minWidth="0" maxWidth="Infinity" HBox.hgrow="ALWAYS"
+                   textOverrun="CENTER_ELLIPSIS"/>
+            <Separator orientation="VERTICAL" prefHeight="20"/>
+            <Label fx:id="databaseStatusLabel" text="数据库检测中" styleClass="database-status-label"/>
+            <Button fx:id="databaseSetupButton" text="数据库向导" onAction="#onOpenDatabaseSetup"
+                    styleClass="database-setup-button"/>
+
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Label fx:id="selectionLabel" text="" styleClass="selection-text"/>
+            <Button fx:id="slideshowButton" text="幻灯片" onAction="#onSlideshow"
+                    styleClass="slideshow-button" disable="true"/>
+        </HBox>
+    </bottom>
+    </BorderPane>
+</StackPane>

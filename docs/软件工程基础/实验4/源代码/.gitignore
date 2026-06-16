@@ -1,0 +1,28 @@
+# Maven / Java build output
+target/
+*.class
+
+# Aggregated course handoff archive exceeds GitHub single-file size limits.
+docs/面向对象程序与设计/面向对象程序设计实践/2024级软件工程R5班.zip
+docs/面向对象程序与设计/面向对象程序设计实践/2024级软件工程R5班/2024级软件工程R5班.zip
+
+# Runtime logs
+logs/
+
+# Local environment and secrets
+.env
+.env.*
+*.local
+
+# IDE metadata
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini

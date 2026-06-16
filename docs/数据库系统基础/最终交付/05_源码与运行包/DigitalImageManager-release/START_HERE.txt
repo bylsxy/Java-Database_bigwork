@@ -1,0 +1,13 @@
+Digital Image Manager - Windows Portable Release
+
+Recommended for a new computer:
+1. Open the DigitalImageManager folder.
+2. Double-click DigitalImageManager.exe.
+3. No JDK, Maven, JavaFX, cmd, or PowerShell operation is required.
+4. PostgreSQL is still required for database-backed features. If it is missing, the app opens the database setup wizard.
+
+For a computer that already has Java 21 or later:
+- Run image-manager-1.0.0.jar.
+- This jar is dependency-complete and already includes application dependencies and sql/*.sql resources.
+
+Local database config is saved under %LOCALAPPDATA%\DigitalImageManager\database.properties.

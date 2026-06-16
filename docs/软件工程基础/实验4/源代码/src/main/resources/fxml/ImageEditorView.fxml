@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.canvas.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+
+<StackPane xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.imagemanager.controller.ImageEditorController"
+           fx:id="editorRoot"
+           prefWidth="1000" prefHeight="750"
+           styleClass="editor-root">
+    <ImageView fx:id="themeBackgroundImageView" preserveRatio="true" smooth="true"
+               managed="false"
+               mouseTransparent="true"/>
+    <BorderPane fx:id="editorContentPane" styleClass="editor-content-pane"
+                maxWidth="Infinity" maxHeight="Infinity">
+
+    <top>
+        <ToolBar styleClass="editor-toolbar">
+            <Button fx:id="moveButton" text="移动" onAction="#onMoveMode"
+                    styleClass="editor-tool-button"/>
+            <Button fx:id="cropButton" text="裁切" onAction="#onCropMode"
+                    styleClass="editor-tool-button"/>
+            <Button fx:id="drawButton" text="画笔" onAction="#onDrawMode"
+                    styleClass="editor-tool-button"/>
+            <Button fx:id="textButton" text="文字" onAction="#onTextMode"
+                    styleClass="editor-tool-button"/>
+            <Button fx:id="arrowButton" text="箭头" onAction="#onArrowMode"
+                    styleClass="editor-tool-button"/>
+            <Button fx:id="rectButton" text="矩形" onAction="#onRectMode"
+                    styleClass="editor-tool-button"/>
+
+            <Separator orientation="VERTICAL" prefHeight="25"/>
+
+            <Label text="颜色:" styleClass="toolbar-label"/>
+            <ColorPicker fx:id="colorPicker" prefWidth="50" prefHeight="28"/>
+
+            <Label text="线宽:" styleClass="toolbar-label"/>
+            <Spinner fx:id="lineWidthSpinner" prefWidth="70" prefHeight="28"/>
+
+            <Separator orientation="VERTICAL" prefHeight="25"/>
+
+            <Button text="撤销" onAction="#onUndo" styleClass="editor-tool-button"/>
+            <Button text="保存版本" onAction="#onSaveVersion"
+                    styleClass="editor-save-button"/>
+
+            <Pane HBox.hgrow="ALWAYS"/>
+
+            <Label fx:id="toolStatusLabel" text="当前工具: 画笔"
+                   styleClass="editor-status-label"/>
+        </ToolBar>
+    </top>
+
+    <center>
+        <ScrollPane fx:id="editorScrollPane" fitToWidth="true" fitToHeight="true"
+                    styleClass="editor-canvas-scroll" pannable="false">
+            <StackPane fx:id="canvasContainer" styleClass="editor-canvas-container">
+                <ImageView fx:id="editorImageView" preserveRatio="true" smooth="true"/>
+                <Canvas fx:id="drawCanvas"/>
+            </StackPane>
+        </ScrollPane>
+    </center>
+
+    <bottom>
+        <VBox spacing="0">
+            <Separator/>
+            <HBox styleClass="version-timeline-bar" alignment="CENTER_LEFT" spacing="8">
+                <padding><Insets top="8" right="15" bottom="8" left="15"/></padding>
+                <Label text="版本历史:" styleClass="version-label"/>
+                <ScrollPane fx:id="versionScroll" fitToHeight="true"
+                            vbarPolicy="NEVER" hbarPolicy="AS_NEEDED"
+                            prefHeight="54" HBox.hgrow="ALWAYS"
+                            styleClass="thumbnail-scroll">
+                    <HBox fx:id="versionTimeline" spacing="10" alignment="CENTER_LEFT">
+                        <padding><Insets topRightBottomLeft="4"/></padding>
+                    </HBox>
+                </ScrollPane>
+            </HBox>
+        </VBox>
+    </bottom>
+    </BorderPane>
+</StackPane>
