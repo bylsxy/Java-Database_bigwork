@@ -256,6 +256,9 @@ public class AiTagStorageService {
             stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS ai_processed BOOLEAN NOT NULL DEFAULT FALSE");
             stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS last_ai_scan TIMESTAMP");
             stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS deleted_original_path TEXT");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS deleted_storage_path TEXT");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP");
         } catch (SQLException e) {
             logger.error("初始化 AI 标签清理结构失败", e);
             throw new RuntimeException("初始化 AI 标签清理结构失败: " + e.getMessage(), e);

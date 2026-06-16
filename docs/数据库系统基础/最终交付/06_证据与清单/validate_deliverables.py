@@ -119,7 +119,25 @@ def validate_ppt() -> None:
         add_check("PPT 为 16:9 横版", abs(ratio - 16 / 9) < 0.03, f"ratio={ratio:.4f}")
         add_check("PPT 页数适合 15 分钟答辩", 10 <= len(prs.slides) <= 14, f"slides={len(prs.slides)}")
         picture_counts = [count_pictures(slide) for slide in prs.slides]
-        add_check("PPT 每页都有页面视觉图", all(count >= 1 for count in picture_counts), f"pictures={picture_counts}")
+        text_counts = [
+            sum(1 for shape in slide.shapes if getattr(shape, "has_text_frame", False) and shape.text.strip())
+            for slide in prs.slides
+        ]
+        full_slide_pictures = []
+        for slide in prs.slides:
+            count = 0
+            for shape in slide.shapes:
+                if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
+                    if (
+                        shape.left <= 45720
+                        and shape.top <= 45720
+                        and shape.width >= prs.slide_width - 91440
+                        and shape.height >= prs.slide_height - 91440
+                    ):
+                        count += 1
+            full_slide_pictures.append(count)
+        add_check("PPT 每页都有可编辑文本组件", all(count >= 2 for count in text_counts), f"text_shapes={text_counts}")
+        add_check("PPT 无整页图片页", all(count == 0 for count in full_slide_pictures), f"full_slide_pictures={full_slide_pictures}; pictures={picture_counts}")
     except Exception as exc:  # pragma: no cover
         add_check("PPT 可解析", False, repr(exc))
 

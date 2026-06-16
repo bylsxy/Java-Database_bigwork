@@ -6,6 +6,7 @@ import com.imagemanager.dao.DatabaseConnection;
 import com.imagemanager.dao.TagDao;
 import com.imagemanager.dao.TagDaoImpl;
 import com.imagemanager.model.ImageFile;
+import com.imagemanager.model.RecycleBinItem;
 import com.imagemanager.model.Tag;
 import com.imagemanager.model.TagCategory;
 import com.imagemanager.scanner.ScanTask;
@@ -146,6 +147,8 @@ public class MainController {
     private Button rescanAiButton;
     @FXML
     private Button cleanupAiButton;
+    @FXML
+    private Button recoveryButton;
 
     // ==================== 业务服务 ====================
 
@@ -176,6 +179,8 @@ public class MainController {
     private MenuItem tagContextItem;
     private MenuItem infoContextItem;
     private MenuItem openFolderContextItem;
+    private MenuItem copyContextItem;
+    private MenuItem cutContextItem;
     private MenuItem pasteContextItem;
     private final ExecutorService thumbnailCacheExecutor = Executors.newFixedThreadPool(3, runnable -> {
         Thread thread = new Thread(runnable, "Thumbnail-Cache");
@@ -966,6 +971,7 @@ public class MainController {
                     if (event.isControlDown()) {
                         switch (event.getCode()) {
                             case C -> onCopy();
+                            case X -> onCut();
                             case V -> onPaste();
                             case A -> selectAll();
                             default -> {
@@ -1028,8 +1034,11 @@ public class MainController {
         MenuItem deleteItem = new MenuItem("删除");
         deleteItem.setOnAction(e -> onDelete());
 
-        MenuItem copyItem = new MenuItem("复制");
-        copyItem.setOnAction(e -> onCopy());
+        copyContextItem = new MenuItem("复制");
+        copyContextItem.setOnAction(e -> onCopy());
+
+        cutContextItem = new MenuItem("剪切");
+        cutContextItem.setOnAction(e -> onCut());
 
         pasteContextItem = new MenuItem("粘贴");
         pasteContextItem.setOnAction(e -> onPaste());
@@ -1046,7 +1055,8 @@ public class MainController {
                 openFolderContextItem,
                 new SeparatorMenuItem(),
                 deleteItem,
-                copyItem,
+                copyContextItem,
+                cutContextItem,
                 pasteContextItem,
                 new SeparatorMenuItem(),
                 renameItem);
@@ -1068,6 +1078,9 @@ public class MainController {
         tagContextItem.setDisable(!singleSelected || !databaseReady);
         infoContextItem.setDisable(!singleSelected);
         openFolderContextItem.setDisable(!singleSelected);
+        copyContextItem.setDisable(selectedImages.isEmpty());
+        cutContextItem.setDisable(selectedImages.isEmpty());
+        pasteContextItem.setText(imageService.isClipboardCutMode() ? "粘贴移动" : "粘贴复制");
         pasteContextItem.setDisable(imageService.getClipboard().isEmpty());
     }
     // ==================== 操作处理 ====================
@@ -1211,16 +1224,17 @@ public class MainController {
         int count = selectedImages.size();
         boolean confirmed = AlertUtil.showConfirmation(
                 "确认删除",
-                "确定要删除选中的 " + count + " 张图片吗？此操作不可恢复。");
+                "确定要把选中的 " + count + " 张图片移入隐藏回收站吗？\n\n"
+                        + "文件会移动到原目录下的 .versions/.trash，数据库保留记录，可在恢复中心恢复。");
 
         if (confirmed) {
             List<ImageFile> imagesToDelete = new ArrayList<>(selectedImages);
             runImageMutation(
-                    "正在删除 " + count + " 张图片...",
+                    "正在移入回收站 " + count + " 张图片...",
                     "删除失败",
                     () -> imageService.deleteImages(imagesToDelete),
                     () -> {
-                statusLabel.setText("已删除 " + count + " 张图片");
+                statusLabel.setText("已移入回收站 " + count + " 张图片，可在恢复中心恢复");
                 // 刷新当前目录
                 onDirectorySelected(currentDirectoryPath);
                     });
@@ -1239,6 +1253,17 @@ public class MainController {
     }
 
     /**
+     * 剪切选中的图片到应用内部剪贴板。
+     */
+    private void onCut() {
+        if (selectedImages.isEmpty())
+            return;
+
+        imageService.cutImages(new ArrayList<>(selectedImages));
+        statusLabel.setText("已剪切 " + selectedImages.size() + " 张图片，选择目标目录后粘贴移动");
+    }
+
+    /**
      * 粘贴剪贴板中的图片到当前目录。
      */
     private void onPaste() {
@@ -1247,20 +1272,122 @@ public class MainController {
             return;
         }
         if (imageService.getClipboard().isEmpty()) {
-            AlertUtil.showWarning("粘贴失败", "剪贴板为空，请先复制图片");
+            AlertUtil.showWarning("粘贴失败", "剪贴板为空，请先复制或剪切图片");
             return;
         }
 
         int count = imageService.getClipboard().size();
+        boolean cutMode = imageService.isClipboardCutMode();
         runImageMutation(
-                "正在粘贴 " + count + " 张图片...",
+                (cutMode ? "正在移动 " : "正在粘贴 ") + count + " 张图片...",
                 "粘贴失败",
                 () -> imageService.pasteImages(currentDirectoryPath),
                 () -> {
-            statusLabel.setText("已粘贴 " + count + " 张图片");
+            statusLabel.setText((cutMode ? "已移动 " : "已粘贴 ") + count + " 张图片，可在恢复中心撤销最近操作");
             // 刷新
             onDirectorySelected(currentDirectoryPath);
                 });
+    }
+
+    /**
+     * 打开恢复中心：恢复被删除的图片，或撤销最近一次粘贴/剪切移动。
+     */
+    @FXML
+    private void onOpenRecoveryCenter() {
+        if (!isDatabaseReady()) {
+            statusLabel.setText("数据库未连接，恢复中心不可用");
+            openDatabaseSetupWindow(thumbnailPane.getScene().getWindow());
+            return;
+        }
+
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("恢复中心");
+        dialog.setHeaderText("删除恢复与最近传输撤销");
+        if (thumbnailPane.getScene() != null) {
+            dialog.initOwner(thumbnailPane.getScene().getWindow());
+        }
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+
+        ListView<RecycleBinItem> recycleList = new ListView<>();
+        recycleList.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        recycleList.setPrefHeight(320);
+        recycleList.setCellFactory(listView -> new ListCell<>() {
+            @Override
+            protected void updateItem(RecycleBinItem item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.displayText());
+            }
+        });
+
+        Runnable reloadItems = () -> {
+            List<RecycleBinItem> items = imageService.getRecycleBinItems();
+            recycleList.setItems(FXCollections.observableArrayList(items));
+            statusLabel.setText(items.isEmpty()
+                    ? "恢复中心：回收站为空"
+                    : "恢复中心：共 " + items.size() + " 张可恢复图片");
+        };
+
+        Button restoreButton = new Button("恢复选中删除图片");
+        restoreButton.getStyleClass().add("success-button");
+        restoreButton.setOnAction(event -> {
+            List<RecycleBinItem> selected = new ArrayList<>(recycleList.getSelectionModel().getSelectedItems());
+            if (selected.isEmpty()) {
+                AlertUtil.showWarning("恢复失败", "请先选择要恢复的图片");
+                return;
+            }
+            runImageMutation(
+                    "正在恢复 " + selected.size() + " 张图片...",
+                    "恢复失败",
+                    () -> imageService.restoreImagesFromRecycleBin(selected),
+                    () -> {
+                        statusLabel.setText("已恢复 " + selected.size() + " 张图片");
+                        reloadItems.run();
+                        if (currentDirectoryPath != null) {
+                            onDirectorySelected(currentDirectoryPath);
+                        }
+                    });
+        });
+
+        Button rollbackButton = new Button("撤销最近粘贴/剪切");
+        rollbackButton.getStyleClass().add("warning-button");
+        rollbackButton.setOnAction(event -> runImageMutation(
+                "正在撤销最近一次粘贴或剪切移动...",
+                "撤销失败",
+                () -> {
+                    int restored = imageService.rollbackLastTransferOperation();
+                    if (restored == 0) {
+                        throw new IllegalStateException("没有可撤销的粘贴或剪切移动记录");
+                    }
+                },
+                () -> {
+                    statusLabel.setText("已撤销最近一次粘贴或剪切移动");
+                    reloadItems.run();
+                    if (currentDirectoryPath != null) {
+                        onDirectorySelected(currentDirectoryPath);
+                    }
+                }));
+
+        Button refreshButton = new Button("刷新");
+        refreshButton.getStyleClass().add("secondary-button");
+        refreshButton.setOnAction(event -> reloadItems.run());
+
+        Label hint = new Label("删除的原图会保存在原目录的 .versions/.trash 中；恢复时若原位置已有同名文件，系统会自动追加序号。");
+        hint.setWrapText(true);
+        hint.getStyleClass().add("scan-detail-label");
+
+        HBox actions = new HBox(10, restoreButton, rollbackButton, refreshButton);
+        actions.setAlignment(Pos.CENTER_LEFT);
+
+        VBox content = new VBox(10,
+                hint,
+                recycleList,
+                actions);
+        content.setPrefWidth(720);
+        content.setPadding(new Insets(10));
+
+        reloadItems.run();
+        dialog.getDialogPane().setContent(content);
+        dialog.showAndWait();
     }
 
     /**
@@ -1869,10 +1996,16 @@ public class MainController {
             if (cleanupAiButton != null) {
                 cleanupAiButton.setDisable(true);
             }
+            if (recoveryButton != null) {
+                recoveryButton.setDisable(true);
+            }
         } else {
             setRescanAiButtonDisabled(activeScanTask != null && activeScanTask.isRunning());
             if (cleanupAiButton != null) {
                 cleanupAiButton.setDisable(false);
+            }
+            if (recoveryButton != null) {
+                recoveryButton.setDisable(false);
             }
         }
     }

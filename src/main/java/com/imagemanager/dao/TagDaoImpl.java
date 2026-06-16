@@ -709,6 +709,23 @@ public class TagDaoImpl implements TagDao {
                         ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE
                         """);
                 stmt.execute("""
+                        ALTER TABLE images
+                        ADD COLUMN IF NOT EXISTS deleted_original_path TEXT
+                        """);
+                stmt.execute("""
+                        ALTER TABLE images
+                        ADD COLUMN IF NOT EXISTS deleted_storage_path TEXT
+                        """);
+                stmt.execute("""
+                        ALTER TABLE images
+                        ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP
+                        """);
+                stmt.execute("ALTER TABLE images DROP CONSTRAINT IF EXISTS uq_images_dir_name");
+                stmt.execute("""
+                        CREATE UNIQUE INDEX IF NOT EXISTS idx_images_active_dir_name_unique
+                        ON images (directory_id, file_name) WHERE is_deleted = FALSE
+                        """);
+                stmt.execute("""
                         CREATE TABLE IF NOT EXISTS tag_categories (
                             id SERIAL PRIMARY KEY,
                             name VARCHAR(50) NOT NULL UNIQUE,

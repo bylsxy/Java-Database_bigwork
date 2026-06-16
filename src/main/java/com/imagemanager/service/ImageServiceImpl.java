@@ -2,7 +2,9 @@ package com.imagemanager.service;
 
 import com.imagemanager.dao.*;
 import com.imagemanager.model.DirectoryNode;
+import com.imagemanager.model.FileOperationLog;
 import com.imagemanager.model.ImageFile;
+import com.imagemanager.model.RecycleBinItem;
 import com.imagemanager.util.FileUtil;
 import com.imagemanager.util.ImageUtil;
 import org.slf4j.Logger;
@@ -10,11 +12,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -40,11 +44,18 @@ public class ImageServiceImpl implements ImageService {
     /** 文件名中不允许出现的字符 */
     private static final String ILLEGAL_CHARS = "\\/:*?\"<>|";
 
+    /** 图片版本目录与回收站目录。删除文件会进入 .versions/.trash，而不是直接物理删除。 */
+    private static final String VERSIONS_DIR = ".versions";
+    private static final String TRASH_DIR = ".trash";
+    private static final DateTimeFormatter TRASH_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
+
     private final ImageDao imageDao;
     private final DirectoryDao directoryDao;
 
-    /** 内部剪贴板 — 存储"复制"操作选中的图片 */
+    /** 内部剪贴板 — 存储复制或剪切操作选中的图片 */
     private List<ImageFile> clipboard = new ArrayList<>();
+    private boolean clipboardCutMode = false;
+    private List<FileOperationLog> lastTransferLogs = List.of();
 
     public ImageServiceImpl() {
         this.imageDao = new ImageDaoImpl();
@@ -120,24 +131,14 @@ public class ImageServiceImpl implements ImageService {
 
     @Override
     public void deleteImages(List<ImageFile> images) {
-        logger.info("删除 {} 张图片", images.size());
+        logger.info("移入回收站 {} 张图片", images.size());
 
         for (var image : images) {
             try {
-                // 1. 数据库逻辑删除（触发器会自动记录日志）
-                if (DatabaseConnection.isInitialized() && image.id() > 0) {
-                    imageDao.softDelete(image.id());
-                }
-
-                // 2. 磁盘物理删除
-                Path path = Path.of(image.filePath());
-                if (Files.exists(path)) {
-                    Files.delete(path);
-                    logger.debug("已删除磁盘文件: {}", image.filePath());
-                }
+                moveImageToRecycleBin(image, "RECYCLE_DELETE");
             } catch (IOException e) {
-                logger.error("删除文件失败: {} - {}", image.filePath(), e.getMessage());
-                // 继续处理其他文件，不中断整个操作
+                logger.error("移入回收站失败: {} - {}", image.filePath(), e.getMessage());
+                throw new RuntimeException("移入回收站失败: " + image.fileName(), e);
             }
         }
     }
@@ -145,6 +146,7 @@ public class ImageServiceImpl implements ImageService {
     @Override
     public void copyImages(List<ImageFile> images) {
         this.clipboard = new ArrayList<>(images);
+        this.clipboardCutMode = false;
         for (var image : images) {
             if (DatabaseConnection.isInitialized() && image.id() > 0) {
                 logOperation(image.id(), "COPY", image.filePath(), "复制到应用剪贴板");
@@ -154,8 +156,25 @@ public class ImageServiceImpl implements ImageService {
     }
 
     @Override
+    public void cutImages(List<ImageFile> images) {
+        this.clipboard = new ArrayList<>(images);
+        this.clipboardCutMode = true;
+        for (var image : images) {
+            if (DatabaseConnection.isInitialized() && image.id() > 0) {
+                logOperation(image.id(), "CUT", image.filePath(), "剪切到应用剪贴板");
+            }
+        }
+        logger.info("已剪切 {} 张图片到剪贴板", images.size());
+    }
+
+    @Override
     public List<ImageFile> getClipboard() {
         return List.copyOf(clipboard);
+    }
+
+    @Override
+    public boolean isClipboardCutMode() {
+        return clipboardCutMode;
     }
 
     @Override
@@ -169,10 +188,17 @@ public class ImageServiceImpl implements ImageService {
             return;
         }
 
-        logger.info("粘贴 {} 张图片到 {}", clipboard.size(), targetDirectoryPath);
+        logger.info("{} {} 张图片到 {}", clipboardCutMode ? "剪切移动" : "粘贴复制", clipboard.size(), targetDirectoryPath);
 
         DirectoryNode targetDir = directoryDao.findOrCreate(targetDirectoryPath);
+        if (clipboardCutMode) {
+            moveClipboardImages(targetDir, targetDirectoryPath);
+            clipboard = new ArrayList<>();
+            clipboardCutMode = false;
+            return;
+        }
 
+        List<FileOperationLog> transferLogs = new ArrayList<>();
         for (var image : clipboard) {
             try {
                 // 确定目标文件名（处理重名冲突）
@@ -188,6 +214,13 @@ public class ImageServiceImpl implements ImageService {
                 var newImage = createImageFileFromDisk(targetPath.toFile(), targetDir.id());
                 int newImageId = imageDao.insert(newImage);
                 logOperation(newImageId, "PASTE", image.filePath(), targetPath.toString());
+                transferLogs.add(new FileOperationLog(
+                        newImageId,
+                        "PASTE",
+                        image.filePath(),
+                        targetPath.toString(),
+                        LocalDateTime.now()
+                ));
 
                 logger.debug("已粘贴: {} → {}", image.fileName(), targetPath);
 
@@ -196,6 +229,54 @@ public class ImageServiceImpl implements ImageService {
                 throw new RuntimeException("粘贴文件失败: " + image.fileName(), e);
             }
         }
+        lastTransferLogs = List.copyOf(transferLogs);
+    }
+
+    private void moveClipboardImages(DirectoryNode targetDir, String targetDirectoryPath) {
+        List<FileOperationLog> transferLogs = new ArrayList<>();
+        for (var image : clipboard) {
+            try {
+                Path sourcePath = Path.of(image.filePath());
+                if (!Files.exists(sourcePath)) {
+                    throw new IOException("源文件不存在: " + sourcePath);
+                }
+
+                String targetFileName = resolveConflictNameForMove(targetDir.id(), targetDirectoryPath, image);
+                Path targetPath = Path.of(targetDirectoryPath, targetFileName);
+                if (sourcePath.toAbsolutePath().normalize().equals(targetPath.toAbsolutePath().normalize())) {
+                    continue;
+                }
+
+                moveFile(sourcePath, targetPath);
+                byte[] thumbnail = ImageUtil.generateThumbnailBytes(
+                        targetPath.toString(),
+                        ImageUtil.DEFAULT_THUMBNAIL_WIDTH,
+                        ImageUtil.DEFAULT_THUMBNAIL_HEIGHT);
+                int[] dimensions = ImageUtil.getImageDimensions(targetPath.toString());
+                imageDao.updateLocation(
+                        image.id(),
+                        targetFileName,
+                        targetPath.toString(),
+                        targetDir.id(),
+                        Files.size(targetPath),
+                        dimensions[0],
+                        dimensions[1],
+                        thumbnail);
+                logOperation(image.id(), "MOVE", sourcePath.toString(), targetPath.toString());
+                transferLogs.add(new FileOperationLog(
+                        image.id(),
+                        "MOVE",
+                        sourcePath.toString(),
+                        targetPath.toString(),
+                        LocalDateTime.now()
+                ));
+                logger.debug("已剪切移动: {} → {}", sourcePath, targetPath);
+            } catch (IOException e) {
+                logger.error("剪切移动失败: {} - {}", image.fileName(), e.getMessage());
+                throw new RuntimeException("剪切移动失败: " + image.fileName(), e);
+            }
+        }
+        lastTransferLogs = List.copyOf(transferLogs);
     }
 
     @Override
@@ -314,7 +395,249 @@ public class ImageServiceImpl implements ImageService {
         return thumbnailData;
     }
 
+    @Override
+    public List<RecycleBinItem> getRecycleBinItems() {
+        if (!DatabaseConnection.isInitialized()) {
+            return List.of();
+        }
+        return imageDao.findRecycleBinItems();
+    }
+
+    @Override
+    public void restoreImagesFromRecycleBin(List<RecycleBinItem> items) {
+        for (var item : items) {
+            try {
+                restoreRecycleBinItem(item);
+            } catch (IOException e) {
+                logger.error("恢复回收站图片失败: imageId={}, file={}", item.imageId(), item.fileName(), e);
+                throw new RuntimeException("恢复失败: " + item.fileName(), e);
+            }
+        }
+    }
+
+    @Override
+    public int rollbackLastTransferOperation() {
+        if (!DatabaseConnection.isInitialized()) {
+            return 0;
+        }
+        List<FileOperationLog> logs = lastTransferLogs.isEmpty()
+                ? imageDao.findLatestTransferLogs()
+                : new ArrayList<>(lastTransferLogs);
+        if (logs.isEmpty()) {
+            return 0;
+        }
+        String operationType = logs.get(0).operationType();
+        int count = 0;
+        for (var log : logs) {
+            if ("PASTE".equals(operationType)) {
+                count += rollbackPastedImage(log);
+            } else if ("MOVE".equals(operationType)) {
+                count += rollbackMovedImage(log);
+            }
+        }
+        if (count > 0) {
+            lastTransferLogs = List.of();
+        }
+        return count;
+    }
+
     // ==================== 私有辅助方法 ====================
+
+    private void moveImageToRecycleBin(ImageFile image, String operationType) throws IOException {
+        Path sourcePath = Path.of(image.filePath());
+        Path storagePath = null;
+        boolean fileMoved = false;
+
+        if (Files.exists(sourcePath)) {
+            storagePath = recycleStoragePath(sourcePath, image.id());
+            Files.createDirectories(storagePath.getParent());
+            hideIfPossible(storagePath.getParent().getParent());
+            hideIfPossible(storagePath.getParent());
+            moveFile(sourcePath, storagePath);
+            fileMoved = true;
+        }
+
+        if (DatabaseConnection.isInitialized() && image.id() > 0) {
+            try {
+                imageDao.moveToRecycleBin(image.id(), storagePath == null ? null : storagePath.toString());
+                if (storagePath != null) {
+                    logOperation(image.id(), operationType, sourcePath.toString(), storagePath.toString());
+                }
+            } catch (RuntimeException e) {
+                if (fileMoved) {
+                    try {
+                        Files.createDirectories(sourcePath.getParent());
+                        moveFile(storagePath, sourcePath);
+                    } catch (IOException rollbackError) {
+                        logger.error("回滚回收站文件失败: {} → {}", storagePath, sourcePath, rollbackError);
+                    }
+                }
+                throw e;
+            }
+        }
+    }
+
+    private void restoreRecycleBinItem(RecycleBinItem item) throws IOException {
+        if (item.storagePath() == null || item.storagePath().isBlank()) {
+            throw new IOException("回收站路径为空，无法恢复");
+        }
+        Path storagePath = Path.of(item.storagePath());
+        if (!Files.exists(storagePath)) {
+            throw new IOException("回收站文件不存在: " + storagePath);
+        }
+
+        Path originalPath = Path.of(item.originalPath());
+        Path originalParent = originalPath.getParent();
+        if (originalParent == null) {
+            throw new IOException("无法确定原始目录: " + item.originalPath());
+        }
+        Files.createDirectories(originalParent);
+        DirectoryNode directory = directoryDao.findOrCreate(originalParent.toString());
+        Path restoredPath = resolveAvailableTargetPath(directory.id(), originalPath);
+
+        moveFile(storagePath, restoredPath);
+        byte[] thumbnail = ImageUtil.generateThumbnailBytes(
+                restoredPath.toString(),
+                ImageUtil.DEFAULT_THUMBNAIL_WIDTH,
+                ImageUtil.DEFAULT_THUMBNAIL_HEIGHT);
+        int[] dimensions = ImageUtil.getImageDimensions(restoredPath.toString());
+        imageDao.restoreFromRecycleBin(
+                item.imageId(),
+                restoredPath.getFileName().toString(),
+                restoredPath.toString(),
+                directory.id(),
+                Files.size(restoredPath),
+                dimensions[0],
+                dimensions[1],
+                thumbnail);
+        logOperation(item.imageId(), "RESTORE", storagePath.toString(), restoredPath.toString());
+    }
+
+    private int rollbackPastedImage(FileOperationLog log) {
+        return imageDao.findById(log.imageId())
+                .filter(image -> !image.deleted())
+                .map(image -> {
+                    try {
+                        moveImageToRecycleBin(image, "PASTE_ROLLBACK");
+                        return 1;
+                    } catch (IOException e) {
+                        throw new RuntimeException("撤销粘贴失败: " + image.fileName(), e);
+                    }
+                })
+                .orElse(0);
+    }
+
+    private int rollbackMovedImage(FileOperationLog log) {
+        if (log.oldValue() == null || log.oldValue().isBlank()) {
+            return 0;
+        }
+        ImageFile image = imageDao.findById(log.imageId()).orElse(null);
+        if (image == null || image.deleted()) {
+            return 0;
+        }
+
+        Path currentPath = Path.of(image.filePath());
+        if (!Files.exists(currentPath) && log.newValue() != null && !log.newValue().isBlank()) {
+            currentPath = Path.of(log.newValue());
+        }
+        if (!Files.exists(currentPath)) {
+            throw new RuntimeException("撤销剪切失败，当前文件不存在: " + image.filePath());
+        }
+
+        try {
+            Path originalPath = Path.of(log.oldValue());
+            Path originalParent = originalPath.getParent();
+            if (originalParent == null) {
+                throw new IOException("无法确定原始目录: " + log.oldValue());
+            }
+            Files.createDirectories(originalParent);
+            DirectoryNode directory = directoryDao.findOrCreate(originalParent.toString());
+            Path restoredPath = resolveAvailableTargetPath(directory.id(), originalPath);
+            moveFile(currentPath, restoredPath);
+            byte[] thumbnail = ImageUtil.generateThumbnailBytes(
+                    restoredPath.toString(),
+                    ImageUtil.DEFAULT_THUMBNAIL_WIDTH,
+                    ImageUtil.DEFAULT_THUMBNAIL_HEIGHT);
+            int[] dimensions = ImageUtil.getImageDimensions(restoredPath.toString());
+            imageDao.updateLocation(
+                    image.id(),
+                    restoredPath.getFileName().toString(),
+                    restoredPath.toString(),
+                    directory.id(),
+                    Files.size(restoredPath),
+                    dimensions[0],
+                    dimensions[1],
+                    thumbnail);
+            logOperation(image.id(), "MOVE_ROLLBACK", currentPath.toString(), restoredPath.toString());
+            return 1;
+        } catch (IOException e) {
+            throw new RuntimeException("撤销剪切失败: " + image.fileName(), e);
+        }
+    }
+
+    private Path recycleStoragePath(Path sourcePath, int imageId) {
+        Path parent = sourcePath.getParent();
+        if (parent == null) {
+            parent = Path.of(".").toAbsolutePath();
+        }
+        String fileName = sourcePath.getFileName().toString();
+        String baseName = FileUtil.getBaseName(fileName);
+        String extension = FileUtil.getExtension(fileName);
+        String suffix = "__deleted_" + Math.max(0, imageId) + "_" + LocalDateTime.now().format(TRASH_TIMESTAMP);
+        String storedName = extension.isBlank()
+                ? baseName + suffix
+                : baseName + suffix + "." + extension;
+        return parent.resolve(VERSIONS_DIR).resolve(TRASH_DIR).resolve(storedName);
+    }
+
+    private Path resolveAvailableTargetPath(int directoryId, Path preferredPath) {
+        Path parent = preferredPath.getParent();
+        if (parent == null) {
+            parent = Path.of(".").toAbsolutePath();
+        }
+        String fileName = preferredPath.getFileName().toString();
+        String baseName = FileUtil.getBaseName(fileName);
+        String extension = FileUtil.getExtension(fileName);
+
+        for (int i = 0; i <= 9999; i++) {
+            String candidateName;
+            if (i == 0) {
+                candidateName = fileName;
+            } else {
+                candidateName = extension.isBlank()
+                        ? baseName + "(" + i + ")"
+                        : baseName + "(" + i + ")." + extension;
+            }
+            Path candidate = parent.resolve(candidateName);
+            if (!Files.exists(candidate) && !imageDao.existsByDirectoryAndName(directoryId, candidateName)) {
+                return candidate;
+            }
+        }
+        throw new RuntimeException("无法为 " + fileName + " 找到可恢复文件名");
+    }
+
+    private void moveFile(Path sourcePath, Path targetPath) throws IOException {
+        Path targetParent = targetPath.getParent();
+        if (targetParent != null) {
+            Files.createDirectories(targetParent);
+        }
+        try {
+            Files.move(sourcePath, targetPath, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private void hideIfPossible(Path path) {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.setAttribute(path, "dos:hidden", true);
+        } catch (Exception ignored) {
+            // 非 Windows 文件系统或权限不足时，.versions/.trash 命名本身仍能表达隐藏用途。
+        }
+    }
 
     /**
      * 从磁盘文件创建 ImageFile 实体（不含缩略图，缩略图后续按需生成）。
@@ -345,17 +668,25 @@ public class ImageServiceImpl implements ImageService {
     }
 
     private void pasteImagesWithoutDatabase(String targetDirectoryPath) {
-        logger.info("离线粘贴 {} 张图片到 {}", clipboard.size(), targetDirectoryPath);
+        logger.info("离线{} {} 张图片到 {}", clipboardCutMode ? "剪切移动" : "粘贴", clipboard.size(), targetDirectoryPath);
         for (var image : clipboard) {
             try {
                 String targetFileName = resolveConflictNameOnDisk(targetDirectoryPath, image.fileName());
                 Path sourcePath = Path.of(image.filePath());
                 Path targetPath = Path.of(targetDirectoryPath, targetFileName);
-                Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                if (clipboardCutMode) {
+                    moveFile(sourcePath, targetPath);
+                } else {
+                    Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                }
             } catch (IOException e) {
                 logger.error("离线粘贴文件失败: {} - {}", image.fileName(), e.getMessage());
                 throw new RuntimeException("粘贴文件失败: " + image.fileName(), e);
             }
+        }
+        if (clipboardCutMode) {
+            clipboard = new ArrayList<>();
+            clipboardCutMode = false;
         }
     }
 
@@ -379,6 +710,15 @@ public class ImageServiceImpl implements ImageService {
         }
 
         throw new RuntimeException("无法为 " + fileName + " 生成唯一文件名");
+    }
+
+    private String resolveConflictNameForMove(int targetDirectoryId, String targetDirectoryPath, ImageFile image) {
+        Path sourcePath = Path.of(image.filePath()).toAbsolutePath().normalize();
+        Path directTargetPath = Path.of(targetDirectoryPath, image.fileName()).toAbsolutePath().normalize();
+        if (sourcePath.equals(directTargetPath)) {
+            return image.fileName();
+        }
+        return resolveAvailableTargetPath(targetDirectoryId, directTargetPath).getFileName().toString();
     }
 
     private String resolveConflictNameOnDisk(String directoryPath, String fileName) {

@@ -1,6 +1,12 @@
 # git diff --check
-# Started: 2026-06-15T00:28:01
+# Started: 2026-06-16T14:02:19
 
+warning: in the working copy of 'docs/数据库系统基础/最终交付/06_证据与清单/打分点落实清单.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'docs/数据库系统基础/最终交付/06_证据与清单/验证日志.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'src/main/java/com/imagemanager/dao/TagDaoImpl.java', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'src/main/java/com/imagemanager/model/ImageFile.java', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'src/main/java/com/imagemanager/scanner/ScanTask.java', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'src/main/resources/fxml/MainView.fxml', CRLF will be replaced by LF the next time Git touches it
 
-# Finished: 2026-06-15T00:28:02
+# Finished: 2026-06-16T14:02:20
 # ExitCode: 0

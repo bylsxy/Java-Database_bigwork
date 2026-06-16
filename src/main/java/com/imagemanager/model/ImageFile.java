@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
  * @param thumbnail   缩略图二进制数据（数据库 bytea），可为 null
  * @param createdAt   首次录入数据库的时间
  * @param modifiedAt  最后修改时间
- * @param deleted     是否已逻辑删除
+ * @param deleted     是否已从主视图移入删除/回收状态
  * @param aiProcessed 是否已完成 AI 识别并写入索引数据
  */
 public record ImageFile(

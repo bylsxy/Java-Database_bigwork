@@ -388,6 +388,14 @@ public class ScanTask extends Task<Void> {
             stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS ai_processed BOOLEAN NOT NULL DEFAULT FALSE");
             stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS last_ai_scan TIMESTAMP");
             stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS deleted_original_path TEXT");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS deleted_storage_path TEXT");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP");
+            stmt.execute("ALTER TABLE images DROP CONSTRAINT IF EXISTS uq_images_dir_name");
+            stmt.execute("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_images_active_dir_name_unique
+                    ON images (directory_id, file_name) WHERE is_deleted = FALSE
+                    """);
         } catch (Exception e) {
             logger.error("初始化扫描数据库字段失败", e);
             throw new RuntimeException("初始化扫描数据库字段失败: " + e.getMessage(), e);

@@ -1,6 +1,8 @@
 package com.imagemanager.dao;
 
 import com.imagemanager.model.ImageFile;
+import com.imagemanager.model.FileOperationLog;
+import com.imagemanager.model.RecycleBinItem;
 
 import java.util.List;
 import java.util.Optional;
@@ -15,7 +17,7 @@ import java.util.Set;
 public interface ImageDao {
 
     /**
-     * 查询指定目录下所有活跃（未逻辑删除）的图片。
+     * 查询指定目录下所有活跃（未进入回收状态）的图片。
      * 通过 v_active_images 视图查询。
      *
      * @param directoryId 目录的数据库 ID
@@ -76,6 +78,12 @@ public interface ImageDao {
     void updateFileName(int imageId, String newFileName, String newFilePath);
 
     /**
+     * 更新图片所在目录、文件名和路径。剪切粘贴恢复时使用。
+     */
+    void updateLocation(int imageId, String newFileName, String newFilePath, int newDirectoryId,
+                        long fileSize, int width, int height, byte[] thumbnail);
+
+    /**
      * 更新图片的缩略图数据。
      *
      * @param imageId       图片 ID
@@ -89,12 +97,33 @@ public interface ImageDao {
     void updateDimensions(int imageId, int width, int height, long fileSize);
 
     /**
-     * 逻辑删除：将 is_deleted 标记设为 TRUE。
+     * 仅更新删除标记：用于外部磁盘文件已缺失等无法迁移回收站的场景。
      * 触发器会自动记录 DELETE 日志。
      *
      * @param imageId 图片 ID
      */
     void softDelete(int imageId);
+
+    /**
+     * 将图片标记为已删除，并记录实际回收站存储路径。
+     */
+    void moveToRecycleBin(int imageId, String storagePath);
+
+    /**
+     * 查询回收站图片。
+     */
+    List<RecycleBinItem> findRecycleBinItems();
+
+    /**
+     * 从回收站恢复图片数据库状态。
+     */
+    void restoreFromRecycleBin(int imageId, String restoredFileName, String restoredPath, int directoryId,
+                               long fileSize, int width, int height, byte[] thumbnail);
+
+    /**
+     * 查询最近一次粘贴或剪切移动的同批操作日志。
+     */
+    List<FileOperationLog> findLatestTransferLogs();
 
     /**
      * 物理删除：从数据库中永久移除记录。

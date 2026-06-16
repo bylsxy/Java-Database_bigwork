@@ -59,10 +59,10 @@ CREATE TABLE IF NOT EXISTS images (
     last_ai_scan  TIMESTAMP,                          -- 上次AI扫描时间（v2.0新增）
     created_at    TIMESTAMP    NOT NULL DEFAULT NOW(), -- 首次录入数据库时间
     modified_at   TIMESTAMP    NOT NULL DEFAULT NOW(), -- 最后修改时间
-    is_deleted    BOOLEAN      NOT NULL DEFAULT FALSE, -- 逻辑删除标记
-
-    -- 同一目录下文件名唯一（排除已逻辑删除的）
-    CONSTRAINT uq_images_dir_name UNIQUE (file_name, directory_id)
+    is_deleted    BOOLEAN      NOT NULL DEFAULT FALSE, -- 删除标记：用户删除会进入隐藏回收区
+    deleted_original_path TEXT,                        -- 删除前原始路径，用于回收站恢复
+    deleted_storage_path  TEXT,                        -- 移入 .versions/.trash 后的实际存储路径
+    deleted_at    TIMESTAMP                            -- 删除进入回收站的时间
 );
 
 -- 兼容已运行过 v1.x 脚本的数据库：CREATE TABLE IF NOT EXISTS 不会自动补齐新增字段。
@@ -72,10 +72,17 @@ ALTER TABLE images ADD COLUMN IF NOT EXISTS last_ai_scan TIMESTAMP;
 ALTER TABLE images ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT NOW();
 ALTER TABLE images ADD COLUMN IF NOT EXISTS modified_at TIMESTAMP NOT NULL DEFAULT NOW();
 ALTER TABLE images ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE images ADD COLUMN IF NOT EXISTS deleted_original_path TEXT;
+ALTER TABLE images ADD COLUMN IF NOT EXISTS deleted_storage_path TEXT;
+ALTER TABLE images ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
+ALTER TABLE images DROP CONSTRAINT IF EXISTS uq_images_dir_name;
 
-COMMENT ON TABLE images IS '图像文件表 — 存储图片元数据和缩略图(bytea)，支持逻辑删除和AI标签';
+COMMENT ON TABLE images IS '图像文件表 — 存储图片元数据和缩略图(bytea)，支持删除标记、隐藏回收区恢复和AI标签';
 COMMENT ON COLUMN images.thumbnail IS '缩略图二进制数据，使用 bytea 类型存储，首次加载目录时生成';
-COMMENT ON COLUMN images.is_deleted IS '逻辑删除标记，TRUE 表示已删除但记录保留用于审计';
+COMMENT ON COLUMN images.is_deleted IS '删除状态标记，TRUE 表示图片已移入本地隐藏回收目录但记录保留用于审计和恢复';
+COMMENT ON COLUMN images.deleted_original_path IS '删除前图片原始路径';
+COMMENT ON COLUMN images.deleted_storage_path IS '删除后图片在 .versions/.trash 中的实际保存路径';
+COMMENT ON COLUMN images.deleted_at IS '图片移入回收站的时间';
 COMMENT ON COLUMN images.file_hash IS 'SHA-256文件哈希，用于唯一标识图片文件，避免重复处理';
 COMMENT ON COLUMN images.ai_processed IS 'AI识别状态标记，FALSE表示尚未进行AI分析';
 
@@ -273,8 +280,15 @@ CREATE INDEX IF NOT EXISTS idx_images_directory_id ON images (directory_id);
 -- 按文件名搜索 — 重命名时检查重复、搜索功能
 CREATE INDEX IF NOT EXISTS idx_images_file_name ON images (file_name);
 
+-- 同一目录下未删除文件名唯一；删除进入回收站后允许重新导入同名文件
+CREATE UNIQUE INDEX IF NOT EXISTS idx_images_active_dir_name_unique
+ON images (directory_id, file_name) WHERE is_deleted = FALSE;
+
 -- 活跃图片部分索引 — 只索引未删除的记录，优化过滤查询
 CREATE INDEX IF NOT EXISTS idx_images_active ON images (directory_id) WHERE is_deleted = FALSE;
+
+-- 回收站查询索引 — 恢复中心按删除时间列出图片
+CREATE INDEX IF NOT EXISTS idx_images_recycle_bin ON images (deleted_at DESC) WHERE is_deleted = TRUE;
 
 -- 文件哈希唯一索引 — 用于快速查找已存在的图片（增量扫描）
 CREATE UNIQUE INDEX IF NOT EXISTS idx_images_hash ON images (file_hash) WHERE file_hash IS NOT NULL;
@@ -331,7 +345,7 @@ DROP VIEW IF EXISTS v_image_search;
 DROP VIEW IF EXISTS v_directory_stats;
 DROP VIEW IF EXISTS v_active_images;
 
--- 活跃图片视图：过滤掉逻辑删除的记录，关联目录信息
+-- 活跃图片视图：过滤掉已移入隐藏回收区的记录，关联目录信息
 CREATE OR REPLACE VIEW v_active_images AS
 SELECT 
     i.id,
@@ -353,7 +367,7 @@ FROM images i
 JOIN directories d ON i.directory_id = d.id
 WHERE i.is_deleted = FALSE;
 
-COMMENT ON VIEW v_active_images IS '活跃图片视图 — 排除逻辑删除记录，关联目录名称和路径';
+COMMENT ON VIEW v_active_images IS '活跃图片视图 — 排除已移入隐藏回收区的记录，关联目录名称和路径';
 
 -- 目录统计视图：每个目录的图片数量和总大小
 CREATE OR REPLACE VIEW v_directory_stats AS
@@ -436,7 +450,7 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION fn_log_image_insert() IS '触发器函数 — 图片新增时自动记录日志';
 
--- 触发器函数：当图片记录被更新时，捕获重命名和逻辑删除操作
+-- 触发器函数：当图片记录被更新时，捕获重命名和删除标记操作
 CREATE OR REPLACE FUNCTION fn_log_image_update()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -459,7 +473,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION fn_log_image_update() IS '触发器函数 — 图片更新时自动记录重命名或逻辑删除日志';
+COMMENT ON FUNCTION fn_log_image_update() IS '触发器函数 — 图片更新时自动记录重命名或删除标记日志';
 
 -- 触发器函数：当图片记录被物理删除时，记录 HARD_DELETE 日志
 CREATE OR REPLACE FUNCTION fn_log_image_delete()

@@ -466,6 +466,7 @@
 .settings-button,
 .secondary-button,
 .database-setup-button,
+.recovery-button,
 .scan-rescan-button,
 .scan-cleanup-button,
 .cancel-button,
@@ -481,6 +482,7 @@
 .settings-button:hover,
 .secondary-button:hover,
 .database-setup-button:hover,
+.recovery-button:hover,
 .scan-rescan-button:hover,
 .scan-cleanup-button:hover,
 .cancel-button:hover,
@@ -512,6 +514,17 @@
 .scan-rescan-button:hover {
     -fx-background-color: #BAE6FD;
     -fx-border-color: #7DD3FC;
+}
+
+.recovery-button {
+    -fx-background-color: #ECFDF5;
+    -fx-border-color: #A7F3D0;
+    -fx-text-fill: #065F46;
+}
+
+.recovery-button:hover {
+    -fx-background-color: #D1FAE5;
+    -fx-border-color: #6EE7B7;
 }
 
 .scan-stop-button,
@@ -917,6 +930,7 @@
 .success-button,
 .warning-button,
 .database-setup-button,
+.recovery-button,
 .scan-stop-button,
 .scan-rescan-button,
 .scan-cleanup-button,

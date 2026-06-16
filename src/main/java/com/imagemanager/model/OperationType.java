@@ -10,10 +10,16 @@ public enum OperationType {
 
     INSERT("新增"),
     RENAME("重命名"),
-    DELETE("逻辑删除"),
+    DELETE("删除标记"),
+    RECYCLE_DELETE("移入回收站"),
     HARD_DELETE("物理删除"),
     COPY("复制"),
-    PASTE("粘贴");
+    CUT("剪切"),
+    PASTE("粘贴"),
+    MOVE("剪切移动"),
+    RESTORE("恢复"),
+    MOVE_ROLLBACK("撤销剪切移动"),
+    PASTE_ROLLBACK("撤销粘贴");
 
     /** 中文显示名称，用于界面和日志 */
     private final String displayName;
@@ -42,9 +48,15 @@ public enum OperationType {
             case "INSERT"      -> INSERT;
             case "RENAME"      -> RENAME;
             case "DELETE"      -> DELETE;
+            case "RECYCLE_DELETE" -> RECYCLE_DELETE;
             case "HARD_DELETE" -> HARD_DELETE;
             case "COPY"        -> COPY;
+            case "CUT"         -> CUT;
             case "PASTE"       -> PASTE;
+            case "MOVE"        -> MOVE;
+            case "RESTORE"     -> RESTORE;
+            case "MOVE_ROLLBACK" -> MOVE_ROLLBACK;
+            case "PASTE_ROLLBACK" -> PASTE_ROLLBACK;
             default            -> throw new IllegalArgumentException("未知操作类型: " + dbValue);
         };
     }

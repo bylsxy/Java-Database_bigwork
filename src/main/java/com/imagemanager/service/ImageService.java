@@ -1,6 +1,7 @@
 package com.imagemanager.service;
 
 import com.imagemanager.model.ImageFile;
+import com.imagemanager.model.RecycleBinItem;
 
 import java.util.List;
 
@@ -32,7 +33,7 @@ public interface ImageService {
     List<ImageFile> loadImagesFromDirectory(String directoryPath);
 
     /**
-     * 删除图片（逻辑删除数据库记录 + 物理删除磁盘文件）。
+     * 删除图片（设置数据库删除状态 + 移入同目录 .versions/.trash 回收站）。
      * 调用前 Controller 层应已完成二次确认。
      *
      * @param images 要删除的图片列表
@@ -46,6 +47,11 @@ public interface ImageService {
      * @param images 要复制的图片列表
      */
     void copyImages(List<ImageFile> images);
+
+    /**
+     * 将图片列表以“剪切”模式存入内部剪贴板，下一次粘贴会移动原文件和数据库记录。
+     */
+    void cutImages(List<ImageFile> images);
 
     /**
      * 将剪贴板中的图片粘贴到指定目录。
@@ -62,6 +68,26 @@ public interface ImageService {
      * @return 剪贴板图片，为空时返回空列表
      */
     List<ImageFile> getClipboard();
+
+    /**
+     * 当前剪贴板是否为剪切模式。
+     */
+    boolean isClipboardCutMode();
+
+    /**
+     * 查询回收站图片。
+     */
+    List<RecycleBinItem> getRecycleBinItems();
+
+    /**
+     * 从回收站恢复图片。
+     */
+    void restoreImagesFromRecycleBin(List<RecycleBinItem> items);
+
+    /**
+     * 撤销最近一次粘贴或剪切移动。返回处理的图片数量。
+     */
+    int rollbackLastTransferOperation();
 
     /**
      * 单张图片重命名。

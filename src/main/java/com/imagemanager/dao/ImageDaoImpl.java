@@ -1,6 +1,8 @@
 package com.imagemanager.dao;
 
 import com.imagemanager.model.ImageFile;
+import com.imagemanager.model.FileOperationLog;
+import com.imagemanager.model.RecycleBinItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +69,11 @@ public class ImageDaoImpl implements ImageDao {
     private static final String SQL_UPDATE_NAME =
             "UPDATE images SET file_name = ?, file_path = ? WHERE id = ?";
 
+    /** 更新所在目录和路径（剪切移动、移动回滚） */
+    private static final String SQL_UPDATE_LOCATION =
+            "UPDATE images SET file_name = ?, file_path = ?, directory_id = ?, file_size = ?, " +
+            "width = ?, height = ?, thumbnail = ?, modified_at = NOW() WHERE id = ?";
+
     /** 更新缩略图 */
     private static final String SQL_UPDATE_THUMBNAIL =
             "UPDATE images SET thumbnail = ? WHERE id = ?";
@@ -75,9 +82,47 @@ public class ImageDaoImpl implements ImageDao {
     private static final String SQL_UPDATE_DIMENSIONS =
             "UPDATE images SET width = ?, height = ?, file_size = ?, modified_at = NOW() WHERE id = ?";
 
-    /** 逻辑删除 */
+    /** 仅标记删除，不负责移动磁盘文件。 */
     private static final String SQL_SOFT_DELETE =
             "UPDATE images SET is_deleted = TRUE WHERE id = ?";
+
+    /** 移入本地回收站 */
+    private static final String SQL_MOVE_TO_RECYCLE_BIN =
+            "UPDATE images SET is_deleted = TRUE, " +
+            "deleted_original_path = COALESCE(deleted_original_path, file_path), " +
+            "deleted_storage_path = ?, deleted_at = NOW(), modified_at = NOW() " +
+            "WHERE id = ? AND is_deleted = FALSE";
+
+    /** 查询回收站 */
+    private static final String SQL_FIND_RECYCLE_BIN =
+            "SELECT id, file_name, COALESCE(deleted_original_path, file_path) AS original_path, " +
+            "deleted_storage_path, directory_id, file_size, width, height, format, deleted_at " +
+            "FROM images WHERE is_deleted = TRUE ORDER BY deleted_at DESC NULLS LAST, id DESC";
+
+    /** 从回收站恢复 */
+    private static final String SQL_RESTORE_FROM_RECYCLE_BIN =
+            "UPDATE images SET file_name = ?, file_path = ?, directory_id = ?, file_size = ?, " +
+            "width = ?, height = ?, thumbnail = ?, is_deleted = FALSE, deleted_original_path = NULL, " +
+            "deleted_storage_path = NULL, deleted_at = NULL, modified_at = NOW() WHERE id = ?";
+
+    /** 查询最近一次粘贴/剪切移动同批操作 */
+    private static final String SQL_FIND_LATEST_TRANSFER_LOGS =
+            """
+            WITH latest AS (
+                SELECT operation_type, operated_at
+                FROM operation_logs
+                WHERE operation_type IN ('PASTE', 'MOVE')
+                ORDER BY operated_at DESC
+                LIMIT 1
+            )
+            SELECT l.image_id, l.operation_type, l.old_value, l.new_value, l.operated_at
+            FROM operation_logs l
+            JOIN latest x ON l.operation_type = x.operation_type
+            WHERE l.image_id IS NOT NULL
+              AND l.operated_at >= x.operated_at - INTERVAL '10 seconds'
+              AND l.operated_at <= x.operated_at + INTERVAL '1 second'
+            ORDER BY l.operated_at, l.id
+            """;
 
     /** 物理删除 */
     private static final String SQL_HARD_DELETE =
@@ -258,6 +303,35 @@ public class ImageDaoImpl implements ImageDao {
     }
 
     @Override
+    public void updateLocation(int imageId, String newFileName, String newFilePath, int newDirectoryId,
+                               long fileSize, int width, int height, byte[] thumbnail) {
+        try (var conn = DatabaseConnection.getConnection();
+             var stmt = conn.prepareStatement(SQL_UPDATE_LOCATION)) {
+            stmt.setString(1, newFileName);
+            stmt.setString(2, newFilePath);
+            stmt.setInt(3, newDirectoryId);
+            stmt.setLong(4, fileSize);
+            stmt.setInt(5, width);
+            stmt.setInt(6, height);
+            if (thumbnail != null) {
+                stmt.setBytes(7, thumbnail);
+            } else {
+                stmt.setNull(7, Types.BINARY);
+            }
+            stmt.setInt(8, imageId);
+
+            int affected = stmt.executeUpdate();
+            if (affected == 0) {
+                throw new SQLException("图片 ID=" + imageId + " 不存在");
+            }
+            logger.debug("移动图片 id={} → {}", imageId, newFilePath);
+        } catch (SQLException e) {
+            logger.error("移动图片 {} 失败: {}", imageId, e.getMessage());
+            throw new RuntimeException("移动图片失败", e);
+        }
+    }
+
+    @Override
     public void updateThumbnail(int imageId, byte[] thumbnailData) {
         try (var conn = DatabaseConnection.getConnection();
              var stmt = conn.prepareStatement(SQL_UPDATE_THUMBNAIL)) {
@@ -295,15 +369,115 @@ public class ImageDaoImpl implements ImageDao {
             stmt.setInt(1, imageId);
             int affected = stmt.executeUpdate();
             if (affected == 0) {
-                logger.warn("逻辑删除图片 id={} 时未找到记录", imageId);
+                logger.warn("标记删除图片 id={} 时未找到记录", imageId);
             } else {
-                logger.debug("逻辑删除图片 id={}", imageId);
+                logger.debug("标记删除图片 id={}", imageId);
             }
 
         } catch (SQLException e) {
-            logger.error("逻辑删除图片 {} 失败: {}", imageId, e.getMessage());
+            logger.error("标记删除图片 {} 失败: {}", imageId, e.getMessage());
             throw new RuntimeException("删除图片失败", e);
         }
+    }
+
+    @Override
+    public void moveToRecycleBin(int imageId, String storagePath) {
+        ensureImageStateColumns();
+        try (var conn = DatabaseConnection.getConnection();
+             var stmt = conn.prepareStatement(SQL_MOVE_TO_RECYCLE_BIN)) {
+            stmt.setString(1, storagePath);
+            stmt.setInt(2, imageId);
+            int affected = stmt.executeUpdate();
+            if (affected == 0) {
+                logger.warn("移入回收站时未找到活跃图片 id={}", imageId);
+            } else {
+                logger.debug("图片 id={} 已移入回收站: {}", imageId, storagePath);
+            }
+        } catch (SQLException e) {
+            logger.error("移入回收站失败 imageId={}: {}", imageId, e.getMessage());
+            throw new RuntimeException("移入回收站失败", e);
+        }
+    }
+
+    @Override
+    public List<RecycleBinItem> findRecycleBinItems() {
+        ensureImageStateColumns();
+        List<RecycleBinItem> items = new ArrayList<>();
+        try (var conn = DatabaseConnection.getConnection();
+             var stmt = conn.prepareStatement(SQL_FIND_RECYCLE_BIN);
+             var rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                Timestamp deletedAt = rs.getTimestamp("deleted_at");
+                items.add(new RecycleBinItem(
+                        rs.getInt("id"),
+                        rs.getString("file_name"),
+                        rs.getString("original_path"),
+                        rs.getString("deleted_storage_path"),
+                        rs.getInt("directory_id"),
+                        rs.getLong("file_size"),
+                        rs.getInt("width"),
+                        rs.getInt("height"),
+                        rs.getString("format"),
+                        deletedAt == null ? null : deletedAt.toLocalDateTime()
+                ));
+            }
+        } catch (SQLException e) {
+            logger.error("查询回收站失败: {}", e.getMessage());
+            throw new RuntimeException("查询回收站失败", e);
+        }
+        return items;
+    }
+
+    @Override
+    public void restoreFromRecycleBin(int imageId, String restoredFileName, String restoredPath, int directoryId,
+                                      long fileSize, int width, int height, byte[] thumbnail) {
+        ensureImageStateColumns();
+        try (var conn = DatabaseConnection.getConnection();
+             var stmt = conn.prepareStatement(SQL_RESTORE_FROM_RECYCLE_BIN)) {
+            stmt.setString(1, restoredFileName);
+            stmt.setString(2, restoredPath);
+            stmt.setInt(3, directoryId);
+            stmt.setLong(4, fileSize);
+            stmt.setInt(5, width);
+            stmt.setInt(6, height);
+            if (thumbnail != null) {
+                stmt.setBytes(7, thumbnail);
+            } else {
+                stmt.setNull(7, Types.BINARY);
+            }
+            stmt.setInt(8, imageId);
+
+            int affected = stmt.executeUpdate();
+            if (affected == 0) {
+                throw new SQLException("图片 ID=" + imageId + " 不存在");
+            }
+        } catch (SQLException e) {
+            logger.error("从回收站恢复失败 imageId={}: {}", imageId, e.getMessage());
+            throw new RuntimeException("从回收站恢复失败", e);
+        }
+    }
+
+    @Override
+    public List<FileOperationLog> findLatestTransferLogs() {
+        var logs = new ArrayList<FileOperationLog>();
+        try (var conn = DatabaseConnection.getConnection();
+             var stmt = conn.prepareStatement(SQL_FIND_LATEST_TRANSFER_LOGS);
+             var rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                Timestamp operatedAt = rs.getTimestamp("operated_at");
+                logs.add(new FileOperationLog(
+                        rs.getInt("image_id"),
+                        rs.getString("operation_type"),
+                        rs.getString("old_value"),
+                        rs.getString("new_value"),
+                        operatedAt == null ? null : operatedAt.toLocalDateTime()
+                ));
+            }
+        } catch (SQLException e) {
+            logger.error("查询最近传输操作失败: {}", e.getMessage());
+            throw new RuntimeException("查询最近传输操作失败", e);
+        }
+        return logs;
     }
 
     @Override
@@ -373,6 +547,18 @@ public class ImageDaoImpl implements ImageDao {
             stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS ai_processed BOOLEAN NOT NULL DEFAULT FALSE");
             stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS last_ai_scan TIMESTAMP");
             stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS deleted_original_path TEXT");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS deleted_storage_path TEXT");
+            stmt.execute("ALTER TABLE images ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP");
+            stmt.execute("ALTER TABLE images DROP CONSTRAINT IF EXISTS uq_images_dir_name");
+            stmt.execute("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_images_active_dir_name_unique
+                    ON images (directory_id, file_name) WHERE is_deleted = FALSE
+                    """);
+            stmt.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_images_recycle_bin
+                    ON images (deleted_at DESC) WHERE is_deleted = TRUE
+                    """);
             schemaChecked = true;
         } catch (SQLException e) {
             logger.error("检查图片状态字段失败: {}", e.getMessage());
